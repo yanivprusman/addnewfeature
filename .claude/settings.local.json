@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "timeout": 5,
+            "type": "http",
+            "url": "http://localhost:3039/api/feedback/response"
+          }
+        ]
+      }
+    ]
+  }
+}
