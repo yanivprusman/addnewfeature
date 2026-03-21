@@ -54,7 +54,7 @@ function removeSession(tmuxSession: string) {
   // Also remove from sessionId→tmux map
   const idMap = getSessionIdMap();
   for (const [sid, tmux] of idMap.entries()) {
-    if (tmux === tmuxSession) { idMap.delete(sid); break; }
+    if (tmux.tmuxSession === tmuxSession) { idMap.delete(sid); break; }
   }
 }
 

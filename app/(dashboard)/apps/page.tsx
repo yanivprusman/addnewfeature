@@ -1,0 +1,162 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+type TenantApp = {
+  id: string;
+  name: string;
+  appSlug: string;
+  description: string | null;
+  devPort: number | null;
+  prodPort: number | null;
+  status: string;
+  createdAt: string;
+};
+
+export default function AppsPage() {
+  const [apps, setApps] = useState<TenantApp[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchApps();
+  }, []);
+
+  async function fetchApps() {
+    const res = await fetch('/api/apps');
+    const data = await res.json();
+    setApps(data.apps || []);
+    setLoading(false);
+  }
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setCreating(true);
+    setError('');
+
+    const res = await fetch('/api/apps/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName, description: newDescription }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error || 'Failed to create app');
+      setCreating(false);
+      return;
+    }
+
+    setNewName('');
+    setNewDescription('');
+    setShowCreate(false);
+    setCreating(false);
+    fetchApps();
+  }
+
+  const statusColors: Record<string, string> = {
+    running: 'bg-green-900/50 text-green-300',
+    creating: 'bg-yellow-900/50 text-yellow-300',
+    stopped: 'bg-gray-800 text-gray-400',
+    error: 'bg-red-900/50 text-red-300',
+  };
+
+  if (loading) {
+    return <div className="text-gray-400">Loading apps...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Your Apps</h1>
+        <button
+          onClick={() => setShowCreate(true)}
+          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700"
+        >
+          Create App
+        </button>
+      </div>
+
+      {showCreate && (
+        <form onSubmit={handleCreate} className="space-y-3 rounded border border-gray-700 bg-gray-900 p-4">
+          {error && <div className="text-sm text-red-400">{error}</div>}
+          <div>
+            <label className="block text-sm text-gray-300">App Name</label>
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              required
+              placeholder="My App"
+              className="mt-1 w-full rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-300">Description</label>
+            <input
+              type="text"
+              value={newDescription}
+              onChange={(e) => setNewDescription(e.target.value)}
+              placeholder="A brief description of your app"
+              className="mt-1 w-full rounded border border-gray-700 bg-gray-800 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={creating}
+              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            >
+              {creating ? 'Creating...' : 'Create'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCreate(false)}
+              className="rounded border border-gray-700 px-4 py-2 text-sm hover:bg-gray-800"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {apps.length === 0 ? (
+        <div className="rounded border border-gray-800 bg-gray-900/50 p-12 text-center">
+          <p className="text-gray-400">No apps yet. Create your first app to get started.</p>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {apps.map((app) => (
+            <Link
+              key={app.id}
+              href={`/apps/${app.appSlug}`}
+              className="block rounded border border-gray-800 bg-gray-900/50 p-4 hover:border-gray-700"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold">{app.name}</h2>
+                  {app.description && (
+                    <p className="mt-1 text-sm text-gray-400">{app.description}</p>
+                  )}
+                  <div className="mt-2 flex gap-3 text-xs text-gray-500">
+                    <span>slug: {app.appSlug}</span>
+                    {app.devPort && <span>dev: {app.devPort}</span>}
+                    {app.prodPort && <span>prod: {app.prodPort}</span>}
+                  </div>
+                </div>
+                <span className={`rounded px-2 py-1 text-xs ${statusColors[app.status] || 'bg-gray-800 text-gray-400'}`}>
+                  {app.status}
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

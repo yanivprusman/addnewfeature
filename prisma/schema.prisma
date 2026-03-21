@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique @db.VarChar(255)
+  name      String?    @db.VarChar(100)
+  password  String     @db.VarChar(255)
+  apps      TenantApp[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@map("users")
+}
+
+model TenantApp {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String   @db.VarChar(200)
+  appSlug     String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  peerId      String   @default("leader") @db.VarChar(50)
+  devPort     Int?
+  prodPort    Int?
+  status      String   @default("creating") @db.VarChar(20)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@map("tenant_apps")
+}
