@@ -246,6 +246,7 @@ export function FeedbackChat({ lang, labels: labelOverrides, accentClass, colorS
     if (!text || loading) return;
 
     setInput("");
+    if (inputRef.current) inputRef.current.style.height = 'auto';
     setMessages((prev) => [...prev, { role: "user", text }]);
     setLoading(true);
     setIssues(null);
@@ -328,6 +329,12 @@ export function FeedbackChat({ lang, labels: labelOverrides, accentClass, colorS
       next[index] = !next[index];
       return next;
     });
+  }
+
+  // Auto-resize textarea as user types
+  function autoResize(el: HTMLTextAreaElement) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -456,7 +463,7 @@ export function FeedbackChat({ lang, labels: labelOverrides, accentClass, colorS
         <textarea
           ref={inputRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => { setInput(e.target.value); autoResize(e.target); }}
           onKeyDown={handleKeyDown}
           placeholder={labels.placeholder}
           rows={1}

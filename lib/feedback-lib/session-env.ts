@@ -32,5 +32,5 @@ export function getSessionEnv(user: string): Record<string, string> {
     } catch { /* try next candidate */ }
   }
 
-  return { DISPLAY: ':0', WAYLAND_DISPLAY: 'wayland-0', XDG_RUNTIME_DIR: '/run/user/1000' };
+  return { DISPLAY: ':0', WAYLAND_DISPLAY: 'wayland-0', XDG_RUNTIME_DIR: '/run/user/0' };
 }
