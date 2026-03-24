@@ -246,6 +246,7 @@ export function FeedbackChat({ lang, labels: labelOverrides, accentClass, colorS
     setIssues(null);
     setCheckedIssues([]);
     setSubmitResults(null);
+    setOpen(false);
   }
 
   async function handleSend() {
