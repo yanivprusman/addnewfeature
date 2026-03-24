@@ -198,13 +198,6 @@ export function FeedbackChat({ lang, labels: labelOverrides, accentClass, colorS
     }
   }, [open]);
 
-  // Re-focus textarea after loading completes (Enter disables it, losing focus)
-  useEffect(() => {
-    if (!loading && open && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [loading, open]);
-
   function handleOpen() {
     setOpen(true);
     if (messages.length === 0) {
@@ -485,8 +478,8 @@ export function FeedbackChat({ lang, labels: labelOverrides, accentClass, colorS
           onKeyDown={handleKeyDown}
           placeholder={labels.placeholder}
           rows={1}
-          className={`flex-1 resize-none rounded-lg border ${isDark ? 'border-slate-600 bg-slate-700 text-slate-200 placeholder-slate-500' : 'border-slate-300 bg-white text-slate-900 placeholder-slate-400'} px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
-          disabled={loading}
+          className={`flex-1 resize-none rounded-lg border ${isDark ? 'border-slate-600 bg-slate-700 text-slate-200 placeholder-slate-500' : 'border-slate-300 bg-white text-slate-900 placeholder-slate-400'} px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent${loading ? ' opacity-50 cursor-not-allowed' : ''}`}
+          readOnly={loading}
         />
         <button
           onClick={handleSend}
