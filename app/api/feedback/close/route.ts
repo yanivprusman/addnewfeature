@@ -1,2 +1,3 @@
-import { handleFeedbackClose } from '@automate/feedback-lib';
-export const POST = handleFeedbackClose('addnewfeature');
+import { handleFeedbackClose, getAppConfig } from '@automate/feedback-lib';
+const { appName } = getAppConfig();
+export const POST = handleFeedbackClose(appName);
