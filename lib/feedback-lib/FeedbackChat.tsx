@@ -258,7 +258,7 @@ export function FeedbackChat({ lang, labels: labelOverrides, accentClass, colorS
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, sessionId, tmuxSession }),
+        body: JSON.stringify({ message: text, sessionId, tmuxSession, pagePath: window.location.pathname }),
       });
 
       if (!res.ok) {
@@ -308,7 +308,7 @@ export function FeedbackChat({ lang, labels: labelOverrides, accentClass, colorS
       const res = await fetch("/api/feedback/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issues: selected }),
+        body: JSON.stringify({ issues: selected, pagePath: window.location.pathname }),
       });
 
       if (!res.ok) throw new Error("Submit failed");
