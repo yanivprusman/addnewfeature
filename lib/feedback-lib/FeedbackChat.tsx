@@ -90,7 +90,16 @@ function useSystemDark() {
   return dark;
 }
 
-export function FeedbackChat({ lang, labels: labelOverrides, accentClass, colorScheme = 'system', issuesPath }: FeedbackChatProps = {}) {
+// Module-level constant — inlined at build time by Next.js bundler
+const IS_PROD = process.env.NODE_ENV === 'production';
+
+export function FeedbackChat(props: FeedbackChatProps = {}) {
+  // Only show the feedback widget in development — prod builds should be clean for end users
+  if (IS_PROD) return null;
+  return <FeedbackChatInner {...props} />;
+}
+
+function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorScheme = 'system', issuesPath }: FeedbackChatProps) {
   const langLabels = lang ? (feedbackTranslations[lang] ?? defaultLabels) : defaultLabels;
   const labels = { ...langLabels, ...labelOverrides };
   const accent = accentClass ?? "bg-indigo-600 hover:bg-indigo-700";
