@@ -118,6 +118,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const [submitting, setSubmitting] = useState(false);
   const [submitResults, setSubmitResults] = useState<SubmitResult[] | null>(null);
   const [hookWarning, setHookWarning] = useState<string | null>(null);
+  const [expandedIssues, setExpandedIssues] = useState<Record<number, boolean>>({});
   const [restoredSession, setRestoredSession] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -445,7 +446,13 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
                 <input type="checkbox" checked={checkedIssues[i] ?? true} onChange={() => toggleIssue(i)} className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
-                  <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} line-clamp-2`}>{issue.description}</p>
+                  <p
+                    className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} ${expandedIssues[i] ? '' : 'line-clamp-2'} cursor-pointer whitespace-pre-wrap`}
+                    onClick={(e) => { e.preventDefault(); setExpandedIssues(prev => ({ ...prev, [i]: !prev[i] })); }}
+                    data-id={`issue-description-${i}`}
+                  >
+                    {issue.description}
+                  </p>
                 </div>
               </label>
             ))}
