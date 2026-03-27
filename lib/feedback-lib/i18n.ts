@@ -20,6 +20,13 @@ export const feedbackTranslations: Record<string, FeedbackLabels> = {
       "Claude did not respond in time. The Stop hook may be misconfigured.",
     networkError: "Network error — check your connection and try again.",
     viewIssues: "View Issues",
+    writeDirectly: "Write directly",
+    useClarifier: "Use clarifier",
+    directTitle: "New Issue",
+    directTitlePlaceholder: "Issue title",
+    directDescPlaceholder: "Description (optional)",
+    directSubmit: "Create Issue",
+    directCreating: "Creating...",
   },
   he: {
     greeting:
@@ -39,5 +46,12 @@ export const feedbackTranslations: Record<string, FeedbackLabels> = {
     timeoutError: "Claude לא הגיב בזמן. ייתכן שה-Stop hook לא מוגדר כראוי.",
     networkError: "שגיאת רשת — בדקו את החיבור ונסו שוב.",
     viewIssues: "צפייה בתקלות",
+    writeDirectly: "כתיבה ישירה",
+    useClarifier: "בירור תקלות",
+    directTitle: "תקלה חדשה",
+    directTitlePlaceholder: "כותרת התקלה",
+    directDescPlaceholder: "תיאור (אופציונלי)",
+    directSubmit: "יצירת תקלה",
+    directCreating: "יוצר...",
   },
 };
