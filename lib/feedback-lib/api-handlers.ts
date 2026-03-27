@@ -391,6 +391,24 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
       const body = await request.json();
       const { action } = body;
 
+      // --- Create issue directly (bypass clarifier) ---
+      if (action === 'create') {
+        const { title, description } = body;
+        if (!title || typeof title !== 'string' || !title.trim()) {
+          return NextResponse.json({ error: 'title is required' }, { status: 400 });
+        }
+        const args = [
+          'send', 'createIssue',
+          '--app', appName,
+          '--title', title.trim(),
+          '--description', (description || '').trim(),
+          '--labels', '["user-reported"]',
+        ];
+        const output = await daemonExec(args);
+        const data = JSON.parse(output);
+        return NextResponse.json({ ok: true, issueNumber: data.issueNumber });
+      }
+
       // --- Fix with Claude ---
       if (action === 'fix') {
         if (!workDir) {
@@ -458,7 +476,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
       // --- Standard actions: close, reopen, update ---
       const { issueNumber } = body;
       if (!issueNumber || !['close', 'reopen', 'update'].includes(action)) {
-        return NextResponse.json({ error: 'action (close|reopen|update|fix|reviewed) and issueNumber required' }, { status: 400 });
+        return NextResponse.json({ error: 'action (close|reopen|update|create|fix|reviewed) and issueNumber required' }, { status: 400 });
       }
 
       let args: string[];
