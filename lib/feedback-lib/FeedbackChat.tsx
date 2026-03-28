@@ -104,12 +104,7 @@ function useSystemDark() {
   return dark;
 }
 
-// Module-level constant — inlined at build time by Next.js bundler
-const IS_PROD = process.env.NODE_ENV === 'production';
-
 export function FeedbackChat(props: FeedbackChatProps = {}) {
-  // Only show the feedback widget in development — prod builds should be clean for end users
-  if (IS_PROD) return null;
   return <FeedbackChatInner {...props} />;
 }
 

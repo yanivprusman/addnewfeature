@@ -33,6 +33,7 @@ export function launchFeedback(config: LaunchConfig): LaunchResult {
     `--session-id ${claudeSessionId}`,
     '--agent issue-clarifier-agent',
     '--dangerously-skip-permissions',
+    '--tools=Read,Grep,Glob',
   ];
   const claudeCmd = ['claude', ...claudeFlags].join(' ');
 

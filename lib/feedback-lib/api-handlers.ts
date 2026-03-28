@@ -89,7 +89,14 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
       let tmux: string;
 
       if (!sessionId) {
-        const appPort = parseInt(request.nextUrl.port) || undefined;
+        // Detect the app's port: try request URL, then Host header, then PORT env.
+        // Behind a reverse proxy (nginx), request headers lose the port, so
+        // process.env.PORT (set by the daemon's generated systemd service) is the
+        // reliable fallback.
+        const appPort = parseInt(request.nextUrl.port)
+          || parseInt(request.headers.get('host')?.split(':')[1] || '')
+          || parseInt(process.env.PORT || '')
+          || undefined;
 
         const firstMessage = pagePath
           ? `[User is on page: ${pagePath}]\n\n${message.trim()}`
@@ -108,7 +115,7 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
 
       let response: string;
       try {
-        response = await waitForResponse(csid, 120_000);
+        response = await waitForResponse(csid, 300_000);
       } catch (err) {
         const isTimeout = err instanceof Error && err.message.includes('Timeout');
         if (isTimeout) {
