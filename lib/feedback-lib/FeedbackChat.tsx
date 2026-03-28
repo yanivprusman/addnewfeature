@@ -59,7 +59,7 @@ const defaultLabels: FeedbackLabels = {
   thinking: "Thinking...",
   endSession: "End Session",
   sessionActive: "Session active",
-  timeoutError: "Claude did not respond in time. The Stop hook may be misconfigured.",
+  timeoutError: "Claude did not respond in time.",
   networkError: "Network error — check your connection and try again.",
   viewIssues: "View Issues",
   writeDirectly: "Write directly",

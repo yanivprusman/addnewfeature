@@ -17,7 +17,7 @@ export const feedbackTranslations: Record<string, FeedbackLabels> = {
     endSession: "End Session",
     sessionActive: "Session active",
     timeoutError:
-      "Claude did not respond in time. The Stop hook may be misconfigured.",
+      "Claude did not respond in time.",
     networkError: "Network error — check your connection and try again.",
     viewIssues: "View Issues",
     writeDirectly: "Write directly",
@@ -43,7 +43,7 @@ export const feedbackTranslations: Record<string, FeedbackLabels> = {
     thinking: "חושב...",
     endSession: "סיום",
     sessionActive: "פעיל",
-    timeoutError: "Claude לא הגיב בזמן. ייתכן שה-Stop hook לא מוגדר כראוי.",
+    timeoutError: "Claude לא הגיב בזמן.",
     networkError: "שגיאת רשת — בדקו את החיבור ונסו שוב.",
     viewIssues: "צפייה בתקלות",
     writeDirectly: "כתיבה ישירה",
