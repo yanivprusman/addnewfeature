@@ -113,7 +113,7 @@ export function FeedbackChat(props: FeedbackChatProps = {}) {
   return <FeedbackChatInner {...props} />;
 }
 
-function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorScheme = 'system', issuesPath }: FeedbackChatProps) {
+function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorScheme = 'system', issuesPath = '/issues' }: FeedbackChatProps) {
   const langLabels = lang ? (feedbackTranslations[lang] ?? defaultLabels) : defaultLabels;
   const labels = { ...langLabels, ...labelOverrides };
   const accent = accentClass ?? "bg-indigo-600 hover:bg-indigo-700";
