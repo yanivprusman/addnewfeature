@@ -187,9 +187,8 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       const data = await res.json();
       if (data.appName) setAppName(data.appName);
       const all: Issue[] = Array.isArray(data.issues) ? data.issues : [];
-      // Only show user-reported issues, sorted: open/in_progress first, then review, then closed; newest first within each group
+      // Sorted: open/in_progress first, then review, then closed; newest first within each group
       const list = all
-        .filter(i => i.labels?.includes("user-reported"))
         .sort((a, b) => {
           const order: Record<string, number> = { open: 0, in_progress: 1, review: 2, closed: 3 };
           const statusDiff = (order[a.status] ?? 0) - (order[b.status] ?? 0);
