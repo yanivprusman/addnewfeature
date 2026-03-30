@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { feedbackTranslations } from "./i18n";
+import { ProdToggle, useProdPreview } from "./prod-preview";
 
 interface Message {
   role: "user" | "assistant";
@@ -105,7 +106,18 @@ function useSystemDark() {
 }
 
 export function FeedbackChat(props: FeedbackChatProps = {}) {
-  return <FeedbackChatInner {...props} />;
+  if (process.env.NEXT_PUBLIC_IS_PROD === 'true') return null;
+  return <FeedbackChatDev {...props} />;
+}
+
+function FeedbackChatDev(props: FeedbackChatProps) {
+  const preview = useProdPreview();
+  return (
+    <>
+      <ProdToggle />
+      {!preview && <FeedbackChatInner {...props} />}
+    </>
+  );
 }
 
 function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorScheme = 'system', issuesPath = '/issues' }: FeedbackChatProps) {
