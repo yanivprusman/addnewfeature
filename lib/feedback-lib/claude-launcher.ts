@@ -60,12 +60,13 @@ export function launchFeedback(config: LaunchConfig): LaunchResult {
     execFileSync('tmux', ['kill-session', '-t', tmuxSession], { timeout: 3000 });
   } catch { /* no existing session */ }
 
-  // Launch in tmux
-  execFile('env', [
-    ...envArgs,
-    'tmux', 'new-session', '-d', '-s', tmuxSession,
-    `script -qf ${scriptLogFile} -c 'bash -l ${launchScriptFile}'`,
-  ], { timeout: 10000 }, (err) => {
+  // Launch in tmux — use -e flags so env vars reach the session
+  // (env prefix only sets vars on the tmux client, not the session)
+  const tmuxArgs = ['new-session', '-d', '-s', tmuxSession];
+  for (const e of envArgs) tmuxArgs.push('-e', e);
+  tmuxArgs.push(`script -qf ${scriptLogFile} -c 'bash -l ${launchScriptFile}'`);
+
+  execFile('tmux', tmuxArgs, { timeout: 10000 }, (err) => {
     if (err) console.error(`${appName} claude launch failed:`, err.message);
   });
 
@@ -177,11 +178,11 @@ export function launchFix(config: FixConfig): LaunchResult {
     execFileSync('tmux', ['kill-session', '-t', tmuxSession], { timeout: 3000 });
   } catch { /* no existing session */ }
 
-  execFile('env', [
-    ...envArgs,
-    'tmux', 'new-session', '-d', '-s', tmuxSession,
-    `script -qf ${scriptLogFile} -c 'bash -l ${launchScriptFile}'`,
-  ], { timeout: 10000 }, (err) => {
+  const tmuxArgs = ['new-session', '-d', '-s', tmuxSession];
+  for (const e of envArgs) tmuxArgs.push('-e', e);
+  tmuxArgs.push(`script -qf ${scriptLogFile} -c 'bash -l ${launchScriptFile}'`);
+
+  execFile('tmux', tmuxArgs, { timeout: 10000 }, (err) => {
     if (err) console.error(`${appName} fix launch failed:`, err.message);
   });
 
@@ -242,11 +243,11 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
     execFileSync('tmux', ['kill-session', '-t', tmuxSession], { timeout: 3000 });
   } catch { /* no existing session */ }
 
-  execFile('env', [
-    ...envArgs,
-    'tmux', 'new-session', '-d', '-s', tmuxSession,
-    `script -qf ${scriptLogFile} -c 'bash -l ${launchScriptFile}'`,
-  ], { timeout: 10000 }, (err) => {
+  const tmuxArgs = ['new-session', '-d', '-s', tmuxSession];
+  for (const e of envArgs) tmuxArgs.push('-e', e);
+  tmuxArgs.push(`script -qf ${scriptLogFile} -c 'bash -l ${launchScriptFile}'`);
+
+  execFile('tmux', tmuxArgs, { timeout: 10000 }, (err) => {
     if (err) console.error(`${appName} conclude launch failed:`, err.message);
   });
 

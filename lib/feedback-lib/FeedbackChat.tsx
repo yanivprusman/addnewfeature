@@ -115,7 +115,11 @@ function FeedbackChatDev(props: FeedbackChatProps) {
   return (
     <>
       <ProdToggle />
-      {!preview && <FeedbackChatInner {...props} />}
+      {/* Keep FeedbackChatInner mounted during prod preview to preserve
+          conversation state — only hide it visually */}
+      <div style={preview ? { display: 'none' } : undefined}>
+        <FeedbackChatInner {...props} />
+      </div>
     </>
   );
 }
