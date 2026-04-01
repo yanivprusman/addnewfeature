@@ -339,6 +339,29 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     setCreateLoading(false);
   }
 
+  async function handleDirectReview(issue: Issue) {
+    setActionLoading(issue.issueNumber);
+    try {
+      const res = await fetch("/api/feedback/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "reviewed",
+          issueNumbers: [issue.issueNumber],
+          conclude: true,
+          claudeSessionId: issue.claudeSessionId,
+          claudeLaunchDir: issue.claudeLaunchDir,
+        }),
+      });
+      if (res.ok) {
+        setIssues(prev => prev.map(i =>
+          i.issueNumber === issue.issueNumber ? { ...i, status: "closed" } : i
+        ));
+      }
+    } catch { /* ignore */ }
+    setActionLoading(null);
+  }
+
   function toggleReviewIssue(issueNumber: number) {
     if (!reviewDialog) return;
     // Don't allow deselecting the trigger issue
@@ -580,13 +603,15 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                       {isReview && (
                         <button
                           data-id={`mark-reviewed-${issue.issueNumber}`}
-                          onClick={() => openReviewDialog(issue)}
+                          onClick={() => handleDirectReview(issue)}
+                          onContextMenu={(e) => { e.preventDefault(); openReviewDialog(issue); }}
+                          disabled={actionLoading === issue.issueNumber}
                           className={`text-xs px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95 ${
                             isDark ? "bg-purple-800 hover:bg-purple-700 text-purple-200" : "bg-purple-100 hover:bg-purple-200 text-purple-700"
-                          }`}
+                          } disabled:opacity-50`}
                         >
                           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
-                          {labels.markReviewed}
+                          {actionLoading === issue.issueNumber ? labels.reviewing : labels.markReviewed}
                         </button>
                       )}
                       <button
