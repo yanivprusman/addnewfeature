@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 interface Issue {
   issueNumber: number;
@@ -178,6 +178,39 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const [createTitle, setCreateTitle] = useState("");
   const [createDesc, setCreateDesc] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
+
+  // Distinct tab title & favicon for the issues page
+  const originalTitleRef = useRef<string>('');
+
+  useEffect(() => {
+    originalTitleRef.current = document.title;
+
+    let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+    const prevHref = link?.href ?? null;
+    const hadLink = !!link;
+
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    link.href = "data:image/svg+xml," + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#7c3aed"/><circle cx="16" cy="24" r="2" fill="white"/><rect x="14" y="6" width="4" height="14" rx="2" fill="white"/></svg>'
+    );
+
+    return () => {
+      document.title = originalTitleRef.current;
+      if (hadLink && prevHref !== null) {
+        link!.href = prevHref;
+      } else if (!hadLink && link) {
+        link.remove();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    document.title = appName ? `${appName} — ${labels.pageTitle}` : labels.pageTitle;
+  }, [appName, labels.pageTitle]);
 
   const fetchIssues = useCallback(async () => {
     try {
