@@ -164,26 +164,34 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   useEffect(() => {
     originalTitleRef.current = document.title;
 
-    let link = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
-    const prevHref = link?.href ?? null;
-    const hadLink = !!link;
+    // Remove all existing favicon links — just changing href doesn't force Chrome to re-fetch
+    const existingLinks = document.querySelectorAll("link[rel='icon'], link[rel='shortcut icon']");
+    const savedLinks: { rel: string; href: string; type: string; sizes: string }[] = [];
+    existingLinks.forEach(el => {
+      const l = el as HTMLLinkElement;
+      savedLinks.push({ rel: l.rel, href: l.href, type: l.type, sizes: l.sizes?.toString() || '' });
+      l.remove();
+    });
 
-    if (!link) {
-      link = document.createElement('link');
-      link.rel = 'icon';
-      document.head.appendChild(link);
-    }
+    const link = document.createElement('link');
+    link.rel = 'icon';
+    link.type = 'image/svg+xml';
     link.href = "data:image/svg+xml," + encodeURIComponent(
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#7c3aed"/><circle cx="16" cy="24" r="2" fill="white"/><rect x="14" y="6" width="4" height="14" rx="2" fill="white"/></svg>'
     );
+    document.head.appendChild(link);
 
     return () => {
       document.title = originalTitleRef.current;
-      if (hadLink && prevHref !== null) {
-        link!.href = prevHref;
-      } else if (!hadLink && link) {
-        link.remove();
-      }
+      link.remove();
+      savedLinks.forEach(s => {
+        const restored = document.createElement('link');
+        restored.rel = s.rel;
+        restored.href = s.href;
+        if (s.type) restored.type = s.type;
+        if (s.sizes) restored.sizes = s.sizes;
+        document.head.appendChild(restored);
+      });
     };
   }, []);
 
