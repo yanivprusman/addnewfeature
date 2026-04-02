@@ -129,6 +129,8 @@ interface PersistedSession {
   sessionId: string;
   tmuxSession: string;
   messages: Message[];
+  issues?: Issue[];
+  checkedIssues?: boolean[];
 }
 
 function useSystemDark() {
@@ -201,10 +203,15 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   useEffect(() => {
     const sid = sessionId || resumeId;
     if (sid) {
-      const data: PersistedSession = { sessionId: sid, tmuxSession: tmuxSession || '', messages };
+      const data: PersistedSession = {
+        sessionId: sid,
+        tmuxSession: tmuxSession || '',
+        messages,
+        ...(issues && issues.length > 0 && { issues, checkedIssues }),
+      };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
-  }, [sessionId, tmuxSession, resumeId, messages]);
+  }, [sessionId, tmuxSession, resumeId, messages, issues, checkedIssues]);
 
   // Restore session from localStorage on mount
   useEffect(() => {
@@ -218,9 +225,13 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       const data: PersistedSession = JSON.parse(stored);
       if (!data.sessionId) return;
 
-      // Always restore messages from localStorage
+      // Always restore messages and issues from localStorage
       if (data.messages?.length > 0) {
         setMessages(data.messages);
+      }
+      if (data.issues && data.issues.length > 0) {
+        setIssues(data.issues);
+        setCheckedIssues(data.checkedIssues ?? new Array(data.issues.length).fill(true));
       }
 
       if (!data.tmuxSession) {
