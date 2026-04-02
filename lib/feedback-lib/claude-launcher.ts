@@ -137,8 +137,6 @@ export function isTmuxAlive(tmuxSession: string, user = 'root'): boolean {
 export interface FixIssue {
   number: number;
   title: string;
-  description?: string;
-  labels?: string[];
   status?: string;
   insights?: string;
   claudeSessionIds?: string[];
@@ -165,8 +163,6 @@ export function launchFix(config: FixConfig): LaunchResult {
 
   const issueLines = issues.map(i => {
     let line = `- #${i.number}: ${i.title} (repo:${appName})`;
-    if (i.description) line += `\n  Description: ${i.description}`;
-    if (i.labels?.length) line += `\n  Labels: ${i.labels.join(', ')}`;
     if (i.status === 'regression') {
       line += `\n  REGRESSION — this issue was previously fixed but broke again.`;
       if (i.insights) line += `\n  User reported: ${i.insights}`;
@@ -328,10 +324,7 @@ export function launchFixResume(config: FixResumeConfig): LaunchResult {
   const scriptLogFile = `/tmp/${appName}-claude-${tmuxSession}.log`;
   const launchScriptFile = `/tmp/${appName}-launch-${tmuxSession}.sh`;
 
-  let issueDesc = `- #${issue.number}: ${issue.title} (repo:${appName})`;
-  if (issue.description) issueDesc += `\n  Description: ${issue.description}`;
-  if (issue.labels?.length) issueDesc += `\n  Labels: ${issue.labels.join(', ')}`;
-  issueDesc += `\n  REGRESSION — this issue was previously fixed but broke again.`;
+  let issueDesc = `- #${issue.number}: ${issue.title} (repo:${appName})\n  REGRESSION — this issue was previously fixed but broke again.`;
   if (issue.insights) issueDesc += `\n  User reported: ${issue.insights}`;
   const prompt = `/fix-issues-skill ${appName}\n\nIssues to fix:\n${issueDesc}`;
 
