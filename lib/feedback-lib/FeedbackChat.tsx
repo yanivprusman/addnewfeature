@@ -4,6 +4,34 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { feedbackTranslations } from "./i18n";
 import { ProdToggle, useProdPreview } from "./prod-preview";
 
+const PAGE_CONTEXT_KEY = '__feedbackPageContext';
+
+/** Set the current page context (e.g. active tab name) for issue tracking.
+ *  Alternative to using `data-active-tab` DOM attribute — both are detected automatically. */
+export function setFeedbackPageContext(context: string | null) {
+  (window as Record<string, unknown>)[PAGE_CONTEXT_KEY] = context;
+}
+
+/** Auto-detect page context: checks explicit setter, then scans DOM for data-active-tab. */
+function getPageContext(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  // 1. Explicit setter (escape hatch)
+  const explicit = (window as Record<string, unknown>)[PAGE_CONTEXT_KEY];
+  if (typeof explicit === 'string' && explicit) return explicit;
+  // 2. Scan DOM for active tab element
+  const activeTab = document.querySelector('[data-active-tab]');
+  if (activeTab) {
+    const val = activeTab.getAttribute('data-active-tab');
+    if (val) return val;
+  }
+  return undefined;
+}
+
+function getFullPagePath(): string {
+  const { pathname, search, hash } = window.location;
+  return pathname + search + hash;
+}
+
 interface Message {
   role: "user" | "assistant";
   text: string;
@@ -297,7 +325,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, sessionId, tmuxSession, pagePath: window.location.pathname }),
+        body: JSON.stringify({ message: text, sessionId, tmuxSession, pagePath: getFullPagePath(), pageContext: getPageContext() }),
       });
 
       if (!res.ok) {
@@ -347,7 +375,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       const res = await fetch("/api/feedback/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issues: selected, pagePath: window.location.pathname }),
+        body: JSON.stringify({ issues: selected, pagePath: getFullPagePath(), pageContext: getPageContext() }),
       });
 
       if (!res.ok) throw new Error("Submit failed");

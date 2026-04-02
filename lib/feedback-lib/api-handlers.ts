@@ -76,6 +76,14 @@ function trackSessionId(sessionId: string, tmuxSession: string, appName: string)
   getSessionIdMap().set(sessionId, { tmuxSession, appName });
 }
 
+/** Build a location tag like [Page: /path | Tab: Design & 3D] from pagePath + pageContext */
+function buildLocationTag(pagePath?: string, pageContext?: string): string | null {
+  const parts: string[] = [];
+  if (pagePath) parts.push(`Page: ${pagePath}`);
+  if (pageContext) parts.push(`Tab: ${pageContext}`);
+  return parts.length > 0 ? `[${parts.join(' | ')}]` : null;
+}
+
 /**
  * Returns a POST handler for /api/feedback
  * Launches or messages the Claude issue-clarifier session.
@@ -85,7 +93,7 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
 
   return async function POST(request: NextRequest) {
     try {
-      const { message, sessionId, tmuxSession, pagePath } = await request.json();
+      const { message, sessionId, tmuxSession, pagePath, pageContext } = await request.json();
 
       if (!message || typeof message !== 'string' || !message.trim()) {
         return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -105,12 +113,15 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
           || undefined;
 
         // If reporting from a feedback-lib page (e.g. /issues), redirect to addnewfeature
-        const isFeedbackLibPage = pagePath && FEEDBACK_LIB_PAGES.includes(pagePath);
+        // Extract pathname only (pagePath may include search/hash)
+        const pathOnly = pagePath?.split(/[?#]/)[0];
+        const isFeedbackLibPage = pathOnly && FEEDBACK_LIB_PAGES.includes(pathOnly);
         const effectiveApp = isFeedbackLibPage ? FEEDBACK_LIB_APP : appName;
         const effectiveWorkDir = isFeedbackLibPage ? FEEDBACK_LIB_WORKDIR : workDir;
 
-        const firstMessage = pagePath
-          ? `[User is on page: ${pagePath}]\n\n${message.trim()}`
+        const locationTag = buildLocationTag(pagePath, pageContext);
+        const firstMessage = locationTag
+          ? `${locationTag}\n\n${message.trim()}`
           : message.trim();
         const result = launchFeedback({ appName: effectiveApp, workDir: effectiveWorkDir, firstMessage, appPort });
         csid = result.claudeSessionId;
@@ -199,21 +210,23 @@ export function handleFeedbackResponse() {
 export function handleFeedbackSubmit(appName: string) {
   return async function POST(request: NextRequest) {
     try {
-      const { issues, pagePath } = await request.json();
+      const { issues, pagePath, pageContext } = await request.json();
 
       if (!Array.isArray(issues) || issues.length === 0) {
         return NextResponse.json({ error: 'At least one issue is required' }, { status: 400 });
       }
 
-      const isFeedbackLibPage = pagePath && FEEDBACK_LIB_PAGES.includes(pagePath);
+      const pathOnly = pagePath?.split(/[?#]/)[0];
+      const isFeedbackLibPage = pathOnly && FEEDBACK_LIB_PAGES.includes(pathOnly);
       const effectiveApp = isFeedbackLibPage ? FEEDBACK_LIB_APP : appName;
 
       const results = await Promise.all(
         issues.map(async (issue: { title: string; description: string }) => {
           try {
             const output = await new Promise<string>((resolve, reject) => {
-              const description = pagePath
-                ? `[Page: ${pagePath}]\n\n${issue.description}`
+              const locationTag = buildLocationTag(pagePath, pageContext);
+              const description = locationTag
+                ? `${locationTag}\n\n${issue.description}`
                 : issue.description;
               execFile(
                 '/usr/local/bin/daemon',

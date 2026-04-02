@@ -15,6 +15,9 @@ export {
 // App config auto-detection
 export { getAppConfig } from './app-config';
 
+// Page context setter (call from app to track active tab/section)
+export { setFeedbackPageContext } from './FeedbackChat';
+
 // Prod-preview toggle (P key)
 export { ProdToggle, useProdPreview, useIsProd } from './prod-preview';
 
