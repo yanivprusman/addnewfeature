@@ -658,7 +658,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           <p className={isDark ? "text-slate-400" : "text-slate-500"}>{labels.noIssues}</p>
         )}
 
-        <div className="space-y-3 overflow-y-auto max-h-[calc(100vh-12rem)]">
+        <div className="space-y-3 overflow-y-auto max-h-[calc(100vh-12rem)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {issues.map((issue) => {
             const isExpanded = expandedIds.has(issue.issueNumber);
             const isEditing = editingId === issue.issueNumber;
