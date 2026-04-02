@@ -975,10 +975,16 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
             onClick={e => e.stopPropagation()}
           >
             <h2 className="text-lg font-bold mb-2">{labels.markRegression}</h2>
-            <p className={`text-sm mb-4 truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+            <p className={`text-sm mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
               <span className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{regressionTarget.issueNumber}</span>
               {" "}{regressionTarget.title}
             </p>
+            {regressionTarget.description && (
+              <p className={`text-xs mb-1 whitespace-pre-wrap ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                {regressionTarget.description}
+              </p>
+            )}
+            <div className="mb-3" />
             <textarea
               data-id="regression-description"
               value={regressionDesc}
