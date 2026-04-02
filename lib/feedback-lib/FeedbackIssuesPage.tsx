@@ -232,8 +232,10 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const [fixSessionTarget, setFixSessionTarget] = useState<Issue | null>(null);
   const [fixSessionLoading, setFixSessionLoading] = useState(false);
 
+  // Tabs: "issues" or "maintenance"
+  const [activeTab, setActiveTab] = useState<"issues" | "maintenance">("issues");
+
   // Maintenance
-  const [maintenanceOpen, setMaintenanceOpen] = useState(false);
   const [maintenanceLaunching, setMaintenanceLaunching] = useState<string | null>(null);
 
   // Distinct tab title & favicon for the issues page
@@ -620,6 +622,35 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           </div>
         </div>
 
+        {/* Tab bar */}
+        <div className={`flex gap-1 mb-4 border-b ${isDark ? "border-slate-700" : "border-slate-200"}`}>
+          <button
+            data-id="tab-issues"
+            onClick={() => setActiveTab("issues")}
+            className={`px-4 py-2 text-sm font-medium transition-colors cursor-pointer -mb-px ${
+              activeTab === "issues"
+                ? isDark ? "border-b-2 border-indigo-400 text-indigo-400" : "border-b-2 border-indigo-500 text-indigo-600"
+                : isDark ? "text-slate-400 hover:text-slate-300" : "text-slate-500 hover:text-slate-700"
+            }`}
+            {...(activeTab === "issues" ? { "data-active-tab": labels.pageTitle } : {})}
+          >
+            {labels.pageTitle}
+          </button>
+          <button
+            data-id="tab-maintenance"
+            onClick={() => setActiveTab("maintenance")}
+            className={`px-4 py-2 text-sm font-medium transition-colors cursor-pointer -mb-px ${
+              activeTab === "maintenance"
+                ? isDark ? "border-b-2 border-indigo-400 text-indigo-400" : "border-b-2 border-indigo-500 text-indigo-600"
+                : isDark ? "text-slate-400 hover:text-slate-300" : "text-slate-500 hover:text-slate-700"
+            }`}
+            {...(activeTab === "maintenance" ? { "data-active-tab": labels.maintenance } : {})}
+          >
+            {labels.maintenance}
+          </button>
+        </div>
+
+        {activeTab === "issues" && <>
         {loading && <p className={isDark ? "text-slate-400" : "text-slate-500"}>{labels.loading}</p>}
         {error && <p className="text-red-500">{error}</p>}
 
@@ -627,7 +658,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           <p className={isDark ? "text-slate-400" : "text-slate-500"}>{labels.noIssues}</p>
         )}
 
-        <div className="space-y-3">
+        <div className="space-y-3 overflow-y-auto max-h-[calc(100vh-12rem)]">
           {issues.map((issue) => {
             const isExpanded = expandedIds.has(issue.issueNumber);
             const isEditing = editingId === issue.issueNumber;
@@ -822,20 +853,10 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
             );
           })}
         </div>
-      </div>
+        </>}
 
-      {/* Maintenance Section */}
-      <div className="max-w-3xl mx-auto mt-8">
-        <button
-          data-id="toggle-maintenance"
-          onClick={() => setMaintenanceOpen(v => !v)}
-          className={`flex items-center gap-2 text-sm font-medium ${isDark ? "text-slate-400 hover:text-slate-300" : "text-slate-500 hover:text-slate-700"} transition-colors cursor-pointer`}
-        >
-          <svg className={`w-4 h-4 transition-transform ${maintenanceOpen ? "rotate-90" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
-          {labels.maintenance}
-        </button>
-        {maintenanceOpen && (
-          <div className="mt-3 space-y-2">
+        {activeTab === "maintenance" && (
+          <div className="space-y-2">
             {MAINTENANCE_PROMPTS.map(mp => (
               <div key={mp.id} className={`flex items-center justify-between gap-3 border rounded-lg px-4 py-3 ${cardClass}`}>
                 <div className="min-w-0">
