@@ -1055,7 +1055,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                 <div className="space-y-2">
                   {fixSessionTarget.claudeSessionIds.map(sid => (
                     <div key={sid} className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-slate-50"}`}>
-                      <span className={`font-mono text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>{sid.slice(0, 8)}...</span>
+                      <span className={`font-mono text-xs break-all ${isDark ? "text-slate-400" : "text-slate-500"}`}>{sid}</span>
                       <button
                         data-id={`resume-session-${sid.slice(0, 8)}`}
                         onClick={() => handleFixSingleIssue(fixSessionTarget, sid)}
