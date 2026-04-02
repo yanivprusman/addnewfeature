@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { execFile } from 'child_process';
+import { execFile, execFileSync } from 'child_process';
 import { launchFeedback, sendMessage, killFeedback, isTmuxAlive, launchFix, launchFixResume, launchConclude, launchMaintenance } from './claude-launcher';
 import { waitForResponse, resolveResponse } from './pending-responses';
 
@@ -15,6 +15,16 @@ const SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 const FEEDBACK_LIB_APP = 'addnewfeature';
 const FEEDBACK_LIB_WORKDIR = '/opt/dev/addnewfeature';
 const FEEDBACK_LIB_PAGES = ['/issues'];
+
+/** Look up addnewfeature dev port once at module load for building cross-app URLs. */
+const FEEDBACK_LIB_PORT: number = (() => {
+  try {
+    const out = execFileSync('/usr/local/bin/daemon',
+      ['send', 'getPort', '--key', 'addnewfeature-dev'],
+      { timeout: 3000, encoding: 'utf-8' });
+    return parseInt(out.trim()) || 3039;
+  } catch { return 3039; }
+})();
 
 type SessionInfo = { timestamp: number; appName: string };
 
@@ -390,11 +400,19 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
     });
   }
 
-  async function GET() {
+  async function GET(request: NextRequest) {
     try {
       const output = await daemonExec(['send', 'listIssues', '--app', appName]);
       const issues = JSON.parse(output);
-      return NextResponse.json({ issues, appName });
+      let feedbackLibIssuesUrl: string | undefined;
+      if (appName !== FEEDBACK_LIB_APP) {
+        const host = request.headers.get('host') || '';
+        const domainMatch = host.match(/[^.]+\.(dev\.ya-niv\.com)/);
+        feedbackLibIssuesUrl = domainMatch
+          ? `https://addnewfeature.${domainMatch[1]}/issues`
+          : `http://${host.split(':')[0]}:${FEEDBACK_LIB_PORT}/issues`;
+      }
+      return NextResponse.json({ issues, appName, ...(feedbackLibIssuesUrl && { feedbackLibIssuesUrl }) });
     } catch (err) {
       console.error(`${appName} issues list error:`, err);
       return NextResponse.json({ error: 'Failed to list issues' }, { status: 500 });

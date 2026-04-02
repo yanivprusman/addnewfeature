@@ -284,6 +284,9 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       if (!res.ok) throw new Error("fetch failed");
       const data = await res.json();
       if (data.appName) setAppName(data.appName);
+      if (data.feedbackLibIssuesUrl) {
+        (window as Record<string, unknown>).__feedbackLibIssuesUrl = data.feedbackLibIssuesUrl;
+      }
       const all: Issue[] = Array.isArray(data.issues) ? data.issues : [];
       // Only show user-reported issues, sorted: open/in_progress first, then review, then closed; newest first within each group
       const list = all

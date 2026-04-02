@@ -32,16 +32,10 @@ function getFullPagePath(): string {
   return pathname + search + hash;
 }
 
-/** Build the URL to addnewfeature's /issues page from the current hostname.
- *  For *.dev.ya-niv.com → addnewfeature.dev.ya-niv.com/issues.
- *  For localhost (developer running addnewfeature itself) → /issues. */
+/** Get the addnewfeature issues URL. Set by FeedbackIssuesPage from the server response. */
 function getFeedbackLibIssuesUrl(): string {
-  const host = window.location.hostname;
-  const match = host.match(/^[^.]+\.(dev\.ya-niv\.com)$/);
-  if (match) {
-    return `${window.location.protocol}//addnewfeature.${match[1]}/issues`;
-  }
-  return '/issues';
+  const url = (window as Record<string, unknown>).__feedbackLibIssuesUrl;
+  return typeof url === 'string' ? url : '/issues';
 }
 
 interface Message {
