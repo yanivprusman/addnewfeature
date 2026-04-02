@@ -298,7 +298,15 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "fix",
-          issues: selected.map(i => ({ number: i.issueNumber, title: i.title })),
+          issues: selected.map(i => ({
+            number: i.issueNumber,
+            title: i.title,
+            ...(i.status === "regression" && {
+              status: i.status,
+              insights: i.insights,
+              claudeSessionIds: i.claudeSessionIds,
+            }),
+          })),
         }),
       });
       if (res.ok) {

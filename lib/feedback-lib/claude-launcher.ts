@@ -131,10 +131,18 @@ export function isTmuxAlive(tmuxSession: string, user = 'root'): boolean {
   }
 }
 
+export interface FixIssue {
+  number: number;
+  title: string;
+  status?: string;
+  insights?: string;
+  claudeSessionIds?: string[];
+}
+
 export interface FixConfig {
   appName: string;
   workDir: string;
-  issues: { number: number; title: string }[];
+  issues: FixIssue[];
   user?: string;
   dashboardPort?: number;
 }
@@ -150,8 +158,19 @@ export function launchFix(config: FixConfig): LaunchResult {
   const scriptLogFile = `/tmp/${appName}-claude-${tmuxSession}.log`;
   const launchScriptFile = `/tmp/${appName}-launch-${tmuxSession}.sh`;
 
-  const issueList = issues.map(i => `- #${i.number}: ${i.title} (repo:${appName})`).join('\n');
-  const prompt = `/fix-issues-skill ${appName}\n\nIssues to fix:\n${issueList}`;
+  const issueLines = issues.map(i => {
+    let line = `- #${i.number}: ${i.title} (repo:${appName})`;
+    if (i.status === 'regression') {
+      line += `\n  REGRESSION — this issue was previously fixed but broke again.`;
+      if (i.insights) line += `\n  User reported: ${i.insights}`;
+      if (i.claudeSessionIds?.length) {
+        line += `\n  Previous fix sessions: ${i.claudeSessionIds.join(', ')}`;
+        line += `\n  Check ~/.claude/projects/ for these session files to understand what was tried before.`;
+      }
+    }
+    return line;
+  });
+  const prompt = `/fix-issues-skill ${appName}\n\nIssues to fix:\n${issueLines.join('\n')}`;
 
   const claudeFlags = [
     `--session-id ${claudeSessionId}`,

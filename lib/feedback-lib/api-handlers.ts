@@ -416,7 +416,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
         if (!workDir) {
           return NextResponse.json({ error: 'Fix not configured — workDir not set' }, { status: 400 });
         }
-        const issues: { number: number; title: string }[] = body.issues;
+        const issues: { number: number; title: string; status?: string; insights?: string; claudeSessionIds?: string[] }[] = body.issues;
         if (!Array.isArray(issues) || issues.length === 0) {
           return NextResponse.json({ error: 'issues array required' }, { status: 400 });
         }
