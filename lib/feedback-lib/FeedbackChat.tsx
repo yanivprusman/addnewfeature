@@ -41,6 +41,7 @@ function getFeedbackLibIssuesUrl(): string {
 interface Message {
   role: "user" | "assistant";
   text: string;
+  staleIssues?: Issue[];
 }
 
 interface Issue {
@@ -131,7 +132,6 @@ interface PersistedSession {
   messages: Message[];
   issues?: Issue[];
   checkedIssues?: boolean[];
-  staleIssues?: Issue[];
 }
 
 function useSystemDark() {
@@ -181,11 +181,10 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const [tmuxSession, setTmuxSession] = useState<string | null>(null);
   const [issues, setIssues] = useState<Issue[] | null>(null);
   const [checkedIssues, setCheckedIssues] = useState<boolean[]>([]);
-  const [staleIssues, setStaleIssues] = useState<Issue[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitResults, setSubmitResults] = useState<SubmitResult[] | null>(null);
   const [hookWarning, setHookWarning] = useState<string | null>(null);
-  const [expandedIssues, setExpandedIssues] = useState<Record<number, boolean>>({});
+  const [expandedIssues, setExpandedIssues] = useState<Record<string, boolean>>({});
   const [restoredSession, setRestoredSession] = useState(false);
   const [directMode, setDirectMode] = useState(false);
   const [directTitle, setDirectTitle] = useState("");
@@ -210,11 +209,10 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         tmuxSession: tmuxSession || '',
         messages,
         ...(issues && issues.length > 0 && { issues, checkedIssues }),
-        ...(staleIssues.length > 0 && { staleIssues }),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
-  }, [sessionId, tmuxSession, resumeId, messages, issues, checkedIssues, staleIssues]);
+  }, [sessionId, tmuxSession, resumeId, messages, issues, checkedIssues]);
 
   // Restore session from localStorage on mount
   useEffect(() => {
@@ -236,10 +234,6 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         setIssues(data.issues);
         setCheckedIssues(data.checkedIssues ?? new Array(data.issues.length).fill(true));
       }
-      if (data.staleIssues && data.staleIssues.length > 0) {
-        setStaleIssues(data.staleIssues);
-      }
-
       if (!data.tmuxSession) {
         // No tmux recorded — set up for resume
         setResumeId(data.sessionId);
@@ -341,7 +335,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setInput("");
     setIssues(null);
     setCheckedIssues([]);
-    setStaleIssues([]);
+
     setSubmitResults(null);
   }
 
@@ -351,7 +345,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setInput("");
     setIssues(null);
     setCheckedIssues([]);
-    setStaleIssues([]);
+
     setSubmitResults(null);
     setOpen(false);
   }
@@ -362,13 +356,14 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
     setInput("");
     if (inputRef.current) inputRef.current.style.height = 'auto';
-    setMessages((prev) => [...prev, { role: "user", text }]);
-    setLoading(true);
     if (issues && issues.length > 0) {
-      setStaleIssues(prev => [...prev, ...issues]);
+      setMessages((prev) => [...prev, { role: "assistant", text: "", staleIssues: issues }, { role: "user", text }]);
       setIssues(null);
       setCheckedIssues([]);
+    } else {
+      setMessages((prev) => [...prev, { role: "user", text }]);
     }
+    setLoading(true);
     setSubmitResults(null);
 
     try {
@@ -393,7 +388,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           setResumeId(null);
           setIssues(null);
           setCheckedIssues([]);
-          setStaleIssues([]);
+      
           localStorage.removeItem(STORAGE_KEY);
           return;
         }
@@ -455,7 +450,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         setInput("");
         setIssues(null);
         setCheckedIssues([]);
-        setStaleIssues([]);
+    
         setSubmitResults(null);
         setOpen(false);
       } else {
@@ -629,30 +624,32 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[12rem] max-h-[20rem]">
           {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap ${msg.role === "user" ? `${accentBase} text-white` : `${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-800'}`}`}>
-                {msg.text}
-              </div>
-            </div>
-          ))}
-
-          {/* Stale issues (grayed out, from previous rounds) */}
-          {staleIssues.length > 0 && (
-            <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2 opacity-50`}>
-              <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.selectIssues}</p>
-              {staleIssues.map((issue, i) => (
-                <div key={`stale-${i}`} className="flex items-start gap-2 p-2">
-                  <input type="checkbox" checked disabled className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600" />
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
-                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} line-clamp-2 whitespace-pre-wrap`}>
-                      {issue.description}
-                    </p>
+            msg.staleIssues ? (
+              <div key={i} className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2 opacity-50`}>
+                <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.selectIssues}</p>
+                {msg.staleIssues.map((issue, j) => (
+                  <div key={j} className="flex items-start gap-2 p-2">
+                    <input type="checkbox" checked disabled className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600" />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
+                      <p
+                        className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} ${expandedIssues[`stale-${i}-${j}`] ? '' : 'line-clamp-2'} cursor-pointer whitespace-pre-wrap`}
+                        onClick={() => setExpandedIssues(prev => ({ ...prev, [`stale-${i}-${j}`]: !prev[`stale-${i}-${j}`] }))}
+                      >
+                        {issue.description}
+                      </p>
+                    </div>
                   </div>
+                ))}
+              </div>
+            ) : (
+              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap ${msg.role === "user" ? `${accentBase} text-white` : `${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-800'}`}`}>
+                  {msg.text}
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            )
+          ))}
 
           {/* Active issue checklist */}
           {issues && issues.length > 0 && (
