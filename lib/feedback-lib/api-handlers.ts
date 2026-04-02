@@ -486,6 +486,8 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
         args = ['send', 'updateIssue', '--app', appName, '--issueNumber', String(issueNumber)];
         if (body.title) args.push('--title', body.title);
         if (body.description !== undefined) args.push('--description', body.description);
+        if (body.status) args.push('--status', body.status);
+        if (body.insights !== undefined) args.push('--insights', body.insights);
       } else {
         const command = action === 'close' ? 'closeIssue' : 'reopenIssue';
         args = ['send', command, '--app', appName, '--issueNumber', String(issueNumber)];

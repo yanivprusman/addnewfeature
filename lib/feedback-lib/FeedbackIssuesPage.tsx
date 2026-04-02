@@ -25,11 +25,17 @@ export interface IssuesPageLabels {
   closed: string;
   inProgress: string;
   review: string;
+  regression: string;
   edit: string;
   save: string;
   cancel: string;
   fixWithClaude: string;
   markReviewed: string;
+  notWorking: string;
+  markRegression: string;
+  clearRegression: string;
+  regressionPlaceholder: string;
+  markingRegression: string;
   conclude: string;
   alsoInSession: string;
   launching: string;
@@ -46,11 +52,17 @@ const defaultLabels: IssuesPageLabels = {
   closed: "Closed",
   inProgress: "In Progress",
   review: "Needs Review",
+  regression: "Regression",
   edit: "Edit",
   save: "Save",
   cancel: "Cancel",
   fixWithClaude: "Fix with Claude",
   markReviewed: "Mark as Reviewed",
+  notWorking: "Not Working",
+  markRegression: "Mark as Regression",
+  clearRegression: "Clear Regression",
+  regressionPlaceholder: "Describe what regressed (optional)",
+  markingRegression: "Marking...",
   conclude: "Run conclude (document work)",
   alsoInSession: "Also fixed in this session:",
   launching: "Launching...",
@@ -67,11 +79,17 @@ const heLabels: IssuesPageLabels = {
   closed: "סגור",
   inProgress: "בטיפול",
   review: "ממתין לאישור",
+  regression: "רגרסיה",
   edit: "עריכה",
   save: "שמירה",
   cancel: "ביטול",
   fixWithClaude: "תיקון עם Claude",
   markReviewed: "סימון כנבדק",
+  notWorking: "לא עובד",
+  markRegression: "סימון כרגרסיה",
+  clearRegression: "ביטול רגרסיה",
+  regressionPlaceholder: "תיאור מה חזר (אופציונלי)",
+  markingRegression: "מסמן...",
   conclude: "תיעוד עבודה",
   alsoInSession: "תוקנו גם בסשן זה:",
   launching: "משיק...",
@@ -115,6 +133,7 @@ function statusBadge(status: string, labels: IssuesPageLabels, isDark: boolean) 
     closed: { label: labels.closed, bg: isDark ? "bg-slate-700 text-slate-400" : "bg-slate-200 text-slate-600" },
     in_progress: { label: labels.inProgress, bg: isDark ? "bg-yellow-900 text-yellow-300" : "bg-yellow-100 text-yellow-800" },
     review: { label: labels.review, bg: isDark ? "bg-purple-900 text-purple-300" : "bg-purple-100 text-purple-800" },
+    regression: { label: labels.regression, bg: isDark ? "bg-red-900 text-red-300" : "bg-red-100 text-red-800" },
   };
   const entry = map[status] ?? map.open;
   return (
@@ -157,6 +176,11 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   // Review dialog
   const [reviewDialog, setReviewDialog] = useState<ReviewDialogState | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
+
+  // Regression dialog
+  const [regressionTarget, setRegressionTarget] = useState<Issue | null>(null);
+  const [regressionDesc, setRegressionDesc] = useState("");
+  const [regressionLoading, setRegressionLoading] = useState(false);
 
   // Distinct tab title & favicon for the issues page
   const originalTitleRef = useRef<string>('');
@@ -211,7 +235,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       const list = all
         .filter(i => i.labels?.includes("user-reported"))
         .sort((a, b) => {
-          const order: Record<string, number> = { open: 0, in_progress: 1, review: 2, closed: 3 };
+          const order: Record<string, number> = { open: 0, in_progress: 1, regression: 2, review: 3, closed: 4 };
           const statusDiff = (order[a.status] ?? 0) - (order[b.status] ?? 0);
           if (statusDiff !== 0) return statusDiff;
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -369,6 +393,50 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     setReviewLoading(false);
   }
 
+  async function handleMarkRegression() {
+    if (!regressionTarget) return;
+    setRegressionLoading(true);
+    try {
+      const res = await fetch("/api/feedback/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update",
+          issueNumber: regressionTarget.issueNumber,
+          status: "regression",
+          ...(regressionDesc.trim() && { insights: regressionDesc.trim() }),
+        }),
+      });
+      if (res.ok) {
+        setIssues(prev => prev.map(i =>
+          i.issueNumber === regressionTarget.issueNumber
+            ? { ...i, status: "regression", ...(regressionDesc.trim() && { insights: regressionDesc.trim() }) }
+            : i
+        ));
+        setRegressionTarget(null);
+        setRegressionDesc("");
+      }
+    } catch { /* ignore */ }
+    setRegressionLoading(false);
+  }
+
+  async function handleClearRegression(issueNumber: number) {
+    setActionLoading(issueNumber);
+    try {
+      const res = await fetch("/api/feedback/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update", issueNumber, status: "closed" }),
+      });
+      if (res.ok) {
+        setIssues(prev => prev.map(i =>
+          i.issueNumber === issueNumber ? { ...i, status: "closed" } : i
+        ));
+      }
+    } catch { /* ignore */ }
+    setActionLoading(null);
+  }
+
   const selectedCount = issues.filter(i => selectedIds.has(i.issueNumber) && i.status !== "closed" && i.status !== "review").length;
 
   const bgClass = isDark ? "bg-slate-900 text-slate-200" : "bg-white text-slate-900";
@@ -426,11 +494,19 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
             const isExpanded = expandedIds.has(issue.issueNumber);
             const isEditing = editingId === issue.issueNumber;
             const hasLongDesc = issue.description && issue.description.length > 120;
-            const canSelect = issue.status !== "closed" && issue.status !== "review";
+            const isClosed = issue.status === "closed";
+            const canSelect = !isClosed && issue.status !== "review";
             const isReview = issue.status === "review";
+            const isRegression = issue.status === "regression";
 
             return (
-              <div key={issue.issueNumber} className={`border rounded-lg p-4 ${cardClass} transition-colors ${isReview ? (isDark ? "border-purple-700/50" : "border-purple-200") : ""}`}>
+              <div key={issue.issueNumber} className={`border rounded-lg p-4 ${cardClass} transition-colors ${
+                isRegression
+                  ? (isDark ? "bg-red-500/10 border-red-500/20" : "bg-red-50 border-red-200")
+                  : isReview
+                    ? (isDark ? "border-purple-700/50" : "border-purple-200")
+                    : ""
+              }`}>
                 {isEditing ? (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 mb-1">
@@ -529,6 +605,33 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           {actionLoading === issue.issueNumber ? labels.reviewing : labels.markReviewed}
                         </button>
                       )}
+                      {/* Not Working button for closed issues */}
+                      {isClosed && (
+                        <button
+                          data-id={`not-working-${issue.issueNumber}`}
+                          onClick={() => { setRegressionTarget(issue); setRegressionDesc(""); }}
+                          className={`text-xs px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                            isDark ? "bg-red-900 hover:bg-red-800 text-red-200" : "bg-red-100 hover:bg-red-200 text-red-700"
+                          }`}
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                          {labels.notWorking}
+                        </button>
+                      )}
+                      {/* Clear Regression button for regression issues */}
+                      {isRegression && (
+                        <button
+                          data-id={`clear-regression-${issue.issueNumber}`}
+                          onClick={() => handleClearRegression(issue.issueNumber)}
+                          disabled={actionLoading === issue.issueNumber}
+                          className={`text-xs px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                            isDark ? "bg-green-900 hover:bg-green-800 text-green-200" : "bg-green-100 hover:bg-green-200 text-green-700"
+                          } disabled:opacity-50`}
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><polyline points="9 12 11 14 15 10" /></svg>
+                          {labels.clearRegression}
+                        </button>
+                      )}
                       <button
                         data-id={`edit-issue-${issue.issueNumber}`}
                         onClick={() => startEdit(issue)}
@@ -624,6 +727,61 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                   <>
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
                     {labels.markReviewed}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Regression Dialog Overlay */}
+      {regressionTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !regressionLoading && (setRegressionTarget(null), setRegressionDesc(""))}>
+          <div className="absolute inset-0 bg-black/50" />
+          <div
+            className={`relative border rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 ${dialogBgClass}`}
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold mb-2">{labels.markRegression}</h2>
+            <p className={`text-sm mb-4 truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+              <span className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{regressionTarget.issueNumber}</span>
+              {" "}{regressionTarget.title}
+            </p>
+            <textarea
+              data-id="regression-description"
+              value={regressionDesc}
+              onChange={e => setRegressionDesc(e.target.value)}
+              placeholder={labels.regressionPlaceholder}
+              rows={3}
+              autoFocus
+              className={`w-full px-3 py-2 rounded-md border text-sm resize-y ${
+                isDark ? "bg-slate-700 border-slate-600 text-slate-200 placeholder-slate-500" : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
+              }`}
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                data-id="regression-cancel"
+                onClick={() => { setRegressionTarget(null); setRegressionDesc(""); }}
+                disabled={regressionLoading}
+                className={`text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer ${btnClass} active:scale-95`}
+              >
+                {labels.cancel}
+              </button>
+              <button
+                data-id="regression-confirm"
+                onClick={handleMarkRegression}
+                disabled={regressionLoading}
+                className={`text-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-2 cursor-pointer ${
+                  isDark ? "bg-red-700 hover:bg-red-600 text-white" : "bg-red-500 hover:bg-red-600 text-white"
+                } disabled:opacity-50 active:scale-95`}
+              >
+                {regressionLoading ? (
+                  <>{labels.markingRegression}</>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                    {labels.markRegression}
                   </>
                 )}
               </button>
