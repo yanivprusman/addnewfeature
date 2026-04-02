@@ -66,7 +66,10 @@ export function launchFeedback(config: LaunchConfig): LaunchResult {
   for (const e of envArgs) tmuxArgs.push('-e', e);
   tmuxArgs.push(`script -qf ${scriptLogFile} -c 'bash -l ${launchScriptFile}'`);
 
-  execFile('tmux', tmuxArgs, { timeout: 10000 }, (err) => {
+  // Use systemd-run --scope to escape the calling service's cgroup.
+  // Without this, the tmux server inherits the app service's cgroup and gets
+  // killed when the service restarts (taking down ALL tmux sessions).
+  execFile('systemd-run', ['--scope', '--quiet', '--', 'tmux', ...tmuxArgs], { timeout: 10000 }, (err) => {
     if (err) console.error(`${appName} claude launch failed:`, err.message);
   });
 
@@ -201,7 +204,7 @@ export function launchFix(config: FixConfig): LaunchResult {
   for (const e of envArgs) tmuxArgs.push('-e', e);
   tmuxArgs.push(`script -qf ${scriptLogFile} -c 'bash -l ${launchScriptFile}'`);
 
-  execFile('tmux', tmuxArgs, { timeout: 10000 }, (err) => {
+  execFile('systemd-run', ['--scope', '--quiet', '--', 'tmux', ...tmuxArgs], { timeout: 10000 }, (err) => {
     if (err) console.error(`${appName} fix launch failed:`, err.message);
   });
 
@@ -266,7 +269,7 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
   for (const e of envArgs) tmuxArgs.push('-e', e);
   tmuxArgs.push(`script -qf ${scriptLogFile} -c 'bash -l ${launchScriptFile}'`);
 
-  execFile('tmux', tmuxArgs, { timeout: 10000 }, (err) => {
+  execFile('systemd-run', ['--scope', '--quiet', '--', 'tmux', ...tmuxArgs], { timeout: 10000 }, (err) => {
     if (err) console.error(`${appName} conclude launch failed:`, err.message);
   });
 
