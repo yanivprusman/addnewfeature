@@ -78,6 +78,8 @@ export interface FeedbackLabels {
   directDescPlaceholder: string;
   directSubmit: string;
   directCreating: string;
+  sessionEnded: string;
+  sessionExpired: string;
 }
 
 const defaultLabels: FeedbackLabels = {
@@ -104,6 +106,8 @@ const defaultLabels: FeedbackLabels = {
   directDescPlaceholder: "Description (optional)",
   directSubmit: "Create Issue",
   directCreating: "Creating...",
+  sessionEnded: "Session ended — send a new message to continue where you left off.",
+  sessionExpired: "Your previous session could not be restored. Starting a new conversation.",
 };
 
 interface FeedbackChatProps {
@@ -119,7 +123,7 @@ interface FeedbackChatProps {
   issuesPath?: string;
 }
 
-const SESSION_STORAGE_KEY = "feedback-chat-session";
+const STORAGE_KEY = "feedback-chat-session";
 
 interface PersistedSession {
   sessionId: string;
@@ -178,11 +182,13 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const [submitResults, setSubmitResults] = useState<SubmitResult[] | null>(null);
   const [hookWarning, setHookWarning] = useState<string | null>(null);
   const [expandedIssues, setExpandedIssues] = useState<Record<number, boolean>>({});
+  const [issuesStale, setIssuesStale] = useState(false);
   const [restoredSession, setRestoredSession] = useState(false);
   const [directMode, setDirectMode] = useState(false);
   const [directTitle, setDirectTitle] = useState("");
   const [directDesc, setDirectDesc] = useState("");
   const [directLoading, setDirectLoading] = useState(false);
+  const [resumeId, setResumeId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -192,45 +198,56 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setIsOnIssuesPage(window.location.pathname === issuesPath);
   }, [issuesPath]);
 
-  // Persist session to sessionStorage whenever it changes
+  // Persist session to localStorage whenever it changes
   useEffect(() => {
-    if (sessionId && tmuxSession) {
-      const data: PersistedSession = { sessionId, tmuxSession, messages };
-      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(data));
+    const sid = sessionId || resumeId;
+    if (sid) {
+      const data: PersistedSession = { sessionId: sid, tmuxSession: tmuxSession || '', messages };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
-  }, [sessionId, tmuxSession, messages]);
+  }, [sessionId, tmuxSession, resumeId, messages]);
 
-  // Restore session from sessionStorage on mount
+  // Restore session from localStorage on mount
   useEffect(() => {
     if (restoredSession) return;
     setRestoredSession(true);
 
-    const stored = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return;
 
     try {
       const data: PersistedSession = JSON.parse(stored);
-      if (!data.sessionId || !data.tmuxSession) return;
+      if (!data.sessionId) return;
 
-      // Verify the session is still alive
+      // Always restore messages from localStorage
+      if (data.messages?.length > 0) {
+        setMessages(data.messages);
+      }
+
+      if (!data.tmuxSession) {
+        // No tmux recorded — set up for resume
+        setResumeId(data.sessionId);
+        return;
+      }
+
+      // Verify the tmux session is still alive
       fetch(`/api/feedback/status?tmuxSession=${encodeURIComponent(data.tmuxSession)}`)
         .then(res => res.json())
         .then(result => {
           if (result.alive) {
             setSessionId(data.sessionId);
             setTmuxSession(data.tmuxSession);
-            if (data.messages?.length > 0) {
-              setMessages(data.messages);
-            }
           } else {
-            sessionStorage.removeItem(SESSION_STORAGE_KEY);
+            // Tmux dead — keep sessionId for resume
+            setResumeId(data.sessionId);
           }
         })
         .catch(() => {
-          sessionStorage.removeItem(SESSION_STORAGE_KEY);
+          // Can't check — assume dead, set up for resume
+          setResumeId(data.sessionId);
         });
     } catch {
-      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      localStorage.removeItem(STORAGE_KEY);
     }
   }, [restoredSession]);
 
@@ -242,23 +259,24 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         const res = await fetch(`/api/feedback/status?tmuxSession=${encodeURIComponent(tmuxSession)}`);
         const data = await res.json();
         if (!data.alive) {
+          // Tmux died — preserve sessionId for resume, notify user
+          setResumeId(sessionId);
           setSessionId(null);
           setTmuxSession(null);
           setHookWarning(null);
-          sessionStorage.removeItem(SESSION_STORAGE_KEY);
+          setMessages(prev => [...prev, { role: "assistant", text: labels.sessionEnded }]);
         }
       } catch { /* ignore fetch errors */ }
     }, 15_000);
     return () => clearInterval(interval);
-  }, [hasSession, tmuxSession]);
+  }, [hasSession, tmuxSession, sessionId, labels.sessionEnded]);
 
-  // Clean up session on page unload via sendBeacon
+  // Clean up tmux on page unload via sendBeacon (localStorage is NOT cleared — resume will restore the session)
   useEffect(() => {
     function handleUnload() {
       if (tmuxSession) {
         const body = JSON.stringify({ tmuxSession });
         navigator.sendBeacon("/api/feedback/close", new Blob([body], { type: "application/json" }));
-        sessionStorage.removeItem(SESSION_STORAGE_KEY);
       }
     }
     window.addEventListener("beforeunload", handleUnload);
@@ -294,9 +312,10 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         body: JSON.stringify({ tmuxSession }),
       }).catch(() => {});
     }
-    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY);
     setSessionId(null);
     setTmuxSession(null);
+    setResumeId(null);
     setHookWarning(null);
   }, [tmuxSession]);
 
@@ -306,6 +325,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setInput("");
     setIssues(null);
     setCheckedIssues([]);
+    setIssuesStale(false);
     setSubmitResults(null);
   }
 
@@ -315,6 +335,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setInput("");
     setIssues(null);
     setCheckedIssues([]);
+    setIssuesStale(false);
     setSubmitResults(null);
     setOpen(false);
   }
@@ -327,24 +348,41 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     if (inputRef.current) inputRef.current.style.height = 'auto';
     setMessages((prev) => [...prev, { role: "user", text }]);
     setLoading(true);
-    setIssues(null);
-    setCheckedIssues([]);
+    if (issues) setIssuesStale(true);
     setSubmitResults(null);
 
     try {
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, sessionId, tmuxSession, pagePath: getFullPagePath(), pageContext: getPageContext() }),
+        body: JSON.stringify({
+          message: text,
+          sessionId,
+          tmuxSession,
+          resumeSessionId: !sessionId ? resumeId : undefined,
+          pagePath: getFullPagePath(),
+          pageContext: getPageContext(),
+        }),
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (data.error === 'session_expired') {
+          // Session file gone — notify user and reset to fresh state
+          setMessages((prev) => [...prev, { role: "assistant", text: labels.sessionExpired }]);
+          setResumeId(null);
+          setIssues(null);
+          setCheckedIssues([]);
+          setIssuesStale(false);
+          localStorage.removeItem(STORAGE_KEY);
+          return;
+        }
         if (res.status === 504 || data.error === 'timeout') {
           setMessages((prev) => [...prev, { role: "assistant", text: labels.timeoutError }]);
           // Preserve session info from timeout response
           if (data.sessionId) setSessionId(data.sessionId);
           if (data.tmuxSession) setTmuxSession(data.tmuxSession);
+          setIssuesStale(false);
           return;
         }
         throw new Error(data.message || "Request failed");
@@ -353,6 +391,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       const data = await res.json();
       setSessionId(data.sessionId);
       setTmuxSession(data.tmuxSession);
+      setResumeId(null);
       if (data.hookWarning) setHookWarning(data.hookWarning);
 
       let displayText = data.response;
@@ -365,10 +404,16 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       if (data.issues) {
         setIssues(data.issues);
         setCheckedIssues(new Array(data.issues.length).fill(true));
+        setIssuesStale(false);
+      } else {
+        setIssues(null);
+        setCheckedIssues([]);
+        setIssuesStale(false);
       }
     } catch (err) {
       const isNetwork = err instanceof TypeError && err.message === 'Failed to fetch';
       setMessages((prev) => [...prev, { role: "assistant", text: isNetwork ? labels.networkError : labels.error }]);
+      setIssuesStale(false);
     } finally {
       setLoading(false);
     }
@@ -579,11 +624,11 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
           {/* Issue checklist */}
           {issues && issues.length > 0 && (
-            <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
+            <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2${issuesStale ? ' opacity-50 pointer-events-none' : ''}`}>
               <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.selectIssues}</p>
               {issues.map((issue, i) => (
-                <label key={i} className={`flex items-start gap-2 cursor-pointer p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
-                  <input type="checkbox" checked={checkedIssues[i] ?? true} onChange={() => toggleIssue(i)} className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                <label key={i} className={`flex items-start gap-2 ${issuesStale ? '' : 'cursor-pointer'} p-2 rounded-lg ${issuesStale ? '' : (isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100')} transition-colors`}>
+                  <input type="checkbox" checked={checkedIssues[i] ?? true} onChange={() => toggleIssue(i)} disabled={issuesStale} className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
                     <p
@@ -596,13 +641,15 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
                   </div>
                 </label>
               ))}
-              <button
-                onClick={handleSubmitIssues}
-                disabled={submitting || !checkedIssues.some(Boolean)}
-                className={`w-full mt-1 px-3 py-2 ${accent} ${isDark ? 'disabled:bg-slate-600' : 'disabled:bg-slate-300'} text-white text-sm font-medium rounded-lg transition-colors`}
-              >
-                {submitting ? labels.submitting : labels.submit}
-              </button>
+              {!issuesStale && (
+                <button
+                  onClick={handleSubmitIssues}
+                  disabled={submitting || !checkedIssues.some(Boolean)}
+                  className={`w-full mt-1 px-3 py-2 ${accent} ${isDark ? 'disabled:bg-slate-600' : 'disabled:bg-slate-300'} text-white text-sm font-medium rounded-lg transition-colors`}
+                >
+                  {submitting ? labels.submitting : labels.submit}
+                </button>
+              )}
             </div>
           )}
 
