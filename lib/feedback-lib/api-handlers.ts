@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { execFile } from 'child_process';
-import { launchFeedback, sendMessage, killFeedback, isTmuxAlive, launchFix, launchConclude } from './claude-launcher';
+import { launchFeedback, sendMessage, killFeedback, isTmuxAlive, launchFix, launchFixResume, launchConclude, launchMaintenance } from './claude-launcher';
 import { waitForResponse, resolveResponse } from './pending-responses';
 
 /** Track last activity timestamp per tmux session for auto-cleanup.
@@ -434,7 +434,9 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
           return NextResponse.json({ error: 'issues array required' }, { status: 400 });
         }
 
-        const result = launchFix({ appName, workDir, issues, dashboardPort });
+        const result = body.resumeSessionId && issues.length === 1
+          ? launchFixResume({ appName, workDir, resumeSessionId: body.resumeSessionId, issue: issues[0], dashboardPort })
+          : launchFix({ appName, workDir, issues, dashboardPort });
 
         // Mark issues as in_progress (fire-and-forget)
         for (const issue of issues) {
@@ -447,6 +449,19 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
           ]).catch(err => console.error(`${appName} mark in_progress #${issue.number}:`, err.message));
         }
 
+        return NextResponse.json({ ok: true, claudeSessionId: result.claudeSessionId, tmuxSession: result.tmuxSession });
+      }
+
+      // --- Run maintenance prompt ---
+      if (action === 'maintenance') {
+        if (!workDir) {
+          return NextResponse.json({ error: 'Maintenance not configured — workDir not set' }, { status: 400 });
+        }
+        const { prompt } = body;
+        if (!prompt || typeof prompt !== 'string') {
+          return NextResponse.json({ error: 'prompt string required' }, { status: 400 });
+        }
+        const result = launchMaintenance({ appName, workDir, prompt, dashboardPort });
         return NextResponse.json({ ok: true, claudeSessionId: result.claudeSessionId, tmuxSession: result.tmuxSession });
       }
 
@@ -500,7 +515,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
       }
 
       if (!issueNumber || !['close', 'reopen', 'update'].includes(action)) {
-        return NextResponse.json({ error: 'action (close|reopen|update|create|fix|reviewed|delete) and issueNumber required' }, { status: 400 });
+        return NextResponse.json({ error: 'action (close|reopen|update|create|fix|reviewed|maintenance|delete) and issueNumber required' }, { status: 400 });
       }
 
       let args: string[];

@@ -45,6 +45,9 @@ export interface IssuesPageLabels {
   closing: string;
   delete: string;
   deleteConfirm: string;
+  maintenance: string;
+  maintenanceLaunch: string;
+  maintenanceLaunching: string;
 }
 
 const defaultLabels: IssuesPageLabels = {
@@ -76,6 +79,9 @@ const defaultLabels: IssuesPageLabels = {
   closing: "Closing...",
   delete: "Delete",
   deleteConfirm: "Are you sure you want to delete this issue?",
+  maintenance: "Maintenance",
+  maintenanceLaunch: "Launch",
+  maintenanceLaunching: "Launching...",
 };
 
 const heLabels: IssuesPageLabels = {
@@ -107,12 +113,31 @@ const heLabels: IssuesPageLabels = {
   closing: "סוגר...",
   delete: "מחיקה",
   deleteConfirm: "האם למחוק תקלה זו?",
+  maintenance: "תחזוקה",
+  maintenanceLaunch: "הפעלה",
+  maintenanceLaunching: "מפעיל...",
 };
 
 const issuesTranslations: Record<string, IssuesPageLabels> = {
   en: defaultLabels,
   he: heLabels,
 };
+
+interface MaintenancePrompt {
+  id: string;
+  title: string;
+  description: string;
+  prompt: string;
+}
+
+const MAINTENANCE_PROMPTS: MaintenancePrompt[] = [
+  {
+    id: "feedback-context",
+    title: "Add feedback context tracking",
+    description: "Ensure tab/section navigation sets data-active-tab on the active element so the feedback widget tracks which view the user is on.",
+    prompt: "Scan this app for tab or section navigation (tab bars, sidebars, segmented controls). For each one, ensure the currently active element has a `data-active-tab` attribute set to the visible label text. This attribute must move with the active state — only the active element should have it at any given time. The feedback-lib widget reads this via `document.querySelector('[data-active-tab]')` at issue-report time. Do not remove any existing attributes. Commit and push when done.",
+  },
+];
 
 interface FeedbackIssuesPageProps {
   lang?: string;
@@ -193,6 +218,10 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const [regressionTarget, setRegressionTarget] = useState<Issue | null>(null);
   const [regressionDesc, setRegressionDesc] = useState("");
   const [regressionLoading, setRegressionLoading] = useState(false);
+
+  // Maintenance
+  const [maintenanceOpen, setMaintenanceOpen] = useState(false);
+  const [maintenanceLaunching, setMaintenanceLaunching] = useState<string | null>(null);
 
   // Distinct tab title & favicon for the issues page
   const originalTitleRef = useRef<string>('');
@@ -490,6 +519,18 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     setActionLoading(null);
   }
 
+  async function handleMaintenanceLaunch(mp: MaintenancePrompt) {
+    setMaintenanceLaunching(mp.id);
+    try {
+      await fetch("/api/feedback/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "maintenance", prompt: mp.prompt }),
+      });
+    } catch { /* ignore */ }
+    setMaintenanceLaunching(null);
+  }
+
   const selectedCount = issues.filter(i => selectedIds.has(i.issueNumber) && i.status !== "closed" && i.status !== "review").length;
 
   const bgClass = isDark ? "bg-slate-900 text-slate-200" : "bg-white text-slate-900";
@@ -717,6 +758,40 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
             );
           })}
         </div>
+      </div>
+
+      {/* Maintenance Section */}
+      <div className="max-w-3xl mx-auto mt-8">
+        <button
+          data-id="toggle-maintenance"
+          onClick={() => setMaintenanceOpen(v => !v)}
+          className={`flex items-center gap-2 text-sm font-medium ${isDark ? "text-slate-400 hover:text-slate-300" : "text-slate-500 hover:text-slate-700"} transition-colors cursor-pointer`}
+        >
+          <svg className={`w-4 h-4 transition-transform ${maintenanceOpen ? "rotate-90" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6" /></svg>
+          {labels.maintenance}
+        </button>
+        {maintenanceOpen && (
+          <div className="mt-3 space-y-2">
+            {MAINTENANCE_PROMPTS.map(mp => (
+              <div key={mp.id} className={`flex items-center justify-between gap-3 border rounded-lg px-4 py-3 ${cardClass}`}>
+                <div className="min-w-0">
+                  <p className={`text-sm font-medium ${isDark ? "text-slate-200" : "text-slate-800"}`}>{mp.title}</p>
+                  <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>{mp.description}</p>
+                </div>
+                <button
+                  data-id={`maintenance-launch-${mp.id}`}
+                  onClick={() => handleMaintenanceLaunch(mp)}
+                  disabled={maintenanceLaunching !== null}
+                  className={`text-xs px-3 py-1.5 rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                    isDark ? "bg-slate-600 hover:bg-slate-500 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-700"
+                  } disabled:opacity-50 active:scale-95`}
+                >
+                  {maintenanceLaunching === mp.id ? labels.maintenanceLaunching : labels.maintenanceLaunch}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Review Dialog Overlay */}
