@@ -10,6 +10,12 @@ const CLEANUP_STARTED_KEY = Symbol.for('feedback-lib:cleanup-interval-started');
 const SESSION_ID_MAP_KEY = Symbol.for('feedback-lib:session-id-to-tmux');
 const SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
+/** The /issues page is feedback-lib code owned by addnewfeature.
+ *  Issues reported via the widget from that page should go to addnewfeature, not the host app. */
+const FEEDBACK_LIB_APP = 'addnewfeature';
+const FEEDBACK_LIB_WORKDIR = '/opt/dev/addnewfeature';
+const FEEDBACK_LIB_PAGES = ['/issues'];
+
 type SessionInfo = { timestamp: number; appName: string };
 
 function getSessionActivityMap(): Map<string, SessionInfo> {
@@ -106,14 +112,21 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
           || parseInt(process.env.PORT || '')
           || undefined;
 
+        // If reporting from a feedback-lib page (e.g. /issues), redirect to addnewfeature
+        // Extract pathname only (pagePath may include search/hash)
+        const pathOnly = pagePath?.split(/[?#]/)[0];
+        const isFeedbackLibPage = pathOnly && FEEDBACK_LIB_PAGES.includes(pathOnly);
+        const effectiveApp = isFeedbackLibPage ? FEEDBACK_LIB_APP : appName;
+        const effectiveWorkDir = isFeedbackLibPage ? FEEDBACK_LIB_WORKDIR : workDir;
+
         const locationTag = buildLocationTag(pagePath, pageContext);
         const firstMessage = locationTag
           ? `${locationTag}\n\n${message.trim()}`
           : message.trim();
-        const result = launchFeedback({ appName, workDir, firstMessage, appPort });
+        const result = launchFeedback({ appName: effectiveApp, workDir: effectiveWorkDir, firstMessage, appPort });
         csid = result.claudeSessionId;
         tmux = result.tmuxSession;
-        trackSessionId(csid, tmux, appName);
+        trackSessionId(csid, tmux, effectiveApp);
       } else {
         csid = sessionId;
         tmux = tmuxSession;
@@ -203,6 +216,10 @@ export function handleFeedbackSubmit(appName: string) {
         return NextResponse.json({ error: 'At least one issue is required' }, { status: 400 });
       }
 
+      const pathOnly = pagePath?.split(/[?#]/)[0];
+      const isFeedbackLibPage = pathOnly && FEEDBACK_LIB_PAGES.includes(pathOnly);
+      const effectiveApp = isFeedbackLibPage ? FEEDBACK_LIB_APP : appName;
+
       const results = await Promise.all(
         issues.map(async (issue: { title: string; description: string }) => {
           try {
@@ -215,7 +232,7 @@ export function handleFeedbackSubmit(appName: string) {
                 '/usr/local/bin/daemon',
                 [
                   'send', 'createIssue',
-                  '--app', appName,
+                  '--app', effectiveApp,
                   '--title', issue.title,
                   '--description', description,
                   '--labels', '["user-reported"]',
