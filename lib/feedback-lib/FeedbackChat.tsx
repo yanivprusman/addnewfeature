@@ -131,6 +131,7 @@ interface PersistedSession {
   messages: Message[];
   issues?: Issue[];
   checkedIssues?: boolean[];
+  staleIssues?: Issue[];
 }
 
 function useSystemDark() {
@@ -180,11 +181,11 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const [tmuxSession, setTmuxSession] = useState<string | null>(null);
   const [issues, setIssues] = useState<Issue[] | null>(null);
   const [checkedIssues, setCheckedIssues] = useState<boolean[]>([]);
+  const [staleIssues, setStaleIssues] = useState<Issue[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitResults, setSubmitResults] = useState<SubmitResult[] | null>(null);
   const [hookWarning, setHookWarning] = useState<string | null>(null);
   const [expandedIssues, setExpandedIssues] = useState<Record<number, boolean>>({});
-  const [issuesStale, setIssuesStale] = useState(false);
   const [restoredSession, setRestoredSession] = useState(false);
   const [directMode, setDirectMode] = useState(false);
   const [directTitle, setDirectTitle] = useState("");
@@ -209,10 +210,11 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         tmuxSession: tmuxSession || '',
         messages,
         ...(issues && issues.length > 0 && { issues, checkedIssues }),
+        ...(staleIssues.length > 0 && { staleIssues }),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
-  }, [sessionId, tmuxSession, resumeId, messages, issues, checkedIssues]);
+  }, [sessionId, tmuxSession, resumeId, messages, issues, checkedIssues, staleIssues]);
 
   // Restore session from localStorage on mount
   useEffect(() => {
@@ -233,6 +235,9 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       if (data.issues && data.issues.length > 0) {
         setIssues(data.issues);
         setCheckedIssues(data.checkedIssues ?? new Array(data.issues.length).fill(true));
+      }
+      if (data.staleIssues && data.staleIssues.length > 0) {
+        setStaleIssues(data.staleIssues);
       }
 
       if (!data.tmuxSession) {
@@ -336,7 +341,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setInput("");
     setIssues(null);
     setCheckedIssues([]);
-    setIssuesStale(false);
+    setStaleIssues([]);
     setSubmitResults(null);
   }
 
@@ -346,7 +351,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setInput("");
     setIssues(null);
     setCheckedIssues([]);
-    setIssuesStale(false);
+    setStaleIssues([]);
     setSubmitResults(null);
     setOpen(false);
   }
@@ -359,7 +364,11 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     if (inputRef.current) inputRef.current.style.height = 'auto';
     setMessages((prev) => [...prev, { role: "user", text }]);
     setLoading(true);
-    if (issues) setIssuesStale(true);
+    if (issues && issues.length > 0) {
+      setStaleIssues(prev => [...prev, ...issues]);
+      setIssues(null);
+      setCheckedIssues([]);
+    }
     setSubmitResults(null);
 
     try {
@@ -384,6 +393,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           setResumeId(null);
           setIssues(null);
           setCheckedIssues([]);
+          setStaleIssues([]);
           localStorage.removeItem(STORAGE_KEY);
           return;
         }
@@ -413,12 +423,10 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       if (data.issues) {
         setIssues(data.issues);
         setCheckedIssues(new Array(data.issues.length).fill(true));
-        setIssuesStale(false);
       }
     } catch (err) {
       const isNetwork = err instanceof TypeError && err.message === 'Failed to fetch';
       setMessages((prev) => [...prev, { role: "assistant", text: isNetwork ? labels.networkError : labels.error }]);
-      setIssuesStale(false);
     } finally {
       setLoading(false);
     }
@@ -447,6 +455,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         setInput("");
         setIssues(null);
         setCheckedIssues([]);
+        setStaleIssues([]);
         setSubmitResults(null);
         setOpen(false);
       } else {
@@ -627,13 +636,31 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             </div>
           ))}
 
-          {/* Issue checklist */}
+          {/* Stale issues (grayed out, from previous rounds) */}
+          {staleIssues.length > 0 && (
+            <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2 opacity-50`}>
+              <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.selectIssues}</p>
+              {staleIssues.map((issue, i) => (
+                <div key={`stale-${i}`} className="flex items-start gap-2 p-2">
+                  <input type="checkbox" checked disabled className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600" />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
+                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} line-clamp-2 whitespace-pre-wrap`}>
+                      {issue.description}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Active issue checklist */}
           {issues && issues.length > 0 && (
-            <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2${issuesStale ? ' opacity-50' : ''}`}>
+            <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
               <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.selectIssues}</p>
               {issues.map((issue, i) => (
-                <label key={i} className={`flex items-start gap-2 ${issuesStale ? '' : 'cursor-pointer'} p-2 rounded-lg ${issuesStale ? '' : (isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100')} transition-colors`}>
-                  <input type="checkbox" checked={checkedIssues[i] ?? true} onChange={() => toggleIssue(i)} disabled={issuesStale} className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                <label key={i} className={`flex items-start gap-2 cursor-pointer p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
+                  <input type="checkbox" checked={checkedIssues[i] ?? true} onChange={() => toggleIssue(i)} className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
                     <p
@@ -646,7 +673,6 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
                   </div>
                 </label>
               ))}
-              {!issuesStale && (
               <button
                 onClick={handleSubmitIssues}
                 disabled={submitting || !checkedIssues.some(Boolean)}
@@ -654,7 +680,6 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
               >
                 {submitting ? labels.submitting : labels.submit}
               </button>
-              )}
             </div>
           )}
 
