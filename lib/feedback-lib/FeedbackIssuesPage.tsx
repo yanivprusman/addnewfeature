@@ -1030,14 +1030,25 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !fixSessionLoading && setFixSessionTarget(null)}>
           <div className="absolute inset-0 bg-black/50" />
           <div
-            className={`relative border rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 ${dialogBgClass}`}
+            className={`relative border rounded-xl shadow-2xl p-6 max-w-lg w-full mx-4 ${dialogBgClass}`}
             onClick={e => e.stopPropagation()}
           >
             <h2 className="text-lg font-bold mb-2">{labels.fixWithClaude}</h2>
-            <p className={`text-sm mb-4 truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+            <p className={`text-sm mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
               <span className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{fixSessionTarget.issueNumber}</span>
               {" "}{fixSessionTarget.title}
             </p>
+            {fixSessionTarget.description && (
+              <p className={`text-xs mb-1 whitespace-pre-wrap ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                {fixSessionTarget.description}
+              </p>
+            )}
+            {fixSessionTarget.status === "regression" && fixSessionTarget.insights && (
+              <p className={`text-xs mb-1 px-2 py-1 rounded ${isDark ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600"}`}>
+                Regression: {fixSessionTarget.insights}
+              </p>
+            )}
+            <div className="mb-4" />
 
             {/* Previous sessions */}
             {fixSessionTarget.claudeSessionIds && fixSessionTarget.claudeSessionIds.length > 0 && (
