@@ -48,6 +48,9 @@ export interface IssuesPageLabels {
   maintenance: string;
   maintenanceLaunch: string;
   maintenanceLaunching: string;
+  resumeSession: string;
+  newSession: string;
+  previousSessions: string;
 }
 
 const defaultLabels: IssuesPageLabels = {
@@ -82,6 +85,9 @@ const defaultLabels: IssuesPageLabels = {
   maintenance: "Maintenance",
   maintenanceLaunch: "Launch",
   maintenanceLaunching: "Launching...",
+  resumeSession: "Resume",
+  newSession: "New Session",
+  previousSessions: "Previous sessions:",
 };
 
 const heLabels: IssuesPageLabels = {
@@ -116,6 +122,9 @@ const heLabels: IssuesPageLabels = {
   maintenance: "תחזוקה",
   maintenanceLaunch: "הפעלה",
   maintenanceLaunching: "מפעיל...",
+  resumeSession: "המשך",
+  newSession: "סשן חדש",
+  previousSessions: "סשנים קודמים:",
 };
 
 const issuesTranslations: Record<string, IssuesPageLabels> = {
@@ -218,6 +227,10 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const [regressionTarget, setRegressionTarget] = useState<Issue | null>(null);
   const [regressionDesc, setRegressionDesc] = useState("");
   const [regressionLoading, setRegressionLoading] = useState(false);
+
+  // Fix session choice dialog (for regression issues with previous sessions)
+  const [fixSessionTarget, setFixSessionTarget] = useState<Issue | null>(null);
+  const [fixSessionLoading, setFixSessionLoading] = useState(false);
 
   // Maintenance
   const [maintenanceOpen, setMaintenanceOpen] = useState(false);
@@ -359,6 +372,34 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       }
     } catch { /* ignore */ }
     setFixLoading(false);
+  }
+
+  async function handleFixSingleIssue(issue: Issue, resumeSessionId?: string) {
+    setFixSessionLoading(true);
+    try {
+      const res = await fetch("/api/feedback/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "fix",
+          issues: [{
+            number: issue.issueNumber,
+            title: issue.title,
+            status: issue.status,
+            insights: issue.insights,
+            claudeSessionIds: issue.claudeSessionIds,
+          }],
+          ...(resumeSessionId && { resumeSessionId }),
+        }),
+      });
+      if (res.ok) {
+        setIssues(prev => prev.map(i =>
+          i.issueNumber === issue.issueNumber ? { ...i, status: "in_progress" } : i
+        ));
+        setFixSessionTarget(null);
+      }
+    } catch { /* ignore */ }
+    setFixSessionLoading(false);
   }
 
   function openReviewDialog(issue: Issue) {
@@ -709,6 +750,26 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           {labels.notWorking}
                         </button>
                       )}
+                      {/* Fix with Claude button for regression issues */}
+                      {isRegression && (
+                        <button
+                          data-id={`fix-regression-${issue.issueNumber}`}
+                          onClick={() => {
+                            if (issue.claudeSessionIds?.length) {
+                              setFixSessionTarget(issue);
+                            } else {
+                              handleFixSingleIssue(issue);
+                            }
+                          }}
+                          disabled={fixSessionLoading}
+                          className={`text-xs px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                            isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
+                          } disabled:opacity-50`}
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" /></svg>
+                          {fixSessionLoading ? labels.launching : labels.fixWithClaude}
+                        </button>
+                      )}
                       {/* Clear Regression button for regression issues */}
                       {isRegression && (
                         <button
@@ -928,6 +989,78 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                   <>
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                     {labels.markRegression}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fix Session Choice Dialog */}
+      {fixSessionTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !fixSessionLoading && setFixSessionTarget(null)}>
+          <div className="absolute inset-0 bg-black/50" />
+          <div
+            className={`relative border rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 ${dialogBgClass}`}
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold mb-2">{labels.fixWithClaude}</h2>
+            <p className={`text-sm mb-4 truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+              <span className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{fixSessionTarget.issueNumber}</span>
+              {" "}{fixSessionTarget.title}
+            </p>
+
+            {/* Previous sessions */}
+            {fixSessionTarget.claudeSessionIds && fixSessionTarget.claudeSessionIds.length > 0 && (
+              <div className="mb-4">
+                <p className={`text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  {labels.previousSessions}
+                </p>
+                <div className="space-y-2">
+                  {fixSessionTarget.claudeSessionIds.map(sid => (
+                    <div key={sid} className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-slate-50"}`}>
+                      <span className={`font-mono text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>{sid.slice(0, 8)}...</span>
+                      <button
+                        data-id={`resume-session-${sid.slice(0, 8)}`}
+                        onClick={() => handleFixSingleIssue(fixSessionTarget, sid)}
+                        disabled={fixSessionLoading}
+                        className={`text-xs px-3 py-1 rounded-md transition-colors cursor-pointer active:scale-95 ${
+                          isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
+                        } disabled:opacity-50`}
+                      >
+                        {fixSessionLoading ? labels.launching : labels.resumeSession}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3">
+              <button
+                data-id="fix-session-cancel"
+                onClick={() => setFixSessionTarget(null)}
+                disabled={fixSessionLoading}
+                className={`text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer ${btnClass} active:scale-95`}
+              >
+                {labels.cancel}
+              </button>
+              <button
+                data-id="fix-session-new"
+                onClick={() => handleFixSingleIssue(fixSessionTarget)}
+                disabled={fixSessionLoading}
+                className={`text-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-2 cursor-pointer ${
+                  isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
+                } disabled:opacity-50 active:scale-95`}
+              >
+                {fixSessionLoading ? (
+                  <>{labels.launching}</>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" /></svg>
+                    {labels.newSession}
                   </>
                 )}
               </button>
