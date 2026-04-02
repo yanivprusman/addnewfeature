@@ -9,6 +9,7 @@ interface Issue {
   status: string;
   labels: string[];
   createdAt: string;
+  updatedAt: string;
   closedAt?: string;
   insights?: string;
   claudeSessionId?: string;
@@ -290,14 +291,18 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         (window as Record<string, unknown>).__feedbackLibIssuesUrl = data.feedbackLibIssuesUrl;
       }
       const all: Issue[] = Array.isArray(data.issues) ? data.issues : [];
-      // Only show user-reported issues, sorted: open/in_progress first, then review, then closed; newest first within each group
+      // Only show user-reported issues, sorted: open by createdAt newest-first, closed by updatedAt newest-first
       const list = all
         .filter(i => i.labels?.includes("user-reported"))
         .sort((a, b) => {
-          const order: Record<string, number> = { open: 0, in_progress: 1, regression: 2, review: 3, closed: 4 };
-          const statusDiff = (order[a.status] ?? 0) - (order[b.status] ?? 0);
-          if (statusDiff !== 0) return statusDiff;
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          const aIsClosed = a.status === "closed";
+          const bIsClosed = b.status === "closed";
+          // Open issues before closed
+          if (aIsClosed !== bIsClosed) return aIsClosed ? 1 : -1;
+          // Within group: open by createdAt, closed by updatedAt
+          const aDate = aIsClosed ? a.updatedAt : a.createdAt;
+          const bDate = bIsClosed ? b.updatedAt : b.createdAt;
+          return new Date(bDate).getTime() - new Date(aDate).getTime();
         });
       setIssues(list);
     } catch {
