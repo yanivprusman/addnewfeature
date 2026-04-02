@@ -488,10 +488,19 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
         return NextResponse.json({ ok: true, results });
       }
 
-      // --- Standard actions: close, reopen, update ---
+      // --- Standard actions: close, reopen, update, delete ---
       const { issueNumber } = body;
+
+      if (action === 'delete') {
+        if (!issueNumber) {
+          return NextResponse.json({ error: 'issueNumber required for delete' }, { status: 400 });
+        }
+        const output = await daemonExec(['send', 'deleteIssue', '--app', appName, '--issueNumber', String(issueNumber)]);
+        return NextResponse.json({ ok: true, output });
+      }
+
       if (!issueNumber || !['close', 'reopen', 'update'].includes(action)) {
-        return NextResponse.json({ error: 'action (close|reopen|update|create|fix|reviewed) and issueNumber required' }, { status: 400 });
+        return NextResponse.json({ error: 'action (close|reopen|update|create|fix|reviewed|delete) and issueNumber required' }, { status: 400 });
       }
 
       let args: string[];

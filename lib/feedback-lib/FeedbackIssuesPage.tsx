@@ -41,6 +41,10 @@ export interface IssuesPageLabels {
   launching: string;
   reviewing: string;
   refresh: string;
+  close: string;
+  closing: string;
+  delete: string;
+  deleteConfirm: string;
 }
 
 const defaultLabels: IssuesPageLabels = {
@@ -68,6 +72,10 @@ const defaultLabels: IssuesPageLabels = {
   launching: "Launching...",
   reviewing: "Reviewing...",
   refresh: "Refresh",
+  close: "Close",
+  closing: "Closing...",
+  delete: "Delete",
+  deleteConfirm: "Are you sure you want to delete this issue?",
 };
 
 const heLabels: IssuesPageLabels = {
@@ -95,6 +103,10 @@ const heLabels: IssuesPageLabels = {
   launching: "משיק...",
   reviewing: "מסמן...",
   refresh: "רענון",
+  close: "סגירה",
+  closing: "סוגר...",
+  delete: "מחיקה",
+  deleteConfirm: "האם למחוק תקלה זו?",
 };
 
 const issuesTranslations: Record<string, IssuesPageLabels> = {
@@ -445,6 +457,39 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     setActionLoading(null);
   }
 
+  async function handleCloseIssue(issueNumber: number) {
+    setActionLoading(issueNumber);
+    try {
+      const res = await fetch("/api/feedback/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "close", issueNumber }),
+      });
+      if (res.ok) {
+        setIssues(prev => prev.map(i =>
+          i.issueNumber === issueNumber ? { ...i, status: "closed" } : i
+        ));
+      }
+    } catch { /* ignore */ }
+    setActionLoading(null);
+  }
+
+  async function handleDeleteIssue(issueNumber: number) {
+    if (!window.confirm(labels.deleteConfirm)) return;
+    setActionLoading(issueNumber);
+    try {
+      const res = await fetch("/api/feedback/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", issueNumber }),
+      });
+      if (res.ok) {
+        setIssues(prev => prev.filter(i => i.issueNumber !== issueNumber));
+      }
+    } catch { /* ignore */ }
+    setActionLoading(null);
+  }
+
   const selectedCount = issues.filter(i => selectedIds.has(i.issueNumber) && i.status !== "closed" && i.status !== "review").length;
 
   const bgClass = isDark ? "bg-slate-900 text-slate-200" : "bg-white text-slate-900";
@@ -637,12 +682,33 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           {labels.clearRegression}
                         </button>
                       )}
+                      {/* Close button for open/in_progress issues */}
+                      {(issue.status === "open" || issue.status === "in_progress") && (
+                        <button
+                          data-id={`close-issue-${issue.issueNumber}`}
+                          onClick={() => handleCloseIssue(issue.issueNumber)}
+                          disabled={actionLoading === issue.issueNumber}
+                          className={`text-xs px-3 py-1.5 rounded-md transition-colors cursor-pointer ${btnClass} active:scale-95 disabled:opacity-50`}
+                        >
+                          {actionLoading === issue.issueNumber ? labels.closing : labels.close}
+                        </button>
+                      )}
                       <button
                         data-id={`edit-issue-${issue.issueNumber}`}
                         onClick={() => startEdit(issue)}
                         className={`text-xs px-3 py-1.5 rounded-md transition-colors cursor-pointer ${btnClass} active:scale-95`}
                       >
                         {labels.edit}
+                      </button>
+                      <button
+                        data-id={`delete-issue-${issue.issueNumber}`}
+                        onClick={() => handleDeleteIssue(issue.issueNumber)}
+                        disabled={actionLoading === issue.issueNumber}
+                        className={`text-xs px-3 py-1.5 rounded-md transition-colors cursor-pointer ${
+                          isDark ? "bg-slate-700 hover:bg-red-900 hover:text-red-300 text-slate-300" : "bg-slate-100 hover:bg-red-100 hover:text-red-700 text-slate-700"
+                        } active:scale-95 disabled:opacity-50`}
+                      >
+                        {labels.delete}
                       </button>
                     </div>
                   </div>
