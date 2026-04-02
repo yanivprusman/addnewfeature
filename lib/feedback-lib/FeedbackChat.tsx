@@ -32,6 +32,18 @@ function getFullPagePath(): string {
   return pathname + search + hash;
 }
 
+/** Build the URL to addnewfeature's /issues page from the current hostname.
+ *  For *.dev.ya-niv.com → addnewfeature.dev.ya-niv.com/issues.
+ *  For localhost (developer running addnewfeature itself) → /issues. */
+function getFeedbackLibIssuesUrl(): string {
+  const host = window.location.hostname;
+  const match = host.match(/^[^.]+\.(dev\.ya-niv\.com)$/);
+  if (match) {
+    return `${window.location.protocol}//addnewfeature.${match[1]}/issues`;
+  }
+  return '/issues';
+}
+
 interface Message {
   role: "user" | "assistant";
   text: string;
@@ -497,8 +509,8 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           <button onClick={handleNewChat} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.newChat}>
             {labels.newChat}
           </button>
-          {issuesPath && !isOnIssuesPage && (
-            <a href={issuesPath} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
+          {issuesPath && (
+            <a href={isOnIssuesPage ? getFeedbackLibIssuesUrl() : issuesPath} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
               {labels.viewIssues}
             </a>
           )}
