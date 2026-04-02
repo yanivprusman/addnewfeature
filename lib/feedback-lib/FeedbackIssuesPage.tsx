@@ -360,6 +360,8 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           issues: selected.map(i => ({
             number: i.issueNumber,
             title: i.title,
+            description: i.description,
+            labels: i.labels,
             ...(i.status === "regression" && {
               status: i.status,
               insights: i.insights,
@@ -390,6 +392,8 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           issues: [{
             number: issue.issueNumber,
             title: issue.title,
+            description: issue.description,
+            labels: issue.labels,
             status: issue.status,
             insights: issue.insights,
             claudeSessionIds: issue.claudeSessionIds,
