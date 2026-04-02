@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { NavLinks } from './nav-links';
 
 export default async function DashboardLayout({
   children,
@@ -20,8 +21,7 @@ export default async function DashboardLayout({
             addnewfeature
           </Link>
           <div className="flex items-center gap-4 text-sm text-gray-400">
-            <Link href="/apps" className="hover:text-gray-200">Apps</Link>
-            <Link href="/billing" className="hover:text-gray-200">Billing</Link>
+            <NavLinks />
             <span>{session.user.email}</span>
           </div>
         </div>
