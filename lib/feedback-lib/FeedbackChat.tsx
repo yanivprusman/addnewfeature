@@ -124,7 +124,7 @@ interface FeedbackChatProps {
   issuesPath?: string;
 }
 
-const STORAGE_KEY = "feedback-chat-session";
+const STORAGE_KEY_BASE = "feedback-chat-session";
 
 interface PersistedSession {
   sessionId: string;
@@ -200,6 +200,14 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setIsOnIssuesPage(window.location.pathname === issuesPath);
   }, [issuesPath]);
 
+  // Scope localStorage key by page context — issues page targets addnewfeature,
+  // not the host app, so it needs its own independent session.
+  const [storageKey] = useState(() =>
+    typeof window !== 'undefined' && window.location.pathname === issuesPath
+      ? `${STORAGE_KEY_BASE}-issues`
+      : STORAGE_KEY_BASE
+  );
+
   // Persist session to localStorage whenever it changes
   useEffect(() => {
     const sid = sessionId || resumeId;
@@ -210,16 +218,16 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         messages,
         ...(issues && issues.length > 0 && { issues, checkedIssues }),
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(storageKey, JSON.stringify(data));
     }
-  }, [sessionId, tmuxSession, resumeId, messages, issues, checkedIssues]);
+  }, [storageKey, sessionId, tmuxSession, resumeId, messages, issues, checkedIssues]);
 
   // Restore session from localStorage on mount
   useEffect(() => {
     if (restoredSession) return;
     setRestoredSession(true);
 
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(storageKey);
     if (!stored) return;
 
     try {
@@ -257,9 +265,9 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           setResumeId(data.sessionId);
         });
     } catch {
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(storageKey);
     }
-  }, [restoredSession]);
+  }, [restoredSession, storageKey]);
 
   // Poll session status while active — detect when tmux dies (e.g. SessionEnd hook killed it)
   useEffect(() => {
@@ -322,12 +330,12 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         body: JSON.stringify({ tmuxSession }),
       }).catch(() => {});
     }
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(storageKey);
     setSessionId(null);
     setTmuxSession(null);
     setResumeId(null);
     setHookWarning(null);
-  }, [tmuxSession]);
+  }, [tmuxSession, storageKey]);
 
   function handleNewChat() {
     closeSession();
@@ -389,7 +397,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           setIssues(null);
           setCheckedIssues([]);
       
-          localStorage.removeItem(STORAGE_KEY);
+          localStorage.removeItem(storageKey);
           return;
         }
         if (res.status === 504 || data.error === 'timeout') {
