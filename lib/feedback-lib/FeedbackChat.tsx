@@ -184,6 +184,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const [submitResults, setSubmitResults] = useState<SubmitResult[] | null>(null);
   const [hookWarning, setHookWarning] = useState<string | null>(null);
   const [expandedIssues, setExpandedIssues] = useState<Record<number, boolean>>({});
+  const [issuesStale, setIssuesStale] = useState(false);
   const [restoredSession, setRestoredSession] = useState(false);
   const [directMode, setDirectMode] = useState(false);
   const [directTitle, setDirectTitle] = useState("");
@@ -335,6 +336,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setInput("");
     setIssues(null);
     setCheckedIssues([]);
+    setIssuesStale(false);
     setSubmitResults(null);
   }
 
@@ -344,6 +346,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setInput("");
     setIssues(null);
     setCheckedIssues([]);
+    setIssuesStale(false);
     setSubmitResults(null);
     setOpen(false);
   }
@@ -356,6 +359,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     if (inputRef.current) inputRef.current.style.height = 'auto';
     setMessages((prev) => [...prev, { role: "user", text }]);
     setLoading(true);
+    if (issues) setIssuesStale(true);
     setSubmitResults(null);
 
     try {
@@ -409,10 +413,12 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       if (data.issues) {
         setIssues(data.issues);
         setCheckedIssues(new Array(data.issues.length).fill(true));
+        setIssuesStale(false);
       }
     } catch (err) {
       const isNetwork = err instanceof TypeError && err.message === 'Failed to fetch';
       setMessages((prev) => [...prev, { role: "assistant", text: isNetwork ? labels.networkError : labels.error }]);
+      setIssuesStale(false);
     } finally {
       setLoading(false);
     }
@@ -623,11 +629,11 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
           {/* Issue checklist */}
           {issues && issues.length > 0 && (
-            <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
+            <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2${issuesStale ? ' opacity-50' : ''}`}>
               <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.selectIssues}</p>
               {issues.map((issue, i) => (
-                <label key={i} className={`flex items-start gap-2 cursor-pointer p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
-                  <input type="checkbox" checked={checkedIssues[i] ?? true} onChange={() => toggleIssue(i)} className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                <label key={i} className={`flex items-start gap-2 ${issuesStale ? '' : 'cursor-pointer'} p-2 rounded-lg ${issuesStale ? '' : (isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100')} transition-colors`}>
+                  <input type="checkbox" checked={checkedIssues[i] ?? true} onChange={() => toggleIssue(i)} disabled={issuesStale} className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
                     <p
@@ -640,6 +646,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
                   </div>
                 </label>
               ))}
+              {!issuesStale && (
               <button
                 onClick={handleSubmitIssues}
                 disabled={submitting || !checkedIssues.some(Boolean)}
@@ -647,6 +654,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
               >
                 {submitting ? labels.submitting : labels.submit}
               </button>
+              )}
             </div>
           )}
 
