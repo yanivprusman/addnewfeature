@@ -181,6 +181,10 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const hasSession = sessionId !== null;
+  const [isOnIssuesPage, setIsOnIssuesPage] = useState(false);
+  useEffect(() => {
+    setIsOnIssuesPage(window.location.pathname === issuesPath);
+  }, [issuesPath]);
 
   // Persist session to sessionStorage whenever it changes
   useEffect(() => {
@@ -429,7 +433,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       const res = await fetch("/api/feedback/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create", title: directTitle, description: directDesc }),
+        body: JSON.stringify({ action: "create", title: directTitle, description: directDesc, pagePath: getFullPagePath(), pageContext: getPageContext() }),
       });
       if (!res.ok) throw new Error("Create failed");
       const data = await res.json();
@@ -493,7 +497,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           <button onClick={handleNewChat} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.newChat}>
             {labels.newChat}
           </button>
-          {issuesPath && (
+          {issuesPath && !isOnIssuesPage && (
             <a href={issuesPath} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
               {labels.viewIssues}
             </a>

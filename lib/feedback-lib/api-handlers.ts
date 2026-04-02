@@ -408,20 +408,27 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
 
       // --- Create issue directly (bypass clarifier) ---
       if (action === 'create') {
-        const { title, description } = body;
+        const { title, description, pagePath, pageContext } = body;
         if (!title || typeof title !== 'string' || !title.trim()) {
           return NextResponse.json({ error: 'title is required' }, { status: 400 });
         }
+        const pathOnly = pagePath?.split(/[?#]/)[0];
+        const isFeedbackLibPage = pathOnly && FEEDBACK_LIB_PAGES.includes(pathOnly);
+        const effectiveApp = isFeedbackLibPage ? FEEDBACK_LIB_APP : appName;
+        const locationTag = buildLocationTag(pagePath, pageContext);
+        const fullDesc = locationTag
+          ? `${locationTag}\n\n${(description || '').trim()}`
+          : (description || '').trim();
         const args = [
           'send', 'createIssue',
-          '--app', appName,
+          '--app', effectiveApp,
           '--title', title.trim(),
-          '--description', (description || '').trim(),
+          '--description', fullDesc,
           '--labels', '["user-reported"]',
         ];
         const output = await daemonExec(args);
         const data = JSON.parse(output);
-        return NextResponse.json({ ok: true, issueNumber: data.issueNumber });
+        return NextResponse.json({ ok: true, issueNumber: data.issueNumber, effectiveApp });
       }
 
       // --- Fix with Claude ---
