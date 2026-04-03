@@ -4,43 +4,61 @@ const PENDING_KEY = Symbol.for('feedback-lib:pending-responses');
 
 type PendingEntry = { resolve: (text: string) => void };
 
-function getPendingMap(): Map<string, PendingEntry> {
+function getPendingMap(): Map<string, PendingEntry[]> {
   const g = globalThis as Record<symbol, unknown>;
   if (!g[PENDING_KEY]) {
-    g[PENDING_KEY] = new Map<string, PendingEntry>();
+    g[PENDING_KEY] = new Map<string, PendingEntry[]>();
   }
-  return g[PENDING_KEY] as Map<string, PendingEntry>;
+  return g[PENDING_KEY] as Map<string, PendingEntry[]>;
 }
 
 export function waitForResponse(sessionId: string, timeoutMs: number): Promise<string> {
   const pending = getPendingMap();
   return new Promise<string>((resolve, reject) => {
+    let entry: PendingEntry;
+
     const timer = setTimeout(() => {
-      pending.delete(sessionId);
-      console.log(`[feedback-lib] waitForResponse TIMEOUT for session ${sessionId} (pending size: ${pending.size})`);
+      const queue = pending.get(sessionId);
+      if (queue) {
+        const idx = queue.indexOf(entry);
+        if (idx !== -1) queue.splice(idx, 1);
+        if (queue.length === 0) pending.delete(sessionId);
+      }
+      console.log(`[feedback-lib] waitForResponse TIMEOUT for session ${sessionId} (queue size: ${pending.get(sessionId)?.length ?? 0})`);
       reject(new Error('Timeout waiting for Claude response'));
     }, timeoutMs);
 
-    pending.set(sessionId, {
+    entry = {
       resolve: (text: string) => {
         clearTimeout(timer);
-        pending.delete(sessionId);
-        console.log(`[feedback-lib] waitForResponse RESOLVED for session ${sessionId}`);
+        const queue = pending.get(sessionId);
+        if (queue) {
+          const idx = queue.indexOf(entry);
+          if (idx !== -1) queue.splice(idx, 1);
+          if (queue.length === 0) pending.delete(sessionId);
+        }
+        console.log(`[feedback-lib] waitForResponse RESOLVED for session ${sessionId} (queue size: ${pending.get(sessionId)?.length ?? 0})`);
         resolve(text);
       },
-    });
-    console.log(`[feedback-lib] waitForResponse REGISTERED for session ${sessionId} (pending size: ${pending.size})`);
+    };
+
+    if (!pending.has(sessionId)) {
+      pending.set(sessionId, []);
+    }
+    pending.get(sessionId)!.push(entry);
+    console.log(`[feedback-lib] waitForResponse REGISTERED for session ${sessionId} (queue size: ${pending.get(sessionId)!.length})`);
   });
 }
 
 export function resolveResponse(sessionId: string, text: string): boolean {
   const pending = getPendingMap();
-  const entry = pending.get(sessionId);
-  if (entry) {
-    console.log(`[feedback-lib] resolveResponse FOUND session ${sessionId} (pending size: ${pending.size})`);
-    entry.resolve(text);
+  const queue = pending.get(sessionId);
+  if (queue && queue.length > 0) {
+    console.log(`[feedback-lib] resolveResponse FOUND session ${sessionId} (queue size: ${queue.length})`);
+    // FIFO: resolve the oldest waiter first
+    queue[0].resolve(text);
     return true;
   }
-  console.log(`[feedback-lib] resolveResponse MISS for session ${sessionId} (pending size: ${pending.size}, keys: [${[...pending.keys()].join(', ')}])`);
+  console.log(`[feedback-lib] resolveResponse MISS for session ${sessionId} (keys: [${[...pending.keys()].join(', ')}])`);
   return false;
 }

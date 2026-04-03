@@ -181,7 +181,8 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loadingCount, setLoadingCount] = useState(0);
+  const loading = loadingCount > 0;
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [tmuxSession, setTmuxSession] = useState<string | null>(null);
   const [issues, setIssues] = useState<Issue[] | null>(null);
@@ -347,6 +348,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     closeSession();
     setMessages([{ role: "assistant", text: labels.greeting }]);
     setInput("");
+    setLoadingCount(0);
     setIssues(null);
     setCheckedIssues([]);
     setSubmitResults(null);
@@ -357,6 +359,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     closeSession();
     setMessages([{ role: "assistant", text: labels.greeting }]);
     setInput("");
+    setLoadingCount(0);
     setIssues(null);
     setCheckedIssues([]);
     setSubmitResults(null);
@@ -366,7 +369,8 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
   async function handleSend() {
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text) return;
+    if (loading && !sessionId) return;
 
     setInput("");
     if (inputRef.current) inputRef.current.style.height = 'auto';
@@ -377,7 +381,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     } else {
       setMessages((prev) => [...prev, { role: "user", text }]);
     }
-    setLoading(true);
+    setLoadingCount(c => c + 1);
     setSubmitResults(null);
     setShowPostSubmitPrompt(false);
 
@@ -438,7 +442,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       const isNetwork = err instanceof TypeError && err.message === 'Failed to fetch';
       setMessages((prev) => [...prev, { role: "assistant", text: isNetwork ? labels.networkError : labels.error }]);
     } finally {
-      setLoading(false);
+      setLoadingCount(c => c - 1);
     }
   }
 
@@ -506,6 +510,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     closeSession();
     setMessages([{ role: "assistant", text: labels.greeting }]);
     setInput("");
+    setLoadingCount(0);
     setIssues(null);
     setCheckedIssues([]);
     setSubmitResults(null);
@@ -762,7 +767,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           />
           <button
             onClick={handleSend}
-            disabled={loading || !input.trim()}
+            disabled={!input.trim() || (loading && !sessionId)}
             className={`px-3 py-2 ${accent} ${isDark ? 'disabled:bg-slate-600' : 'disabled:bg-slate-300'} text-white rounded-lg transition-colors`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
