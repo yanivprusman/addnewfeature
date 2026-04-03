@@ -266,6 +266,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const [chatSessionId, setChatSessionId] = useState<string | null>(null);
   const [chatTmuxSession, setChatTmuxSession] = useState<string | null>(null);
   const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
+  const [chatExpandedIssues, setChatExpandedIssues] = useState<Record<string, boolean>>({});
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
   const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -1393,11 +1394,13 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           <input type="checkbox" checked disabled className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600" />
                           <div className="flex-1 min-w-0">
                             <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
-                            {issue.description && (
-                              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} line-clamp-2 whitespace-pre-wrap`}>
-                                {issue.description}
-                              </p>
-                            )}
+                            <p
+                              className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} ${chatExpandedIssues[`stale-${i}-${j}`] ? '' : 'line-clamp-2'} cursor-pointer whitespace-pre-wrap`}
+                              onMouseDown={(e) => { mouseDownRef.current = { x: e.clientX, y: e.clientY }; }}
+                              onClick={(e) => { const s = mouseDownRef.current; if (s && (Math.abs(e.clientX - s.x) > 3 || Math.abs(e.clientY - s.y) > 3)) return; if (window.getSelection()?.toString()) return; setChatExpandedIssues(prev => ({ ...prev, [`stale-${i}-${j}`]: !prev[`stale-${i}-${j}`] })); }}
+                            >
+                              {issue.description}
+                            </p>
                           </div>
                         </div>
                       ))}
