@@ -239,10 +239,10 @@ export function handleFeedbackResponse() {
  * Returns a POST handler for /api/feedback/submit
  * Creates issues in the daemon tracker for the given app.
  */
-export function handleFeedbackSubmit(appName: string) {
+export function handleFeedbackSubmit(appName: string, workDir?: string) {
   return async function POST(request: NextRequest) {
     try {
-      const { issues, pagePath, pageContext } = await request.json();
+      const { issues, pagePath, pageContext, sessionId } = await request.json();
 
       if (!Array.isArray(issues) || issues.length === 0) {
         return NextResponse.json({ error: 'At least one issue is required' }, { status: 400 });
@@ -260,15 +260,19 @@ export function handleFeedbackSubmit(appName: string) {
               const description = locationTag
                 ? `${locationTag}\n\n${issue.description}`
                 : issue.description;
-              execFile(
-                '/usr/local/bin/daemon',
-                [
+              const args = [
                   'send', 'createIssue',
                   '--app', effectiveApp,
                   '--title', issue.title,
                   '--description', description,
                   '--labels', '["user-reported"]',
-                ],
+              ];
+              if (sessionId && workDir) {
+                args.push('--claudeSessionId', sessionId, '--claudeLaunchDir', workDir);
+              }
+              execFile(
+                '/usr/local/bin/daemon',
+                args,
                 { timeout: 10_000, maxBuffer: 64 * 1024 },
                 (error, stdout, stderr) => {
                   if (error) {

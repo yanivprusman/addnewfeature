@@ -466,7 +466,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       const res = await fetch("/api/feedback/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issues: selected, pagePath: getFullPagePath(), pageContext: getPageContext() }),
+        body: JSON.stringify({ issues: selected, pagePath: getFullPagePath(), pageContext: getPageContext(), sessionId: sessionId || resumeId }),
       });
 
       if (!res.ok) throw new Error("Submit failed");

@@ -617,7 +617,8 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     setChatTmuxSession(null);
     setChatHistoryLoading(true);
     try {
-      const res = await fetch(`/api/feedback/session-history?sessionId=${encodeURIComponent(issue.claudeSessionId!)}`);
+      const clarifierSessionId = issue.claudeSessionIds?.[0] || issue.claudeSessionId;
+      const res = await fetch(`/api/feedback/session-history?sessionId=${encodeURIComponent(clarifierSessionId!)}`);
       const data = await res.json();
       if (data.found && data.messages.length > 0) {
         setChatMessages(data.messages);
@@ -658,7 +659,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           message: text,
           ...(chatSessionId && chatTmuxSession
             ? { sessionId: chatSessionId, tmuxSession: chatTmuxSession }
-            : { resumeSessionId: chatTarget.claudeSessionId }),
+            : { resumeSessionId: chatTarget.claudeSessionIds?.[0] || chatTarget.claudeSessionId }),
           pagePath: "/issues",
           pageContext: "Issues",
         }),
@@ -963,7 +964,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           <button
                             data-id={`not-working-${issue.issueNumber}`}
                             onClick={() => {
-                              if (issue.claudeSessionId) {
+                              if (issue.claudeSessionIds?.[0] || issue.claudeSessionId) {
                                 openRegressionChat(issue);
                               } else {
                                 setRegressionTarget(issue);
