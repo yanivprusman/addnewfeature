@@ -119,9 +119,10 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
           || undefined;
 
         // If reporting from a feedback-lib page (e.g. /issues), redirect to addnewfeature
+        // Skip redirect when resuming — the session lives under the original app's workDir
         // Extract pathname only (pagePath may include search/hash)
         const pathOnly = pagePath?.split(/[?#]/)[0];
-        const isFeedbackLibPage = pathOnly && FEEDBACK_LIB_PAGES.includes(pathOnly);
+        const isFeedbackLibPage = !resumeSessionId && pathOnly && FEEDBACK_LIB_PAGES.includes(pathOnly);
         const effectiveApp = isFeedbackLibPage ? FEEDBACK_LIB_APP : appName;
         const effectiveWorkDir = isFeedbackLibPage ? FEEDBACK_LIB_WORKDIR : workDir;
 
