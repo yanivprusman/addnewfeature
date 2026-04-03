@@ -678,7 +678,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
                       <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
                       <p
                         className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} ${expandedIssues[`stale-${i}-${j}`] ? '' : 'line-clamp-2'} cursor-pointer whitespace-pre-wrap`}
-                        onClick={() => setExpandedIssues(prev => ({ ...prev, [`stale-${i}-${j}`]: !prev[`stale-${i}-${j}`] }))}
+                        onClick={() => { if (window.getSelection()?.toString()) return; setExpandedIssues(prev => ({ ...prev, [`stale-${i}-${j}`]: !prev[`stale-${i}-${j}`] })); }}
                       >
                         {issue.description}
                       </p>
@@ -706,7 +706,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
                     <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
                     <p
                       className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} ${expandedIssues[i] ? '' : 'line-clamp-2'} cursor-pointer whitespace-pre-wrap`}
-                      onClick={(e) => { e.preventDefault(); setExpandedIssues(prev => ({ ...prev, [i]: !prev[i] })); }}
+                      onClick={(e) => { e.preventDefault(); if (window.getSelection()?.toString()) return; setExpandedIssues(prev => ({ ...prev, [i]: !prev[i] })); }}
                       data-id={`issue-description-${i}`}
                     >
                       {issue.description}

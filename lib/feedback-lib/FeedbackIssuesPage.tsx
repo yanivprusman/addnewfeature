@@ -918,7 +918,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
 
                     <div
                       className="flex-1 min-w-0 cursor-pointer"
-                      onClick={() => setExpandedIds(prev => { const next = new Set(prev); if (next.has(issue.issueNumber)) next.delete(issue.issueNumber); else next.add(issue.issueNumber); return next; })}
+                      onClick={() => { if (window.getSelection()?.toString()) return; setExpandedIds(prev => { const next = new Set(prev); if (next.has(issue.issueNumber)) next.delete(issue.issueNumber); else next.add(issue.issueNumber); return next; }); }}
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <span className={`text-xs font-mono ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{issue.issueNumber}</span>
