@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Fragment } from "react";
 
 interface Issue {
   issueNumber: number;
@@ -60,6 +60,7 @@ export interface IssuesPageLabels {
   loadingHistory: string;
   noSessionHistory: string;
   sendMessage: string;
+  selectIssues: string;
 }
 
 const defaultLabels: IssuesPageLabels = {
@@ -104,6 +105,7 @@ const defaultLabels: IssuesPageLabels = {
   loadingHistory: "Loading conversation...",
   noSessionHistory: "No previous conversation found.",
   sendMessage: "Send",
+  selectIssues: "Select the issues to submit:",
 };
 
 const heLabels: IssuesPageLabels = {
@@ -148,6 +150,7 @@ const heLabels: IssuesPageLabels = {
   loadingHistory: "טוען שיחה...",
   noSessionHistory: "לא נמצאה שיחה קודמת.",
   sendMessage: "שליחה",
+  selectIssues: "בחרו את הבעיות שברצונכם לשלוח:",
 };
 
 const issuesTranslations: Record<string, IssuesPageLabels> = {
@@ -257,7 +260,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
 
   // Regression chat modal (resumes original clarifier session)
   const [chatTarget, setChatTarget] = useState<Issue | null>(null);
-  const [chatMessages, setChatMessages] = useState<{ role: string; text: string }[]>([]);
+  const [chatMessages, setChatMessages] = useState<{ role: string; text: string; staleIssues?: { title: string; description: string }[] }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [chatSessionId, setChatSessionId] = useState<string | null>(null);
@@ -1370,15 +1373,37 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                 <p className={`text-sm text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>{labels.noSessionHistory}</p>
               )}
               {chatMessages.map((msg, i) => (
-                <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap ${
-                    msg.role === "user"
-                      ? "bg-indigo-600 text-white"
-                      : (isDark ? "bg-slate-700 text-slate-200" : "bg-slate-100 text-slate-800")
-                  }`}>
-                    {msg.text}
-                  </div>
-                </div>
+                <Fragment key={i}>
+                  {msg.text && (
+                    <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                      <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap ${
+                        msg.role === "user"
+                          ? "bg-indigo-600 text-white"
+                          : (isDark ? "bg-slate-700 text-slate-200" : "bg-slate-100 text-slate-800")
+                      }`}>
+                        {msg.text}
+                      </div>
+                    </div>
+                  )}
+                  {msg.staleIssues && (
+                    <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2 opacity-50`}>
+                      <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.selectIssues}</p>
+                      {msg.staleIssues.map((issue, j) => (
+                        <div key={j} className="flex items-start gap-2 p-2">
+                          <input type="checkbox" checked disabled className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600" />
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
+                            {issue.description && (
+                              <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} line-clamp-2 whitespace-pre-wrap`}>
+                                {issue.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Fragment>
               ))}
               {chatLoading && (
                 <div className="flex justify-start">

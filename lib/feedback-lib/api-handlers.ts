@@ -605,7 +605,7 @@ export function handleFeedbackSessionHistory(_appName: string, workDir: string) 
     try {
       const raw = readFileSync(sessionFile, 'utf-8');
       const lines = raw.split('\n').filter(Boolean);
-      const messages: { role: string; text: string }[] = [];
+      const messages: { role: string; text: string; staleIssues?: { title: string; description: string }[] }[] = [];
 
       for (const line of lines) {
         let obj: Record<string, unknown>;
@@ -627,11 +627,21 @@ export function handleFeedbackSessionHistory(_appName: string, workDir: string) 
           const texts = (msg.content as Array<{ type?: string; text?: string }>)
             .filter(b => b.type === 'text' && b.text)
             .map(b => b.text!);
-          // Strip JSON code blocks (issue proposals) — matches FeedbackChat behavior
           let combined = texts.join('\n').trim();
+          // Extract issue proposals from JSON code blocks before stripping them
+          let staleIssues: { title: string; description: string }[] | undefined;
+          const jsonMatch = combined.match(/```json\s*\n([\s\S]*?)\n```/);
+          if (jsonMatch) {
+            try {
+              const parsed = JSON.parse(jsonMatch[1]);
+              if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].title) {
+                staleIssues = parsed.map((i: { title: string; description?: string }) => ({ title: i.title, description: i.description || '' }));
+              }
+            } catch { /* not valid issue JSON, ignore */ }
+          }
           combined = combined.replace(/```json\s*\n[\s\S]*?\n```\s*/g, '').trim();
-          if (combined) {
-            messages.push({ role: 'assistant', text: combined });
+          if (combined || staleIssues) {
+            messages.push({ role: 'assistant', text: combined, ...(staleIssues && { staleIssues }) });
           }
         }
       }
