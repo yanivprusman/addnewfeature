@@ -587,7 +587,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             {labels.newChat}
           </button>
           {issuesPath && (
-            <a href={isOnIssuesPage ? getFeedbackLibIssuesUrl() : issuesPath} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
+            <a href={isOnIssuesPage ? getFeedbackLibIssuesUrl() : issuesPath} target="feedback-issues" rel="noopener noreferrer" className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
               {labels.viewIssues}
             </a>
           )}
