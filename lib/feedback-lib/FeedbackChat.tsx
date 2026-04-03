@@ -9,14 +9,14 @@ const PAGE_CONTEXT_KEY = '__feedbackPageContext';
 /** Set the current page context (e.g. active tab name) for issue tracking.
  *  Alternative to using `data-active-tab` DOM attribute — both are detected automatically. */
 export function setFeedbackPageContext(context: string | null) {
-  (window as Record<string, unknown>)[PAGE_CONTEXT_KEY] = context;
+  (window as unknown as Record<string, unknown>)[PAGE_CONTEXT_KEY] = context;
 }
 
 /** Auto-detect page context: checks explicit setter, then scans DOM for data-active-tab. */
 function getPageContext(): string | undefined {
   if (typeof window === 'undefined') return undefined;
   // 1. Explicit setter (escape hatch)
-  const explicit = (window as Record<string, unknown>)[PAGE_CONTEXT_KEY];
+  const explicit = (window as unknown as Record<string, unknown>)[PAGE_CONTEXT_KEY];
   if (typeof explicit === 'string' && explicit) return explicit;
   // 2. Scan DOM for active tab element
   const activeTab = document.querySelector('[data-active-tab]');
