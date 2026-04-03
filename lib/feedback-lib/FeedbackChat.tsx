@@ -152,11 +152,19 @@ function useSystemDark() {
   return dark;
 }
 
-function openIssuesTab(url: string, target = 'feedback-issues') {
-  // Always use window.open — it reuses the named tab and handles cross-origin
-  // navigation (e.g., cad on port 3001 vs addnewfeature on port 3039) without
-  // the SecurityError that _issuesWindow.location.href = url would throw.
-  const w = window.open(url, target);
+// Module-level refs so window handles survive re-renders.
+// Named windows don't resolve cross-origin, so we track refs directly.
+let _issuesWindow: Window | null = null;
+let _parentIssuesWindow: Window | null = null;
+
+function openIssuesTab(url: string, parent = false) {
+  const ref = parent ? _parentIssuesWindow : _issuesWindow;
+  if (ref && !ref.closed) {
+    ref.focus();
+    return;
+  }
+  const w = window.open(url, parent ? 'feedback-issues-parent' : 'feedback-issues');
+  if (parent) _parentIssuesWindow = w; else _issuesWindow = w;
   w?.focus();
 }
 
@@ -595,7 +603,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             {labels.newChat}
           </button>
           {issuesPath && (
-            <button onClick={() => isOnIssuesPage ? openIssuesTab(getFeedbackLibIssuesUrl(), 'feedback-issues-parent') : openIssuesTab(issuesPath!)} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
+            <button onClick={() => isOnIssuesPage ? openIssuesTab(getFeedbackLibIssuesUrl(), true) : openIssuesTab(issuesPath!)} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
               {labels.viewIssues}
             </button>
           )}
