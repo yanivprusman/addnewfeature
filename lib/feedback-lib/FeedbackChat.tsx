@@ -152,6 +152,18 @@ function useSystemDark() {
   return dark;
 }
 
+// Module-level ref so the window handle survives re-renders
+let _issuesWindow: Window | null = null;
+
+function openIssuesTab(url: string) {
+  if (_issuesWindow && !_issuesWindow.closed) {
+    _issuesWindow.location.href = url;
+    _issuesWindow.focus();
+  } else {
+    _issuesWindow = window.open(url, 'feedback-issues');
+  }
+}
+
 export function FeedbackChat(props: FeedbackChatProps = {}) {
   if (process.env.NEXT_PUBLIC_IS_PROD === 'true') return null;
   return <FeedbackChatDev {...props} />;
@@ -499,7 +511,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   }
 
   function handleGoToIssues() {
-    window.open(issuesPath || '/issues', 'feedback-issues');
+    openIssuesTab(issuesPath || '/issues');
     handlePostSubmitCleanup();
   }
 
@@ -587,9 +599,9 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             {labels.newChat}
           </button>
           {issuesPath && (
-            <a href={isOnIssuesPage ? getFeedbackLibIssuesUrl() : issuesPath} target="feedback-issues" rel="noopener noreferrer" className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
+            <button onClick={() => openIssuesTab(isOnIssuesPage ? getFeedbackLibIssuesUrl() : issuesPath!)} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
               {labels.viewIssues}
-            </a>
+            </button>
           )}
           <button onClick={handleClose} className="text-indigo-200 hover:text-white transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
