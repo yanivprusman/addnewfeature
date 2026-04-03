@@ -152,16 +152,12 @@ function useSystemDark() {
   return dark;
 }
 
-// Module-level ref so the window handle survives re-renders
-let _issuesWindow: Window | null = null;
-
 function openIssuesTab(url: string) {
-  if (_issuesWindow && !_issuesWindow.closed) {
-    _issuesWindow.location.href = url;
-    _issuesWindow.focus();
-  } else {
-    _issuesWindow = window.open(url, 'feedback-issues');
-  }
+  // Always use window.open — it reuses the named tab and handles cross-origin
+  // navigation (e.g., cad on port 3001 vs addnewfeature on port 3039) without
+  // the SecurityError that _issuesWindow.location.href = url would throw.
+  const w = window.open(url, 'feedback-issues');
+  w?.focus();
 }
 
 export function FeedbackChat(props: FeedbackChatProps = {}) {
