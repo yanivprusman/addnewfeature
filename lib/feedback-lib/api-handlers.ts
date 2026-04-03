@@ -617,7 +617,9 @@ export function handleFeedbackSessionHistory(_appName: string, workDir: string) 
           if (!msg) continue;
           // Only include text messages, not tool results (which are arrays)
           if (typeof msg.content === 'string' && msg.content.trim()) {
-            messages.push({ role: 'user', text: msg.content });
+            // Strip [Page: ...] / [Tab: ...] location tags prepended by the API
+            let text = msg.content.replace(/^\[(?:Page:[^\]]*|Tab:[^\]]*)\]\s*/g, '').trim();
+            if (text) messages.push({ role: 'user', text });
           }
         } else if (type === 'assistant') {
           const msg = obj.message as { content: unknown } | undefined;
@@ -625,7 +627,9 @@ export function handleFeedbackSessionHistory(_appName: string, workDir: string) 
           const texts = (msg.content as Array<{ type?: string; text?: string }>)
             .filter(b => b.type === 'text' && b.text)
             .map(b => b.text!);
-          const combined = texts.join('\n').trim();
+          // Strip JSON code blocks (issue proposals) — matches FeedbackChat behavior
+          let combined = texts.join('\n').trim();
+          combined = combined.replace(/```json\s*\n[\s\S]*?\n```\s*/g, '').trim();
           if (combined) {
             messages.push({ role: 'assistant', text: combined });
           }
