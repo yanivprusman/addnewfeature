@@ -32,12 +32,6 @@ function getFullPagePath(): string {
   return pathname + search + hash;
 }
 
-/** Get the addnewfeature issues URL. Set by FeedbackIssuesPage from the server response. */
-function getFeedbackLibIssuesUrl(): string {
-  const url = (window as Record<string, unknown>).__feedbackLibIssuesUrl;
-  return typeof url === 'string' ? url : '/issues';
-}
-
 interface Message {
   role: "user" | "assistant";
   text: string;
@@ -152,19 +146,8 @@ function useSystemDark() {
   return dark;
 }
 
-// Module-level refs so window handles survive re-renders.
-// Named windows don't resolve cross-origin, so we track refs directly.
-let _issuesWindow: Window | null = null;
-let _parentIssuesWindow: Window | null = null;
-
-function openIssuesTab(url: string, parent = false) {
-  const ref = parent ? _parentIssuesWindow : _issuesWindow;
-  if (ref && !ref.closed) {
-    ref.focus();
-    return;
-  }
-  const w = window.open(url, parent ? 'feedback-issues-parent' : 'feedback-issues');
-  if (parent) _parentIssuesWindow = w; else _issuesWindow = w;
+function openIssuesTab(url: string, target = 'feedback-issues') {
+  const w = window.open(url, target);
   w?.focus();
 }
 
@@ -603,7 +586,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             {labels.newChat}
           </button>
           {issuesPath && (
-            <button onClick={() => isOnIssuesPage ? openIssuesTab(getFeedbackLibIssuesUrl(), true) : openIssuesTab(issuesPath!)} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
+            <button onClick={() => isOnIssuesPage ? openIssuesTab('/issues?app=addnewfeature', 'feedback-issues-parent') : openIssuesTab(issuesPath!)} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
               {labels.viewIssues}
             </button>
           )}

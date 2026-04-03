@@ -323,16 +323,19 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     document.title = appName ? `${appName} — ${labels.pageTitle}` : labels.pageTitle;
   }, [appName, labels.pageTitle]);
 
+  const [overrideApp] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    return new URLSearchParams(window.location.search).get('app');
+  });
+
   const fetchIssues = useCallback(async () => {
     try {
       setError(null);
-      const res = await fetch("/api/feedback/issues");
+      const qs = overrideApp ? `?app=${overrideApp}` : '';
+      const res = await fetch(`/api/feedback/issues${qs}`);
       if (!res.ok) throw new Error("fetch failed");
       const data = await res.json();
       if (data.appName) setAppName(data.appName);
-      if (data.feedbackLibIssuesUrl) {
-        (window as Record<string, unknown>).__feedbackLibIssuesUrl = data.feedbackLibIssuesUrl;
-      }
       const all: Issue[] = Array.isArray(data.issues) ? data.issues : [];
       // Only show user-reported issues, sorted: open by createdAt newest-first, closed by updatedAt newest-first
       const list = all
