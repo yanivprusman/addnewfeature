@@ -81,6 +81,9 @@ export interface FeedbackLabels {
   directCreating: string;
   sessionEnded: string;
   sessionExpired: string;
+  goToIssuesPrompt: string;
+  goToIssuesYes: string;
+  goToIssuesNo: string;
 }
 
 const defaultLabels: FeedbackLabels = {
@@ -109,6 +112,9 @@ const defaultLabels: FeedbackLabels = {
   directCreating: "Creating...",
   sessionEnded: "Session ended — send a new message to continue where you left off.",
   sessionExpired: "Your previous session could not be restored. Starting a new conversation.",
+  goToIssuesPrompt: "Issues submitted! Would you like to view them on the Issues page?",
+  goToIssuesYes: "View Issues Page",
+  goToIssuesNo: "Close",
 };
 
 interface FeedbackChatProps {
@@ -190,6 +196,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const [directTitle, setDirectTitle] = useState("");
   const [directDesc, setDirectDesc] = useState("");
   const [directLoading, setDirectLoading] = useState(false);
+  const [showPostSubmitPrompt, setShowPostSubmitPrompt] = useState(false);
   const [resumeId, setResumeId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -343,8 +350,8 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setInput("");
     setIssues(null);
     setCheckedIssues([]);
-
     setSubmitResults(null);
+    setShowPostSubmitPrompt(false);
   }
 
   function handleEndSession() {
@@ -353,8 +360,8 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setInput("");
     setIssues(null);
     setCheckedIssues([]);
-
     setSubmitResults(null);
+    setShowPostSubmitPrompt(false);
     setOpen(false);
   }
 
@@ -373,6 +380,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     }
     setLoading(true);
     setSubmitResults(null);
+    setShowPostSubmitPrompt(false);
 
     try {
       const res = await fetch("/api/feedback", {
@@ -453,14 +461,10 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
       const data = await res.json();
       if (data.results?.every((r: SubmitResult) => r.success)) {
-        closeSession();
-        setMessages([{ role: "assistant", text: labels.greeting }]);
-        setInput("");
+        setSubmitResults(data.results);
         setIssues(null);
         setCheckedIssues([]);
-    
-        setSubmitResults(null);
-        setOpen(false);
+        setShowPostSubmitPrompt(true);
       } else {
         setSubmitResults(data.results);
         setIssues(null);
@@ -494,6 +498,23 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     }
   }
 
+  function handleGoToIssues() {
+    window.open(issuesPath || '/issues', 'feedback-issues');
+    handlePostSubmitCleanup();
+  }
+
+  function handlePostSubmitCleanup() {
+    closeSession();
+    setMessages([{ role: "assistant", text: labels.greeting }]);
+    setInput("");
+    setIssues(null);
+    setCheckedIssues([]);
+    setSubmitResults(null);
+    setShowPostSubmitPrompt(false);
+    setDirectMode(false);
+    setOpen(false);
+  }
+
   async function handleDirectSubmit() {
     if (!directTitle.trim() || directLoading) return;
     setDirectLoading(true);
@@ -508,7 +529,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       setSubmitResults([{ title: directTitle, issueNumber: data.issueNumber, success: true }]);
       setDirectTitle("");
       setDirectDesc("");
-      setDirectMode(false);
+      setShowPostSubmitPrompt(true);
     } catch {
       setSubmitResults([{ title: directTitle, success: false }]);
     } finally {
@@ -557,7 +578,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           )}
           <button
             data-id="toggle-direct-mode"
-            onClick={() => { setDirectMode(v => !v); setSubmitResults(null); }}
+            onClick={() => { setDirectMode(v => !v); setSubmitResults(null); setShowPostSubmitPrompt(false); }}
             className="text-xs text-indigo-200 hover:text-white transition-colors"
           >
             {directMode ? labels.useClarifier : labels.writeDirectly}
@@ -624,6 +645,17 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
                   {result.success ? `${labels.issueSubmitted}${result.issueNumber ?? "?"} — ${result.title}` : `Failed: ${result.title}`}
                 </p>
               ))}
+            </div>
+          )}
+
+          {/* Post-submit navigation prompt */}
+          {showPostSubmitPrompt && (
+            <div className={`${isDark ? 'border-slate-600' : 'border-slate-200'} border rounded-xl p-3 space-y-2`}>
+              <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.goToIssuesPrompt}</p>
+              <div className="flex gap-2">
+                <button onClick={handleGoToIssues} className={`flex-1 px-3 py-2 ${accent} text-white text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesYes}</button>
+                <button onClick={handlePostSubmitCleanup} className={`flex-1 px-3 py-2 ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'} text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesNo}</button>
+              </div>
             </div>
           )}
         </div>
@@ -696,6 +728,17 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
                   {result.success ? `${labels.issueSubmitted}${result.issueNumber ?? "?"} — ${result.title}` : `Failed: ${result.title}`}
                 </p>
               ))}
+            </div>
+          )}
+
+          {/* Post-submit navigation prompt */}
+          {showPostSubmitPrompt && (
+            <div className={`${isDark ? 'border-slate-600' : 'border-slate-200'} border rounded-xl p-3 space-y-2`}>
+              <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.goToIssuesPrompt}</p>
+              <div className="flex gap-2">
+                <button onClick={handleGoToIssues} className={`flex-1 px-3 py-2 ${accent} text-white text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesYes}</button>
+                <button onClick={handlePostSubmitCleanup} className={`flex-1 px-3 py-2 ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'} text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesNo}</button>
+              </div>
             </div>
           )}
 

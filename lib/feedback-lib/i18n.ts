@@ -27,6 +27,11 @@ export const feedbackTranslations: Record<string, FeedbackLabels> = {
     directDescPlaceholder: "Description (optional)",
     directSubmit: "Create Issue",
     directCreating: "Creating...",
+    sessionEnded: "Session ended — send a new message to continue where you left off.",
+    sessionExpired: "Your previous session could not be restored. Starting a new conversation.",
+    goToIssuesPrompt: "Issues submitted! Would you like to view them on the Issues page?",
+    goToIssuesYes: "View Issues Page",
+    goToIssuesNo: "Close",
   },
   he: {
     greeting:
@@ -53,5 +58,10 @@ export const feedbackTranslations: Record<string, FeedbackLabels> = {
     directDescPlaceholder: "תיאור (אופציונלי)",
     directSubmit: "יצירת תקלה",
     directCreating: "יוצר...",
+    sessionEnded: "השיחה הסתיימה — שלחו הודעה חדשה כדי להמשיך מאיפה שהפסקתם.",
+    sessionExpired: "לא ניתן לשחזר את השיחה הקודמת. מתחילים שיחה חדשה.",
+    goToIssuesPrompt: "הבעיות נשלחו בהצלחה! רוצים לצפות בהן בדף הבעיות?",
+    goToIssuesYes: "צפייה בדף הבעיות",
+    goToIssuesNo: "סגירה",
   },
 };
