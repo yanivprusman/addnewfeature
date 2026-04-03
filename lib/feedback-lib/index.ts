@@ -10,6 +10,7 @@ export {
   handleFeedbackStatus,
   handleFeedbackSessionEnd,
   handleFeedbackIssues,
+  handleFeedbackSessionHistory,
 } from './api-handlers';
 
 // App config auto-detection

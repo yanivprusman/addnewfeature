@@ -53,6 +53,12 @@ export interface IssuesPageLabels {
   resumeSession: string;
   newSession: string;
   previousSessions: string;
+  resumeChat: string;
+  chatPlaceholder: string;
+  chatThinking: string;
+  loadingHistory: string;
+  noSessionHistory: string;
+  sendMessage: string;
 }
 
 const defaultLabels: IssuesPageLabels = {
@@ -91,6 +97,12 @@ const defaultLabels: IssuesPageLabels = {
   resumeSession: "Resume",
   newSession: "New Session",
   previousSessions: "Previous sessions:",
+  resumeChat: "Resume Chat",
+  chatPlaceholder: "Describe what's not working...",
+  chatThinking: "Thinking...",
+  loadingHistory: "Loading conversation...",
+  noSessionHistory: "No previous conversation found.",
+  sendMessage: "Send",
 };
 
 const heLabels: IssuesPageLabels = {
@@ -129,6 +141,12 @@ const heLabels: IssuesPageLabels = {
   resumeSession: "המשך",
   newSession: "סשן חדש",
   previousSessions: "סשנים קודמים:",
+  resumeChat: "המשך שיחה",
+  chatPlaceholder: "תארו מה לא עובד...",
+  chatThinking: "חושב...",
+  loadingHistory: "טוען שיחה...",
+  noSessionHistory: "לא נמצאה שיחה קודמת.",
+  sendMessage: "שליחה",
 };
 
 const issuesTranslations: Record<string, IssuesPageLabels> = {
@@ -235,6 +253,21 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   // Fix session choice dialog (for regression issues with previous sessions)
   const [fixSessionTarget, setFixSessionTarget] = useState<Issue | null>(null);
   const [fixSessionLoading, setFixSessionLoading] = useState(false);
+
+  // Regression chat modal (resumes original clarifier session)
+  const [chatTarget, setChatTarget] = useState<Issue | null>(null);
+  const [chatMessages, setChatMessages] = useState<{ role: string; text: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatSessionId, setChatSessionId] = useState<string | null>(null);
+  const [chatTmuxSession, setChatTmuxSession] = useState<string | null>(null);
+  const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
+  const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll chat messages
+  useEffect(() => {
+    chatMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, chatLoading]);
 
   // Tabs: "issues" or "maintenance"
   const [activeTab, setActiveTab] = useState<"issues" | "maintenance">("issues");
@@ -574,6 +607,90 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     setActionLoading(null);
   }
 
+  // --- Regression chat modal functions ---
+
+  async function openRegressionChat(issue: Issue) {
+    setChatTarget(issue);
+    setChatMessages([]);
+    setChatInput("");
+    setChatSessionId(null);
+    setChatTmuxSession(null);
+    setChatHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/feedback/session-history?sessionId=${encodeURIComponent(issue.claudeSessionId!)}`);
+      const data = await res.json();
+      if (data.found && data.messages.length > 0) {
+        setChatMessages(data.messages);
+      }
+    } catch { /* ignore — will show empty chat */ }
+    setChatHistoryLoading(false);
+  }
+
+  function closeRegressionChat() {
+    if (chatTmuxSession) {
+      fetch("/api/feedback/close", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tmuxSession: chatTmuxSession }),
+      }).catch(() => {});
+    }
+    setChatTarget(null);
+    setChatMessages([]);
+    setChatInput("");
+    setChatSessionId(null);
+    setChatTmuxSession(null);
+    setChatLoading(false);
+  }
+
+  async function handleChatSend() {
+    const text = chatInput.trim();
+    if (!text || chatLoading || !chatTarget) return;
+
+    setChatInput("");
+    setChatMessages(prev => [...prev, { role: "user", text }]);
+    setChatLoading(true);
+
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          ...(chatSessionId && chatTmuxSession
+            ? { sessionId: chatSessionId, tmuxSession: chatTmuxSession }
+            : { resumeSessionId: chatTarget.claudeSessionId }),
+          pagePath: "/issues",
+          pageContext: "Issues",
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.error === 'session_expired') {
+          setChatMessages(prev => [...prev, { role: "assistant", text: labels.noSessionHistory }]);
+          setChatLoading(false);
+          return;
+        }
+        throw new Error(data.message || "Request failed");
+      }
+
+      const data = await res.json();
+      setChatSessionId(data.sessionId);
+      setChatTmuxSession(data.tmuxSession);
+
+      let displayText = data.response || "";
+      if (data.issues) {
+        displayText = displayText.replace(/```json\s*\n[\s\S]*?\n```\s*/g, "").trim();
+      }
+      if (displayText) {
+        setChatMessages(prev => [...prev, { role: "assistant", text: displayText }]);
+      }
+    } catch {
+      setChatMessages(prev => [...prev, { role: "assistant", text: "Something went wrong. Please try again." }]);
+    }
+    setChatLoading(false);
+  }
+
   async function handleCloseIssue(issueNumber: number) {
     setActionLoading(issueNumber);
     try {
@@ -840,15 +957,18 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           {actionLoading === issue.issueNumber ? labels.reviewing : labels.markReviewed}
                         </button>
                       )}
-                      {/* Not Working button for closed issues — default opens clarifier, right-click opens direct dialog */}
+                      {/* Not Working button for closed issues — default opens clarifier chat, pencil icon for direct dialog */}
                       {isClosed && (
                         <div className="flex items-center gap-1">
                           <button
                             data-id={`not-working-${issue.issueNumber}`}
                             onClick={() => {
-                              window.dispatchEvent(new CustomEvent('feedback-report-regression', {
-                                detail: { issueNumber: issue.issueNumber, title: issue.title, description: issue.description },
-                              }));
+                              if (issue.claudeSessionId) {
+                                openRegressionChat(issue);
+                              } else {
+                                setRegressionTarget(issue);
+                                setRegressionDesc("");
+                              }
                             }}
                             className={`text-xs px-3 py-1.5 rounded-md transition-colors cursor-pointer ${btnClass} hover:text-red-500 active:scale-95`}
                           >
@@ -1196,6 +1316,96 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                     {labels.newSession}
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Regression Chat Modal — resumes original clarifier session */}
+      {chatTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !chatLoading && closeRegressionChat()}>
+          <div className="absolute inset-0 bg-black/50" />
+          <div
+            className={`relative border rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col overflow-hidden ${dialogBgClass}`}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? "border-slate-700" : "border-slate-200"}`}>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-base font-bold truncate">{labels.resumeChat}</h2>
+                <p className={`text-xs truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  <span className="font-mono">#{chatTarget.issueNumber}</span>{" "}{chatTarget.title}
+                </p>
+              </div>
+              <button
+                data-id="chat-modal-close"
+                onClick={closeRegressionChat}
+                disabled={chatLoading}
+                className={`ml-3 p-1.5 rounded-md transition-colors cursor-pointer ${btnClass} active:scale-95`}
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+            </div>
+
+            {/* Messages area */}
+            <div className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[16rem] max-h-[50vh] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}>
+              {chatHistoryLoading && (
+                <p className={`text-sm text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>{labels.loadingHistory}</p>
+              )}
+              {!chatHistoryLoading && chatMessages.length === 0 && (
+                <p className={`text-sm text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>{labels.noSessionHistory}</p>
+              )}
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[80%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap ${
+                    msg.role === "user"
+                      ? (isDark ? "bg-indigo-700 text-white" : "bg-indigo-500 text-white")
+                      : (isDark ? "bg-slate-700 text-slate-200" : "bg-slate-100 text-slate-800")
+                  }`}>
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+              {chatLoading && (
+                <div className="flex justify-start">
+                  <div className={`px-3 py-2 rounded-lg text-sm ${isDark ? "bg-slate-700 text-slate-400" : "bg-slate-100 text-slate-500"}`}>
+                    {labels.chatThinking}
+                  </div>
+                </div>
+              )}
+              <div ref={chatMessagesEndRef} />
+            </div>
+
+            {/* Input area */}
+            <div className={`border-t px-3 py-2 flex gap-2 ${isDark ? "border-slate-700" : "border-slate-200"}`}>
+              <textarea
+                data-id="chat-modal-input"
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleChatSend();
+                  }
+                }}
+                placeholder={labels.chatPlaceholder}
+                rows={1}
+                autoFocus
+                disabled={chatLoading}
+                className={`flex-1 px-3 py-2 rounded-md border text-sm resize-none ${
+                  isDark ? "bg-slate-700 border-slate-600 text-slate-200 placeholder-slate-500" : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
+                } disabled:opacity-50`}
+              />
+              <button
+                data-id="chat-modal-send"
+                onClick={handleChatSend}
+                disabled={chatLoading || !chatInput.trim()}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer active:scale-95 ${
+                  isDark ? "bg-indigo-600 hover:bg-indigo-500 text-white" : "bg-indigo-500 hover:bg-indigo-600 text-white"
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {labels.sendMessage}
               </button>
             </div>
           </div>

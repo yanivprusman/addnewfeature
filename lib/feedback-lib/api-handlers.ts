@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { execFile, execFileSync } from 'child_process';
+import { readFileSync, existsSync } from 'fs';
 import { launchFeedback, resumeFeedback, sendMessage, killFeedback, isTmuxAlive, launchFix, launchFixResume, launchConclude, launchMaintenance } from './claude-launcher';
 import { waitForResponse, resolveResponse } from './pending-responses';
 
@@ -586,4 +587,63 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
   }
 
   return { GET, POST };
+}
+
+/**
+ * Returns a GET handler for /api/feedback/session-history
+ * Reads a Claude session JSONL file and extracts user/assistant messages for UI display.
+ */
+export function handleFeedbackSessionHistory(_appName: string, workDir: string) {
+  return async function GET(request: NextRequest) {
+    const sessionId = request.nextUrl.searchParams.get('sessionId');
+    if (!sessionId || !/^[a-f0-9-]+$/i.test(sessionId)) {
+      return NextResponse.json({ error: 'Valid sessionId required' }, { status: 400 });
+    }
+
+    const home = process.env.HOME || '/root';
+    const projectKey = workDir.replace(/\//g, '-');
+    const sessionFile = `${home}/.claude/projects/${projectKey}/${sessionId}.jsonl`;
+
+    if (!existsSync(sessionFile)) {
+      return NextResponse.json({ messages: [], found: false });
+    }
+
+    try {
+      const raw = readFileSync(sessionFile, 'utf-8');
+      const lines = raw.split('\n').filter(Boolean);
+      const messages: { role: string; text: string }[] = [];
+
+      for (const line of lines) {
+        let obj: Record<string, unknown>;
+        try { obj = JSON.parse(line); } catch { continue; }
+        const type = obj.type as string;
+
+        if (type === 'user') {
+          const msg = obj.message as { content: unknown } | undefined;
+          if (!msg) continue;
+          // Only include text messages, not tool results (which are arrays)
+          if (typeof msg.content === 'string' && msg.content.trim()) {
+            messages.push({ role: 'user', text: msg.content });
+          }
+        } else if (type === 'assistant') {
+          const msg = obj.message as { content: unknown } | undefined;
+          if (!msg || !Array.isArray(msg.content)) continue;
+          const texts = (msg.content as Array<{ type?: string; text?: string }>)
+            .filter(b => b.type === 'text' && b.text)
+            .map(b => b.text!);
+          const combined = texts.join('\n').trim();
+          if (combined) {
+            messages.push({ role: 'assistant', text: combined });
+          }
+        }
+      }
+
+      // Return last 50 message turns
+      const trimmed = messages.slice(-50);
+      return NextResponse.json({ messages: trimmed, found: true });
+    } catch (err) {
+      console.error('session-history read error:', err);
+      return NextResponse.json({ messages: [], found: false });
+    }
+  };
 }
