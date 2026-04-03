@@ -1338,14 +1338,14 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !chatLoading && closeRegressionChat()}>
           <div className="absolute inset-0 bg-black/50" />
           <div
-            className={`relative border rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col overflow-hidden ${dialogBgClass}`}
+            className={`relative rounded-2xl shadow-2xl w-96 max-h-[min(32rem,calc(100dvh-3rem))] flex flex-col overflow-hidden ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
-            <div className={`flex items-center justify-between px-4 py-3 border-b ${isDark ? "border-slate-700" : "border-slate-200"}`}>
+            <div className="flex items-center justify-between px-4 py-3 bg-indigo-600 text-white">
               <div className="flex-1 min-w-0">
-                <h2 className="text-base font-bold truncate">{labels.resumeChat}</h2>
-                <p className={`text-xs truncate ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                <span className="font-semibold text-sm">{labels.resumeChat}</span>
+                <p className="text-xs truncate text-indigo-200">
                   <span className="font-mono">#{chatTarget.issueNumber}</span>{" "}{chatTarget.title}
                 </p>
               </div>
@@ -1353,14 +1353,16 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                 data-id="chat-modal-close"
                 onClick={closeRegressionChat}
                 disabled={chatLoading}
-                className={`ml-3 p-1.5 rounded-md transition-colors cursor-pointer ${btnClass} active:scale-95`}
+                className="text-indigo-200 hover:text-white transition-colors"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
             {/* Messages area */}
-            <div className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[16rem] max-h-[50vh] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}>
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[12rem] max-h-[20rem]">
               {chatHistoryLoading && (
                 <p className={`text-sm text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>{labels.loadingHistory}</p>
               )}
@@ -1369,9 +1371,9 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
               )}
               {chatMessages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap ${
+                  <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap ${
                     msg.role === "user"
-                      ? (isDark ? "bg-indigo-700 text-white" : "bg-indigo-500 text-white")
+                      ? "bg-indigo-600 text-white"
                       : (isDark ? "bg-slate-700 text-slate-200" : "bg-slate-100 text-slate-800")
                   }`}>
                     {msg.text}
@@ -1380,7 +1382,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
               ))}
               {chatLoading && (
                 <div className="flex justify-start">
-                  <div className={`px-3 py-2 rounded-lg text-sm ${isDark ? "bg-slate-700 text-slate-400" : "bg-slate-100 text-slate-500"}`}>
+                  <div className={`${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'} px-3 py-2 rounded-xl text-sm`}>
                     {labels.chatThinking}
                   </div>
                 </div>
@@ -1389,7 +1391,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
             </div>
 
             {/* Input area */}
-            <div className={`border-t px-3 py-2 flex gap-2 ${isDark ? "border-slate-700" : "border-slate-200"}`}>
+            <div className={`border-t ${isDark ? 'border-slate-700' : 'border-slate-200'} px-3 py-2 flex gap-2`}>
               <textarea
                 data-id="chat-modal-input"
                 value={chatInput}
@@ -1404,19 +1406,17 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                 rows={1}
                 autoFocus
                 disabled={chatLoading}
-                className={`flex-1 px-3 py-2 rounded-md border text-sm resize-none ${
-                  isDark ? "bg-slate-700 border-slate-600 text-slate-200 placeholder-slate-500" : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-                } disabled:opacity-50`}
+                className={`flex-1 resize-none rounded-lg border ${isDark ? 'border-slate-600 bg-slate-700 text-slate-200 placeholder-slate-500' : 'border-slate-300 bg-white text-slate-900 placeholder-slate-400'} px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50`}
               />
               <button
                 data-id="chat-modal-send"
                 onClick={handleChatSend}
                 disabled={chatLoading || !chatInput.trim()}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer active:scale-95 ${
-                  isDark ? "bg-indigo-600 hover:bg-indigo-500 text-white" : "bg-indigo-500 hover:bg-indigo-600 text-white"
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                className={`px-3 py-2 bg-indigo-600 hover:bg-indigo-700 ${isDark ? 'disabled:bg-slate-600' : 'disabled:bg-slate-300'} text-white rounded-lg transition-colors`}
               >
-                {labels.sendMessage}
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                  <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+                </svg>
               </button>
             </div>
           </div>
