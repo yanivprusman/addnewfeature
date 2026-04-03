@@ -191,6 +191,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const [submitResults, setSubmitResults] = useState<SubmitResult[] | null>(null);
   const [hookWarning, setHookWarning] = useState<string | null>(null);
   const [expandedIssues, setExpandedIssues] = useState<Record<string, boolean>>({});
+  const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
   const [restoredSession, setRestoredSession] = useState(false);
   const [directMode, setDirectMode] = useState(false);
   const [directTitle, setDirectTitle] = useState("");
@@ -678,7 +679,8 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
                       <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
                       <p
                         className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} ${expandedIssues[`stale-${i}-${j}`] ? '' : 'line-clamp-2'} cursor-pointer whitespace-pre-wrap`}
-                        onClick={() => { if (window.getSelection()?.toString()) return; setExpandedIssues(prev => ({ ...prev, [`stale-${i}-${j}`]: !prev[`stale-${i}-${j}`] })); }}
+                        onMouseDown={(e) => { mouseDownRef.current = { x: e.clientX, y: e.clientY }; }}
+                        onClick={(e) => { const s = mouseDownRef.current; if (s && (Math.abs(e.clientX - s.x) > 3 || Math.abs(e.clientY - s.y) > 3)) return; if (window.getSelection()?.toString()) return; setExpandedIssues(prev => ({ ...prev, [`stale-${i}-${j}`]: !prev[`stale-${i}-${j}`] })); }}
                       >
                         {issue.description}
                       </p>
@@ -706,7 +708,8 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
                     <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
                     <p
                       className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} ${expandedIssues[i] ? '' : 'line-clamp-2'} cursor-pointer whitespace-pre-wrap`}
-                      onClick={(e) => { e.preventDefault(); if (window.getSelection()?.toString()) return; setExpandedIssues(prev => ({ ...prev, [i]: !prev[i] })); }}
+                      onMouseDown={(e) => { mouseDownRef.current = { x: e.clientX, y: e.clientY }; }}
+                      onClick={(e) => { e.preventDefault(); const s = mouseDownRef.current; if (s && (Math.abs(e.clientX - s.x) > 3 || Math.abs(e.clientY - s.y) > 3)) return; if (window.getSelection()?.toString()) return; setExpandedIssues(prev => ({ ...prev, [i]: !prev[i] })); }}
                       data-id={`issue-description-${i}`}
                     >
                       {issue.description}

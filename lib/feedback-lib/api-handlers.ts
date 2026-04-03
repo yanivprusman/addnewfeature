@@ -433,6 +433,9 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
     try {
       const body = await request.json();
       const { action } = body;
+      // Allow ?app= override from the issues page when viewing another app's issues
+      const effectiveApp = body.app || appName;
+      const effectiveWorkDir = body.app && body.app !== appName ? `/opt/dev/${body.app}` : workDir;
 
       // --- Create issue directly (bypass clarifier) ---
       if (action === 'create') {
@@ -469,19 +472,21 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
           return NextResponse.json({ error: 'issues array required' }, { status: 400 });
         }
 
+        const fixApp = effectiveApp;
+        const fixWorkDir = effectiveWorkDir || `/opt/dev/${fixApp}`;
         const result = body.resumeSessionId && issues.length === 1
-          ? launchFixResume({ appName, workDir, resumeSessionId: body.resumeSessionId, issue: issues[0], dashboardPort })
-          : launchFix({ appName, workDir, issues, dashboardPort });
+          ? launchFixResume({ appName: fixApp, workDir: fixWorkDir, resumeSessionId: body.resumeSessionId, issue: issues[0], dashboardPort })
+          : launchFix({ appName: fixApp, workDir: fixWorkDir, issues, dashboardPort });
 
         // Mark issues as in_progress (fire-and-forget)
         for (const issue of issues) {
           daemonExec([
-            'send', 'updateIssue', '--app', appName,
+            'send', 'updateIssue', '--app', fixApp,
             '--issueNumber', String(issue.number),
             '--status', 'in_progress',
             '--claudeSessionId', result.claudeSessionId,
-            '--claudeLaunchDir', workDir,
-          ]).catch(err => console.error(`${appName} mark in_progress #${issue.number}:`, err.message));
+            '--claudeLaunchDir', fixWorkDir,
+          ]).catch(err => console.error(`${fixApp} mark in_progress #${issue.number}:`, err.message));
         }
 
         return NextResponse.json({ ok: true, claudeSessionId: result.claudeSessionId, tmuxSession: result.tmuxSession });
@@ -496,7 +501,8 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
         if (!prompt || typeof prompt !== 'string') {
           return NextResponse.json({ error: 'prompt string required' }, { status: 400 });
         }
-        const result = launchMaintenance({ appName, workDir, prompt, dashboardPort });
+        const maintWorkDir = effectiveWorkDir || `/opt/dev/${effectiveApp}`;
+        const result = launchMaintenance({ appName: effectiveApp, workDir: maintWorkDir, prompt, dashboardPort });
         return NextResponse.json({ ok: true, claudeSessionId: result.claudeSessionId, tmuxSession: result.tmuxSession });
       }
 
@@ -509,10 +515,10 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
 
         // Launch conclude if requested (fire-and-forget)
         if (body.conclude && body.claudeSessionId) {
-          const concludeDir = body.claudeLaunchDir || workDir;
+          const concludeDir = body.claudeLaunchDir || effectiveWorkDir;
           if (concludeDir) {
             const concluded = launchConclude({
-              appName,
+              appName: effectiveApp,
               workDir: concludeDir,
               claudeSessionId: body.claudeSessionId,
               dashboardPort,
@@ -527,7 +533,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
         const results = await Promise.all(
           issueNumbers.map(async (num) => {
             try {
-              await daemonExec(['send', 'closeIssue', '--app', appName, '--issueNumber', String(num)]);
+              await daemonExec(['send', 'closeIssue', '--app', effectiveApp, '--issueNumber', String(num)]);
               return { issueNumber: num, ok: true };
             } catch (err) {
               return { issueNumber: num, ok: false, error: err instanceof Error ? err.message : 'Unknown error' };
@@ -545,7 +551,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
         if (!issueNumber) {
           return NextResponse.json({ error: 'issueNumber required for delete' }, { status: 400 });
         }
-        const output = await daemonExec(['send', 'deleteIssue', '--app', appName, '--issueNumber', String(issueNumber)]);
+        const output = await daemonExec(['send', 'deleteIssue', '--app', effectiveApp, '--issueNumber', String(issueNumber)]);
         return NextResponse.json({ ok: true, output });
       }
 
@@ -555,7 +561,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
 
       let args: string[];
       if (action === 'update') {
-        args = ['send', 'updateIssue', '--app', appName, '--issueNumber', String(issueNumber)];
+        args = ['send', 'updateIssue', '--app', effectiveApp, '--issueNumber', String(issueNumber)];
         if (body.title) args.push('--title', body.title);
         if (body.description !== undefined) args.push('--description', body.description);
         if (body.status) args.push('--status', body.status);
@@ -563,7 +569,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
         if (body.labels !== undefined) args.push('--labels', JSON.stringify(body.labels));
       } else {
         const command = action === 'close' ? 'closeIssue' : 'reopenIssue';
-        args = ['send', command, '--app', appName, '--issueNumber', String(issueNumber)];
+        args = ['send', command, '--app', effectiveApp, '--issueNumber', String(issueNumber)];
       }
 
       const output = await daemonExec(args);

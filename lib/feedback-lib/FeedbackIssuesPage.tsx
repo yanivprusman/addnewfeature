@@ -264,6 +264,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const [chatTmuxSession, setChatTmuxSession] = useState<string | null>(null);
   const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+  const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
 
   // Auto-scroll chat messages
   useEffect(() => {
@@ -386,7 +387,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       const res = await fetch("/api/feedback/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "update", issueNumber, title: editTitle, description: editDesc }),
+        body: JSON.stringify({ action: "update", issueNumber, title: editTitle, description: editDesc, ...(appName && { app: appName }) }),
       });
       if (res.ok) {
         setIssues(prev => prev.map(issue =>
@@ -411,7 +412,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       const res = await fetch("/api/feedback/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "update", issueNumber: issue.issueNumber, labels: newLabels }),
+        body: JSON.stringify({ action: "update", issueNumber: issue.issueNumber, labels: newLabels, ...(appName && { app: appName }) }),
       });
       if (!res.ok) {
         // Revert on failure
@@ -436,6 +437,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "fix",
+          ...(appName && { app: appName }),
           issues: selected.map(i => ({
             number: i.issueNumber,
             title: i.title,
@@ -466,6 +468,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "fix",
+          ...(appName && { app: appName }),
           issues: [{
             number: issue.issueNumber,
             title: issue.title,
@@ -513,6 +516,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "reviewed",
+          ...(appName && { app: appName }),
           issueNumbers: [issue.issueNumber],
           conclude: true,
           claudeSessionId: issue.claudeSessionId,
@@ -550,6 +554,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "reviewed",
+          ...(appName && { app: appName }),
           issueNumbers: Array.from(reviewDialog.selectedNumbers),
           conclude: reviewDialog.conclude,
           claudeSessionId: reviewDialog.trigger.claudeSessionId,
@@ -576,6 +581,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "update",
+          ...(appName && { app: appName }),
           issueNumber: regressionTarget.issueNumber,
           status: "regression",
           ...(regressionDesc.trim() && { insights: regressionDesc.trim() }),
@@ -600,7 +606,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       const res = await fetch("/api/feedback/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "update", issueNumber, status: "closed" }),
+        body: JSON.stringify({ action: "update", issueNumber, status: "closed", ...(appName && { app: appName }) }),
       });
       if (res.ok) {
         setIssues(prev => prev.map(i =>
@@ -701,7 +707,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       const res = await fetch("/api/feedback/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "close", issueNumber }),
+        body: JSON.stringify({ action: "close", issueNumber, ...(appName && { app: appName }) }),
       });
       if (res.ok) {
         setIssues(prev => prev.map(i =>
@@ -719,7 +725,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       const res = await fetch("/api/feedback/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete", issueNumber }),
+        body: JSON.stringify({ action: "delete", issueNumber, ...(appName && { app: appName }) }),
       });
       if (res.ok) {
         setIssues(prev => prev.filter(i => i.issueNumber !== issueNumber));
@@ -734,7 +740,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       await fetch("/api/feedback/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "maintenance", prompt: mp.prompt }),
+        body: JSON.stringify({ action: "maintenance", prompt: mp.prompt, ...(appName && { app: appName }) }),
       });
     } catch { /* ignore */ }
     setMaintenanceLaunching(null);
@@ -918,7 +924,8 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
 
                     <div
                       className="flex-1 min-w-0 cursor-pointer"
-                      onClick={() => { if (window.getSelection()?.toString()) return; setExpandedIds(prev => { const next = new Set(prev); if (next.has(issue.issueNumber)) next.delete(issue.issueNumber); else next.add(issue.issueNumber); return next; }); }}
+                      onMouseDown={(e) => { mouseDownRef.current = { x: e.clientX, y: e.clientY }; }}
+                      onClick={(e) => { const s = mouseDownRef.current; if (s && (Math.abs(e.clientX - s.x) > 3 || Math.abs(e.clientY - s.y) > 3)) return; if (window.getSelection()?.toString()) return; setExpandedIds(prev => { const next = new Set(prev); if (next.has(issue.issueNumber)) next.delete(issue.issueNumber); else next.add(issue.issueNumber); return next; }); }}
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <span className={`text-xs font-mono ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{issue.issueNumber}</span>
