@@ -152,11 +152,11 @@ function useSystemDark() {
   return dark;
 }
 
-function openIssuesTab(url: string) {
+function openIssuesTab(url: string, target = 'feedback-issues') {
   // Always use window.open — it reuses the named tab and handles cross-origin
   // navigation (e.g., cad on port 3001 vs addnewfeature on port 3039) without
   // the SecurityError that _issuesWindow.location.href = url would throw.
-  const w = window.open(url, 'feedback-issues');
+  const w = window.open(url, target);
   w?.focus();
 }
 
@@ -595,7 +595,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             {labels.newChat}
           </button>
           {issuesPath && (
-            <button onClick={() => openIssuesTab(isOnIssuesPage ? getFeedbackLibIssuesUrl() : issuesPath!)} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
+            <button onClick={() => isOnIssuesPage ? openIssuesTab(getFeedbackLibIssuesUrl(), 'feedback-issues-parent') : openIssuesTab(issuesPath!)} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
               {labels.viewIssues}
             </button>
           )}
