@@ -330,6 +330,29 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     }
   }, [open]);
 
+  // Listen for regression reports from FeedbackIssuesPage
+  useEffect(() => {
+    function handleRegressionEvent(e: Event) {
+      const detail = (e as CustomEvent).detail as { issueNumber: number; title: string; description?: string };
+      if (!detail) return;
+      setOpen(true);
+      if (messages.length === 0) {
+        setMessages([{ role: "assistant", text: labels.greeting }]);
+      }
+      const prefill = `Issue #${detail.issueNumber} "${detail.title}" was marked as fixed but is not working correctly.`;
+      setInput(prefill);
+      // Focus and place cursor at end so user can add details
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.setSelectionRange(prefill.length, prefill.length);
+        }
+      }, 100);
+    }
+    window.addEventListener('feedback-report-regression', handleRegressionEvent);
+    return () => window.removeEventListener('feedback-report-regression', handleRegressionEvent);
+  }, [messages.length, labels.greeting]);
+
   function handleOpen() {
     setOpen(true);
     if (messages.length === 0) {

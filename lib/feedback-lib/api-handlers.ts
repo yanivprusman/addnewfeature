@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { execFile, execFileSync } from 'child_process';
-import { launchFeedback, sendMessage, killFeedback, isTmuxAlive, launchFix, launchFixResume, launchConclude, launchMaintenance } from './claude-launcher';
+import { launchFeedback, resumeFeedback, sendMessage, killFeedback, isTmuxAlive, launchFix, launchFixResume, launchConclude, launchMaintenance } from './claude-launcher';
 import { waitForResponse, resolveResponse } from './pending-responses';
 
 /** Track last activity timestamp per tmux session for auto-cleanup.
@@ -103,7 +103,7 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
 
   return async function POST(request: NextRequest) {
     try {
-      const { message, sessionId, tmuxSession, pagePath, pageContext } = await request.json();
+      const { message, sessionId, tmuxSession, resumeSessionId, pagePath, pageContext } = await request.json();
 
       if (!message || typeof message !== 'string' || !message.trim()) {
         return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -112,7 +112,12 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
       let csid: string;
       let tmux: string;
 
-      if (!sessionId) {
+      if (sessionId && tmuxSession) {
+        // Active session — send to existing tmux
+        csid = sessionId;
+        tmux = tmuxSession;
+        sendMessage(tmux, message.trim());
+      } else {
         // Detect the app's port: try request URL, then Host header, then PORT env.
         // Behind a reverse proxy (nginx), request headers lose the port, so
         // process.env.PORT (set by the daemon's generated systemd service) is the
@@ -133,14 +138,30 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
         const firstMessage = locationTag
           ? `${locationTag}\n\n${message.trim()}`
           : message.trim();
-        const result = launchFeedback({ appName: effectiveApp, workDir: effectiveWorkDir, firstMessage, appPort });
-        csid = result.claudeSessionId;
-        tmux = result.tmuxSession;
-        trackSessionId(csid, tmux, effectiveApp);
-      } else {
-        csid = sessionId;
-        tmux = tmuxSession;
-        sendMessage(tmux, message.trim());
+
+        if (resumeSessionId) {
+          // Resume a previous session in a new tmux
+          try {
+            const result = resumeFeedback({ appName: effectiveApp, workDir: effectiveWorkDir, resumeSessionId, firstMessage, appPort });
+            csid = result.claudeSessionId;
+            tmux = result.tmuxSession;
+            trackSessionId(csid, tmux, effectiveApp);
+          } catch (err) {
+            if (err instanceof Error && err.message === 'session_expired') {
+              return NextResponse.json(
+                { error: 'session_expired', message: 'Previous session could not be restored.' },
+                { status: 410 },
+              );
+            }
+            throw err;
+          }
+        } else {
+          // New session
+          const result = launchFeedback({ appName: effectiveApp, workDir: effectiveWorkDir, firstMessage, appPort });
+          csid = result.claudeSessionId;
+          tmux = result.tmuxSession;
+          trackSessionId(csid, tmux, effectiveApp);
+        }
       }
 
       touchSession(tmux, appName);
@@ -550,6 +571,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
         if (body.description !== undefined) args.push('--description', body.description);
         if (body.status) args.push('--status', body.status);
         if (body.insights !== undefined) args.push('--insights', body.insights);
+        if (body.labels !== undefined) args.push('--labels', JSON.stringify(body.labels));
       } else {
         const command = action === 'close' ? 'closeIssue' : 'reopenIssue';
         args = ['send', command, '--app', appName, '--issueNumber', String(issueNumber)];

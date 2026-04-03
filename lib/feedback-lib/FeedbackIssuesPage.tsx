@@ -34,6 +34,7 @@ export interface IssuesPageLabels {
   markReviewed: string;
   notWorking: string;
   markRegression: string;
+  markRegressionDirect: string;
   clearRegression: string;
   regressionPlaceholder: string;
   markingRegression: string;
@@ -71,6 +72,7 @@ const defaultLabels: IssuesPageLabels = {
   markReviewed: "Mark as Reviewed",
   notWorking: "Working",
   markRegression: "Mark as Regression",
+  markRegressionDirect: "Write directly",
   clearRegression: "Clear Regression",
   regressionPlaceholder: "Describe what regressed (optional)",
   markingRegression: "Marking...",
@@ -108,6 +110,7 @@ const heLabels: IssuesPageLabels = {
   markReviewed: "סימון כנבדק",
   notWorking: "עובד",
   markRegression: "סימון כרגרסיה",
+  markRegressionDirect: "כתיבה ישירה",
   clearRegression: "ביטול רגרסיה",
   regressionPlaceholder: "תיאור מה חזר (אופציונלי)",
   markingRegression: "מסמן...",
@@ -236,6 +239,12 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   // Tabs: "issues" or "maintenance"
   const [activeTab, setActiveTab] = useState<"issues" | "maintenance">("issues");
 
+  // Hide not-urgent toggle
+  const [hideNotUrgent, setHideNotUrgent] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('feedback-issues-hide-not-urgent') !== 'false';
+  });
+
   // Maintenance
   const [maintenanceLaunching, setMaintenanceLaunching] = useState<string | null>(null);
 
@@ -350,6 +359,34 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       }
     } catch { /* ignore */ }
     setActionLoading(null);
+  }
+
+  async function toggleNotUrgent(issue: Issue) {
+    const hasLabel = issue.labels?.includes("not-urgent");
+    const newLabels = hasLabel
+      ? issue.labels.filter(l => l !== "not-urgent")
+      : [...(issue.labels || []), "not-urgent"];
+    // Optimistic update
+    setIssues(prev => prev.map(i =>
+      i.issueNumber === issue.issueNumber ? { ...i, labels: newLabels } : i
+    ));
+    try {
+      const res = await fetch("/api/feedback/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update", issueNumber: issue.issueNumber, labels: newLabels }),
+      });
+      if (!res.ok) {
+        // Revert on failure
+        setIssues(prev => prev.map(i =>
+          i.issueNumber === issue.issueNumber ? { ...i, labels: issue.labels } : i
+        ));
+      }
+    } catch {
+      setIssues(prev => prev.map(i =>
+        i.issueNumber === issue.issueNumber ? { ...i, labels: issue.labels } : i
+      ));
+    }
   }
 
   async function handleFixWithClaude() {
@@ -583,6 +620,8 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   }
 
   const selectedCount = issues.filter(i => selectedIds.has(i.issueNumber) && i.status !== "closed" && i.status !== "review").length;
+  const notUrgentCount = issues.filter(i => i.labels?.includes("not-urgent")).length;
+  const displayIssues = hideNotUrgent ? issues.filter(i => !i.labels?.includes("not-urgent")) : issues;
 
   const bgClass = isDark ? "bg-slate-900 text-slate-200" : "bg-white text-slate-900";
   const cardClass = isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200";
@@ -604,6 +643,28 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
             className={`p-2 rounded-lg transition-colors cursor-pointer ${btnClass} active:scale-95`}
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg>
+          </button>
+          <button
+            data-id="toggle-not-urgent"
+            onClick={() => {
+              const next = !hideNotUrgent;
+              setHideNotUrgent(next);
+              localStorage.setItem('feedback-issues-hide-not-urgent', String(next));
+            }}
+            disabled={notUrgentCount === 0}
+            className={`text-xs px-3 py-2 rounded-lg transition-colors ${
+              notUrgentCount === 0
+                ? `${isDark ? "text-slate-500" : "text-slate-400"} cursor-not-allowed`
+                : !hideNotUrgent
+                  ? "text-yellow-500 bg-yellow-500/10 cursor-pointer"
+                  : `${btnClass} cursor-pointer`
+            } active:scale-95`}
+          >
+            {notUrgentCount === 0
+              ? "No not-urgent issues"
+              : hideNotUrgent
+                ? `Include not urgent (${notUrgentCount})`
+                : "Hide not urgent"}
           </button>
           <button
             data-id="fix-with-claude"
@@ -659,12 +720,12 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         {loading && <p className={isDark ? "text-slate-400" : "text-slate-500"}>{labels.loading}</p>}
         {error && <p className="text-red-500">{error}</p>}
 
-        {!loading && !error && issues.length === 0 && (
+        {!loading && !error && displayIssues.length === 0 && (
           <p className={isDark ? "text-slate-400" : "text-slate-500"}>{labels.noIssues}</p>
         )}
 
         <div className="space-y-3 overflow-y-auto max-h-[calc(100vh-12rem)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {issues.map((issue) => {
+          {displayIssues.map((issue) => {
             const isExpanded = expandedIds.has(issue.issueNumber);
             const isEditing = editingId === issue.issueNumber;
             const hasLongDesc = issue.description && issue.description.length > 120;
@@ -779,15 +840,29 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           {actionLoading === issue.issueNumber ? labels.reviewing : labels.markReviewed}
                         </button>
                       )}
-                      {/* Not Working button for closed issues */}
+                      {/* Not Working button for closed issues — default opens clarifier, right-click opens direct dialog */}
                       {isClosed && (
-                        <button
-                          data-id={`not-working-${issue.issueNumber}`}
-                          onClick={() => { setRegressionTarget(issue); setRegressionDesc(""); }}
-                          className={`text-xs px-3 py-1.5 rounded-md transition-colors cursor-pointer ${btnClass} hover:text-red-500 active:scale-95`}
-                        >
-                          {labels.notWorking}
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            data-id={`not-working-${issue.issueNumber}`}
+                            onClick={() => {
+                              window.dispatchEvent(new CustomEvent('feedback-report-regression', {
+                                detail: { issueNumber: issue.issueNumber, title: issue.title, description: issue.description },
+                              }));
+                            }}
+                            className={`text-xs px-3 py-1.5 rounded-md transition-colors cursor-pointer ${btnClass} hover:text-red-500 active:scale-95`}
+                          >
+                            {labels.notWorking}
+                          </button>
+                          <button
+                            data-id={`not-working-direct-${issue.issueNumber}`}
+                            onClick={() => { setRegressionTarget(issue); setRegressionDesc(""); }}
+                            title={labels.markRegressionDirect}
+                            className={`text-xs px-1.5 py-1.5 rounded-md transition-colors cursor-pointer ${btnClass} hover:text-red-500 active:scale-95 opacity-60 hover:opacity-100`}
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                          </button>
+                        </div>
                       )}
                       {/* Fix with Claude button for regression issues */}
                       {isRegression && (
@@ -834,6 +909,18 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           {actionLoading === issue.issueNumber ? labels.closing : labels.close}
                         </button>
                       )}
+                      <button
+                        data-id={`toggle-urgent-${issue.issueNumber}`}
+                        onClick={() => toggleNotUrgent(issue)}
+                        title={issue.labels?.includes("not-urgent") ? "Mark as urgent" : "Set as not urgent"}
+                        className={`text-xs px-2 py-1.5 rounded-md transition-colors cursor-pointer active:scale-95 ${
+                          issue.labels?.includes("not-urgent")
+                            ? "text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20"
+                            : btnClass
+                        }`}
+                      >
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="7 13 12 18 17 13" /><polyline points="7 6 12 11 17 6" /></svg>
+                      </button>
                       <button
                         data-id={`edit-issue-${issue.issueNumber}`}
                         onClick={() => startEdit(issue)}

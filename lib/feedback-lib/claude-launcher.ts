@@ -92,6 +92,83 @@ export function launchFeedback(config: LaunchConfig): LaunchResult {
   return { claudeSessionId, tmuxSession, scriptLogFile };
 }
 
+export interface ResumeConfig {
+  appName: string;
+  workDir: string;
+  resumeSessionId: string;
+  firstMessage: string;
+  user?: string;
+  dashboardPort?: number;
+  appPort?: number;
+}
+
+/**
+ * Resume a previous feedback Claude session in a new tmux.
+ * Throws if the session file no longer exists on disk.
+ */
+export function resumeFeedback(config: ResumeConfig): LaunchResult {
+  const { appName, workDir, resumeSessionId, firstMessage, user = 'root', dashboardPort = 3007, appPort } = config;
+
+  const home = process.env.HOME || '/root';
+  const projectKey = workDir.replace(/\//g, '-');
+  const sessionFile = `${home}/.claude/projects/${projectKey}/${resumeSessionId}.jsonl`;
+  if (!existsSync(sessionFile)) {
+    throw new Error('session_expired');
+  }
+
+  const tmuxSession = `${appName}-feedback-${Date.now().toString(36)}`;
+  const scriptLogFile = `/tmp/${appName}-claude-${tmuxSession}.log`;
+  const launchScriptFile = `/tmp/${appName}-launch-${tmuxSession}.sh`;
+
+  const claudeCmd = `claude -r ${resumeSessionId} --dangerously-skip-permissions --tools=Read,Grep,Glob`;
+
+  const bashEscapedPrompt = firstMessage
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r');
+
+  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'${bashEscapedPrompt}'; exec bash`;
+
+  const sessionEnv = getSessionEnv(user);
+  const envArgs = Object.entries(sessionEnv).map(([k, v]) => `${k}=${v}`);
+  envArgs.push(`CLAUDE_SESSION_ID=${resumeSessionId}`);
+  envArgs.push(`CLAUDE_LAUNCH_DIR=${workDir}`);
+  if (appPort) envArgs.push(`FEEDBACK_APP_PORT=${appPort}`);
+
+  writeFileSync(launchScriptFile, bashCmd + '\n', { mode: 0o755 });
+
+  try {
+    execFileSync('tmux', ['kill-session', '-t', tmuxSession], { timeout: 3000 });
+  } catch { /* no existing session */ }
+
+  const tmuxArgs = ['new-session', '-d', '-s', tmuxSession];
+  for (const e of envArgs) tmuxArgs.push('-e', e);
+  tmuxArgs.push(`script -qf ${scriptLogFile} -c 'bash -l ${launchScriptFile}'`);
+
+  execFile('systemd-run', ['--scope', '--quiet', '--', 'tmux', ...tmuxArgs], { timeout: 10000 }, (err) => {
+    if (err) console.error(`${appName} claude resume failed:`, err.message);
+  });
+
+  // Register with dashboard (fire-and-forget)
+  fetch(`http://localhost:${dashboardPort}/api/claude-sessions/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sessionId: `${appName}-feedback-${resumeSessionId.slice(0, 8)}`,
+      claudeSessionId: resumeSessionId,
+      appName,
+      workDir,
+      scriptFile: scriptLogFile,
+      termTitle: tmuxSession,
+      launchMethod: 'tmux',
+      source: 'terminal',
+    }),
+  }).catch(() => {});
+
+  return { claudeSessionId: resumeSessionId, tmuxSession, scriptLogFile };
+}
+
 export function sendMessage(tmuxSession: string, message: string, user = 'root'): void {
   // Send text literally (no special key parsing)
   execFileSync('tmux', [
