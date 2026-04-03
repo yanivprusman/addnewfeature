@@ -38,9 +38,35 @@ interface Message {
   staleIssues?: Issue[];
 }
 
-interface Issue {
+export interface Issue {
   title: string;
   description: string;
+}
+
+/** Grayed-out issue checklist used to display previously-proposed issues in chat history. */
+export function StaleIssueList({ issues, isDark, label }: { issues: Issue[]; isDark: boolean; label: string }) {
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const mouseRef = useRef<{ x: number; y: number } | null>(null);
+  return (
+    <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2 opacity-50`}>
+      <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{label}</p>
+      {issues.map((issue, j) => (
+        <div key={j} className="flex items-start gap-2 p-2">
+          <input type="checkbox" checked disabled className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600" />
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
+            <p
+              className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} ${expanded[j] ? '' : 'line-clamp-2'} cursor-pointer whitespace-pre-wrap`}
+              onMouseDown={(e) => { mouseRef.current = { x: e.clientX, y: e.clientY }; }}
+              onClick={(e) => { const s = mouseRef.current; if (s && (Math.abs(e.clientX - s.x) > 3 || Math.abs(e.clientY - s.y) > 3)) return; if (window.getSelection()?.toString()) return; setExpanded(prev => ({ ...prev, [j]: !prev[j] })); }}
+            >
+              {issue.description}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 interface SubmitResult {
@@ -670,24 +696,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[12rem] max-h-[20rem]">
           {messages.map((msg, i) => (
             msg.staleIssues ? (
-              <div key={i} className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2 opacity-50`}>
-                <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.selectIssues}</p>
-                {msg.staleIssues.map((issue, j) => (
-                  <div key={j} className="flex items-start gap-2 p-2">
-                    <input type="checkbox" checked disabled className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600" />
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
-                      <p
-                        className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} ${expandedIssues[`stale-${i}-${j}`] ? '' : 'line-clamp-2'} cursor-pointer whitespace-pre-wrap`}
-                        onMouseDown={(e) => { mouseDownRef.current = { x: e.clientX, y: e.clientY }; }}
-                        onClick={(e) => { const s = mouseDownRef.current; if (s && (Math.abs(e.clientX - s.x) > 3 || Math.abs(e.clientY - s.y) > 3)) return; if (window.getSelection()?.toString()) return; setExpandedIssues(prev => ({ ...prev, [`stale-${i}-${j}`]: !prev[`stale-${i}-${j}`] })); }}
-                      >
-                        {issue.description}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <StaleIssueList key={i} issues={msg.staleIssues} isDark={isDark} label={labels.selectIssues} />
             ) : (
               <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap ${msg.role === "user" ? `${accentBase} text-white` : `${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-800'}`}`}>

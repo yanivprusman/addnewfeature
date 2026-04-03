@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, Fragment } from "react";
+import { StaleIssueList } from "./FeedbackChat";
 
 interface Issue {
   issueNumber: number;
@@ -266,7 +267,6 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const [chatSessionId, setChatSessionId] = useState<string | null>(null);
   const [chatTmuxSession, setChatTmuxSession] = useState<string | null>(null);
   const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
-  const [chatExpandedIssues, setChatExpandedIssues] = useState<Record<string, boolean>>({});
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
   const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -696,8 +696,8 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       if (data.issues) {
         displayText = displayText.replace(/```json\s*\n[\s\S]*?\n```\s*/g, "").trim();
       }
-      if (displayText) {
-        setChatMessages(prev => [...prev, { role: "assistant", text: displayText }]);
+      if (displayText || data.issues) {
+        setChatMessages(prev => [...prev, { role: "assistant", text: displayText, ...(data.issues && { staleIssues: data.issues }) }]);
       }
     } catch {
       setChatMessages(prev => [...prev, { role: "assistant", text: "Something went wrong. Please try again." }]);
@@ -1387,24 +1387,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                     </div>
                   )}
                   {msg.staleIssues && (
-                    <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2 opacity-50`}>
-                      <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.selectIssues}</p>
-                      {msg.staleIssues.map((issue, j) => (
-                        <div key={j} className="flex items-start gap-2 p-2">
-                          <input type="checkbox" checked disabled className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600" />
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
-                            <p
-                              className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} ${chatExpandedIssues[`stale-${i}-${j}`] ? '' : 'line-clamp-2'} cursor-pointer whitespace-pre-wrap`}
-                              onMouseDown={(e) => { mouseDownRef.current = { x: e.clientX, y: e.clientY }; }}
-                              onClick={(e) => { const s = mouseDownRef.current; if (s && (Math.abs(e.clientX - s.x) > 3 || Math.abs(e.clientY - s.y) > 3)) return; if (window.getSelection()?.toString()) return; setChatExpandedIssues(prev => ({ ...prev, [`stale-${i}-${j}`]: !prev[`stale-${i}-${j}`] })); }}
-                            >
-                              {issue.description}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <StaleIssueList issues={msg.staleIssues} isDark={isDark} label={labels.selectIssues} />
                   )}
                 </Fragment>
               ))}
