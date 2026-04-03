@@ -767,8 +767,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             onKeyDown={handleKeyDown}
             placeholder={labels.placeholder}
             rows={1}
-            className={`flex-1 resize-none rounded-lg border ${isDark ? 'border-slate-600 bg-slate-700 text-slate-200 placeholder-slate-500' : 'border-slate-300 bg-white text-slate-900 placeholder-slate-400'} px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent${loading ? ' opacity-50 cursor-not-allowed' : ''}`}
-            readOnly={loading}
+            className={`flex-1 resize-none rounded-lg border ${isDark ? 'border-slate-600 bg-slate-700 text-slate-200 placeholder-slate-500' : 'border-slate-300 bg-white text-slate-900 placeholder-slate-400'} px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
           />
           <button
             onClick={handleSend}
