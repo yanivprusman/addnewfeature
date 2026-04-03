@@ -239,7 +239,7 @@ export function handleFeedbackResponse() {
  * Returns a POST handler for /api/feedback/submit
  * Creates issues in the daemon tracker for the given app.
  */
-export function handleFeedbackSubmit(appName: string, workDir?: string) {
+export function handleFeedbackSubmit(appName: string) {
   return async function POST(request: NextRequest) {
     try {
       const { issues, pagePath, pageContext, sessionId } = await request.json();
@@ -267,8 +267,8 @@ export function handleFeedbackSubmit(appName: string, workDir?: string) {
                   '--description', description,
                   '--labels', '["user-reported"]',
               ];
-              if (sessionId && workDir) {
-                args.push('--claudeSessionId', sessionId, '--claudeLaunchDir', workDir);
+              if (sessionId) {
+                args.push('--clarifierSessionId', sessionId);
               }
               execFile(
                 '/usr/local/bin/daemon',

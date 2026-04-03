@@ -14,6 +14,7 @@ interface Issue {
   insights?: string;
   claudeSessionId?: string;
   claudeSessionIds?: string[];
+  clarifierSessionId?: string;
   claudeLaunchDir?: string;
 }
 
@@ -617,8 +618,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     setChatTmuxSession(null);
     setChatHistoryLoading(true);
     try {
-      const clarifierSessionId = issue.claudeSessionIds?.[0] || issue.claudeSessionId;
-      const res = await fetch(`/api/feedback/session-history?sessionId=${encodeURIComponent(clarifierSessionId!)}`);
+      const res = await fetch(`/api/feedback/session-history?sessionId=${encodeURIComponent(issue.clarifierSessionId!)}`);
       const data = await res.json();
       if (data.found && data.messages.length > 0) {
         setChatMessages(data.messages);
@@ -659,7 +659,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           message: text,
           ...(chatSessionId && chatTmuxSession
             ? { sessionId: chatSessionId, tmuxSession: chatTmuxSession }
-            : { resumeSessionId: chatTarget.claudeSessionIds?.[0] || chatTarget.claudeSessionId }),
+            : { resumeSessionId: chatTarget.clarifierSessionId }),
           pagePath: "/issues",
           pageContext: "Issues",
         }),
@@ -964,7 +964,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           <button
                             data-id={`not-working-${issue.issueNumber}`}
                             onClick={() => {
-                              if (issue.claudeSessionIds?.[0] || issue.claudeSessionId) {
+                              if (issue.clarifierSessionId) {
                                 openRegressionChat(issue);
                               } else {
                                 setRegressionTarget(issue);
