@@ -570,20 +570,33 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
   if (!open) {
     return (
-      <div className="fixed bottom-6 end-6 z-[10001]">
-        <button
-          onClick={handleOpen}
-          className={`w-14 h-14 ${accent} text-white rounded-full shadow-lg flex items-center justify-center transition-all relative opacity-50 hover:opacity-100`}
-          title={labels.button}
-        >
+      <div
+        className="fixed bottom-6 end-6 z-[10001] w-14 h-14 rounded-full pointer-events-none [&:hover>span:first-child]:border-indigo-400"
+        ref={(el) => {
+          if (!el || (el as any)._ctx) return;
+          (el as any)._ctx = true;
+          el.addEventListener('contextmenu', (e) => { e.preventDefault(); handleOpen(); });
+          el.addEventListener('pointerdown', (e) => {
+            if (e.button === 0) {
+              el.style.pointerEvents = 'none';
+              const under = document.elementFromPoint(e.clientX, e.clientY);
+              el.style.pointerEvents = '';
+              if (under && under !== el) (under as HTMLElement).click();
+            }
+          });
+          el.style.pointerEvents = 'auto';
+        }}
+        title={labels.button}
+      >
+        <span className={`w-full h-full ${accent} text-white rounded-full shadow-lg flex items-center justify-center opacity-50 pointer-events-none border-2 border-indigo-400/50 transition-colors`}>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
-          {/* Session active indicator dot */}
-          {hasSession && (
-            <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-green-400 border-2 border-white rounded-full" />
-          )}
-        </button>
+        </span>
+        {/* Session active indicator dot */}
+        {hasSession && (
+          <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-green-400 border-2 border-white rounded-full pointer-events-none" />
+        )}
       </div>
     );
   }
