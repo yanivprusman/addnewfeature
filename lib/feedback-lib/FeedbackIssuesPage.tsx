@@ -52,6 +52,7 @@ export interface IssuesPageLabels {
   maintenance: string;
   maintenanceLaunch: string;
   maintenanceLaunching: string;
+  maintenanceLaunched: string;
   resumeSession: string;
   newSession: string;
   previousSessions: string;
@@ -101,6 +102,7 @@ const defaultLabels: IssuesPageLabels = {
   maintenance: "Maintenance",
   maintenanceLaunch: "Launch",
   maintenanceLaunching: "Launching...",
+  maintenanceLaunched: "Launched!",
   resumeSession: "Resume",
   newSession: "New Session",
   previousSessions: "Previous sessions:",
@@ -150,6 +152,7 @@ const heLabels: IssuesPageLabels = {
   maintenance: "תחזוקה",
   maintenanceLaunch: "הפעלה",
   maintenanceLaunching: "מפעיל...",
+  maintenanceLaunched: "הופעל!",
   resumeSession: "המשך",
   newSession: "סשן חדש",
   previousSessions: "סשנים קודמים:",
@@ -308,6 +311,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
 
   // Maintenance
   const [maintenanceLaunching, setMaintenanceLaunching] = useState<string | null>(null);
+  const [maintenanceLaunched, setMaintenanceLaunched] = useState<string | null>(null);
 
   // Distinct tab title & favicon for the issues page
   const originalTitleRef = useRef<string>('');
@@ -831,11 +835,15 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   async function handleMaintenanceLaunch(mp: MaintenancePrompt) {
     setMaintenanceLaunching(mp.id);
     try {
-      await fetch("/api/feedback/issues", {
+      const res = await fetch("/api/feedback/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "maintenance", prompt: mp.prompt, ...(appName && { app: appName }) }),
       });
+      if (res.ok) {
+        setMaintenanceLaunched(mp.id);
+        setTimeout(() => setMaintenanceLaunched(null), 2000);
+      }
     } catch { /* ignore */ }
     setMaintenanceLaunching(null);
   }
@@ -1185,10 +1193,12 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                   onClick={() => handleMaintenanceLaunch(mp)}
                   disabled={maintenanceLaunching !== null}
                   className={`text-xs px-3 py-1.5 rounded-md transition-colors cursor-pointer whitespace-nowrap ${
-                    isDark ? "bg-slate-600 hover:bg-slate-500 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-700"
+                    maintenanceLaunched === mp.id
+                      ? (isDark ? "bg-green-800 text-green-200" : "bg-green-100 text-green-700")
+                      : (isDark ? "bg-slate-600 hover:bg-slate-500 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-700")
                   } disabled:opacity-50 active:scale-95`}
                 >
-                  {maintenanceLaunching === mp.id ? labels.maintenanceLaunching : labels.maintenanceLaunch}
+                  {maintenanceLaunched === mp.id ? labels.maintenanceLaunched : maintenanceLaunching === mp.id ? labels.maintenanceLaunching : labels.maintenanceLaunch}
                 </button>
               </div>
             ))}
