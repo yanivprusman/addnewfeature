@@ -478,13 +478,15 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
   const sessionFile = `${home}/.claude/projects/${projectKey}/${claudeSessionId}.jsonl`;
   if (!existsSync(sessionFile)) return null;
 
-  // Skip if the session's last user prompt was already /conclude-issues-skill
+  // Skip if the session's last user prompt was already /conclude-issues-skill.
+  // The CLI stores skill invocations wrapped in XML tags, so check for both raw and tagged forms.
   try {
     const lines = readFileSync(sessionFile, 'utf-8').split('\n').filter(Boolean);
     for (let i = lines.length - 1; i >= 0; i--) {
       const obj = JSON.parse(lines[i]);
       if (obj.type === 'user' && typeof obj.message?.content === 'string') {
-        if (obj.message.content.trim() === '/conclude-issues-skill') return null;
+        const text = obj.message.content.trim();
+        if (text === '/conclude-issues-skill' || text.includes('conclude-issues-skill</command-name>')) return null;
         break;
       }
     }
