@@ -185,6 +185,12 @@ const MAINTENANCE_PROMPTS: MaintenancePrompt[] = [
     description: "Ensure tab/section navigation sets data-active-tab on the active element so the feedback widget tracks which view the user is on.",
     prompt: "Scan this app for tab or section navigation (tab bars, sidebars, segmented controls). For each one, ensure the currently active element has a `data-active-tab` attribute set to the visible label text. This attribute must move with the active state — only the active element should have it at any given time. The feedback-lib widget reads this via `document.querySelector('[data-active-tab]')` at issue-report time. Do not remove any existing attributes. Commit and push when done.",
   },
+  {
+    id: "assign-data-ids",
+    title: "Assign data-id to components",
+    description: "Scan for interactive or identifiable components missing a data-id attribute and add appropriate values.",
+    prompt: "Scan all React components in this app for interactive or identifiable elements (buttons, links, inputs, toggles, checkboxes, selects, textareas, and other clickable/focusable elements) that are missing a `data-id` attribute. For each one found, add a `data-id` with a descriptive kebab-case value that describes the element's action or purpose (e.g. `data-id=\"save-settings\"`, `data-id=\"search-input\"`). Do not modify elements that already have a `data-id`. Commit and push when done.",
+  },
 ];
 
 interface FeedbackIssuesPageProps {
