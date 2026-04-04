@@ -286,6 +286,7 @@ export function launchFix(config: FixConfig): LaunchResult {
   });
 
   // Register with dashboard (fire-and-forget)
+  const issueKeys = issues.map(i => `${appName}#${i.number}`);
   fetch(`http://localhost:${dashboardPort}/api/claude-sessions/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -298,6 +299,8 @@ export function launchFix(config: FixConfig): LaunchResult {
       termTitle: tmuxSession,
       launchMethod: 'tmux',
       source: 'terminal',
+      issueKeys,
+      issues: issues.map(i => ({ number: i.number, title: i.title })),
     }),
   }).catch(() => {});
 
@@ -434,6 +437,7 @@ export function launchFixResume(config: FixResumeConfig): LaunchResult {
     if (err) console.error(`${appName} fix-resume launch failed:`, err.message);
   });
 
+  const issueKeys = [`${appName}#${issue.number}`];
   fetch(`http://localhost:${dashboardPort}/api/claude-sessions/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -446,6 +450,8 @@ export function launchFixResume(config: FixResumeConfig): LaunchResult {
       termTitle: tmuxSession,
       launchMethod: 'tmux',
       source: 'terminal',
+      issueKeys,
+      issues: [{ number: issue.number, title: issue.title }],
     }),
   }).catch(() => {});
 
