@@ -11,12 +11,6 @@ const CLEANUP_STARTED_KEY = Symbol.for('feedback-lib:cleanup-interval-started');
 const SESSION_ID_MAP_KEY = Symbol.for('feedback-lib:session-id-to-tmux');
 const SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
-/** The /issues page is feedback-lib code owned by addnewfeature.
- *  Issues reported via the widget from that page should go to addnewfeature, not the host app. */
-const FEEDBACK_LIB_APP = 'addnewfeature';
-const FEEDBACK_LIB_WORKDIR = '/opt/dev/addnewfeature';
-const FEEDBACK_LIB_PAGES = ['/issues'];
-
 type SessionInfo = { timestamp: number; appName: string };
 
 function getSessionActivityMap(): Map<string, SessionInfo> {
@@ -118,13 +112,10 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
           || parseInt(process.env.PORT || '')
           || undefined;
 
-        // If reporting from a feedback-lib page (e.g. /issues), redirect to addnewfeature
-        // Skip redirect when resuming — the session lives under the original app's workDir
         // Extract pathname only (pagePath may include search/hash)
         const pathOnly = pagePath?.split(/[?#]/)[0];
-        const isFeedbackLibPage = !resumeSessionId && pathOnly && FEEDBACK_LIB_PAGES.includes(pathOnly);
-        const effectiveApp = isFeedbackLibPage ? FEEDBACK_LIB_APP : appName;
-        const effectiveWorkDir = isFeedbackLibPage ? FEEDBACK_LIB_WORKDIR : workDir;
+        const effectiveApp = appName;
+        const effectiveWorkDir = workDir;
 
         const locationTag = buildLocationTag(pagePath, pageContext);
         const firstMessage = locationTag
@@ -240,8 +231,7 @@ export function handleFeedbackSubmit(appName: string) {
       }
 
       const pathOnly = pagePath?.split(/[?#]/)[0];
-      const isFeedbackLibPage = pathOnly && FEEDBACK_LIB_PAGES.includes(pathOnly);
-      const effectiveApp = isFeedbackLibPage ? FEEDBACK_LIB_APP : appName;
+      const effectiveApp = appName;
 
       const results = await Promise.all(
         issues.map(async (issue: { title: string; description: string }) => {
@@ -445,8 +435,6 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
           return NextResponse.json({ error: 'title is required' }, { status: 400 });
         }
         const pathOnly = pagePath?.split(/[?#]/)[0];
-        const isFeedbackLibPage = pathOnly && FEEDBACK_LIB_PAGES.includes(pathOnly);
-        const effectiveApp = isFeedbackLibPage ? FEEDBACK_LIB_APP : appName;
         const locationTag = buildLocationTag(pagePath, pageContext);
         const fullDesc = locationTag
           ? `${locationTag}\n\n${(description || '').trim()}`
