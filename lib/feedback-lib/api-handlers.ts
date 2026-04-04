@@ -525,7 +525,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
               dashboardPort,
             });
             if (!concluded) {
-              console.log(`[feedback-lib] conclude: session file not found for ${body.claudeSessionId}, closing without conclude`);
+              console.log(`[feedback-lib] conclude: skipped for ${body.claudeSessionId} (session expired or already concluded)`);
             }
           }
         }

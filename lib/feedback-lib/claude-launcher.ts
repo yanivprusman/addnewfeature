@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { execFile, execFileSync } from 'child_process';
-import { existsSync, writeFileSync, unlinkSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
 import { getSessionEnv } from './session-env';
 
 export interface LaunchConfig {
@@ -471,6 +471,18 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
   const projectKey = workDir.replace(/\//g, '-');
   const sessionFile = `${home}/.claude/projects/${projectKey}/${claudeSessionId}.jsonl`;
   if (!existsSync(sessionFile)) return null;
+
+  // Skip if the session's last user prompt was already /conclude-issues-skill
+  try {
+    const lines = readFileSync(sessionFile, 'utf-8').split('\n').filter(Boolean);
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const obj = JSON.parse(lines[i]);
+      if (obj.type === 'user' && typeof obj.message?.content === 'string') {
+        if (obj.message.content.trim() === '/conclude-issues-skill') return null;
+        break;
+      }
+    }
+  } catch { /* parse error — proceed with launch */ }
 
   const tmuxSession = `${appName}-conclude-${Date.now().toString(36)}`;
   const scriptLogFile = `/tmp/${appName}-claude-${tmuxSession}.log`;
