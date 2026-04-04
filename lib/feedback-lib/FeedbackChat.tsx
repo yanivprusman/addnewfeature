@@ -484,7 +484,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       const res = await fetch("/api/feedback/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issues: selected, pagePath: getFullPagePath(), pageContext: getPageContext(), sessionId: sessionId || resumeId }),
+        body: JSON.stringify({ issues: selected, pagePath: getFullPagePath(), pageContext: getPageContext(), sessionId: sessionId || resumeId, ...(isOnIssuesPage && { app: 'addnewfeature' }) }),
       });
 
       if (!res.ok) throw new Error("Submit failed");
@@ -553,7 +553,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       const res = await fetch("/api/feedback/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create", title: directTitle, description: directDesc, pagePath: getFullPagePath(), pageContext: getPageContext() }),
+        body: JSON.stringify({ action: "create", title: directTitle, description: directDesc, pagePath: getFullPagePath(), pageContext: getPageContext(), ...(isOnIssuesPage && { app: 'addnewfeature' }) }),
       });
       if (!res.ok) throw new Error("Create failed");
       const data = await res.json();
@@ -627,7 +627,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             {labels.newChat}
           </button>
           {issuesPath && (
-            <button onClick={() => isOnIssuesPage ? openIssuesTab('/issues?app=addnewfeature', 'feedback-issues-parent') : openIssuesTab(issuesPath!)} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
+            <button onClick={() => isOnIssuesPage ? (window.location.href = '/issues?app=addnewfeature') : openIssuesTab(issuesPath!)} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
               {labels.viewIssues}
             </button>
           )}

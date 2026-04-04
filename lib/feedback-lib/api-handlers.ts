@@ -224,14 +224,14 @@ export function handleFeedbackResponse() {
 export function handleFeedbackSubmit(appName: string) {
   return async function POST(request: NextRequest) {
     try {
-      const { issues, pagePath, pageContext, sessionId } = await request.json();
+      const body = await request.json();
+      const { issues, pagePath, pageContext, sessionId } = body;
 
       if (!Array.isArray(issues) || issues.length === 0) {
         return NextResponse.json({ error: 'At least one issue is required' }, { status: 400 });
       }
 
-      const pathOnly = pagePath?.split(/[?#]/)[0];
-      const effectiveApp = appName;
+      const effectiveApp = body.app || appName;
 
       const results = await Promise.all(
         issues.map(async (issue: { title: string; description: string }) => {
