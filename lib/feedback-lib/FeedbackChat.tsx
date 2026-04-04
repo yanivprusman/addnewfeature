@@ -573,7 +573,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       <div className="fixed bottom-6 end-6 z-[10001]">
         <button
           onClick={handleOpen}
-          className={`w-14 h-14 ${accent} text-white rounded-full shadow-lg flex items-center justify-center transition-colors relative`}
+          className={`w-14 h-14 ${accent} text-white rounded-full shadow-lg flex items-center justify-center transition-all relative opacity-50 hover:opacity-100`}
           title={labels.button}
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
