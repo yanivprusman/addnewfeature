@@ -570,7 +570,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
   if (!open) {
     return (
-      <div className="fixed bottom-6 end-6 z-50">
+      <div className="fixed bottom-6 end-6 z-[10001]">
         <button
           onClick={handleOpen}
           className={`w-14 h-14 ${accent} text-white rounded-full shadow-lg flex items-center justify-center transition-colors relative`}
@@ -589,7 +589,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   }
 
   return (
-    <div className={`fixed bottom-6 end-6 z-50 w-96 max-h-[min(32rem,calc(100dvh-3rem))] ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-2xl shadow-2xl border flex flex-col overflow-hidden`}>
+    <div className={`fixed bottom-6 end-6 z-[10001] w-96 max-h-[min(32rem,calc(100dvh-3rem))] ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} rounded-2xl shadow-2xl border flex flex-col overflow-hidden`}>
       {/* Header */}
       <div className={`flex items-center justify-between px-4 py-3 ${accentBase} text-white`}>
         <div className="flex items-center gap-2">
