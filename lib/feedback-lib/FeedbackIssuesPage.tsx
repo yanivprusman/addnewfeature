@@ -64,6 +64,8 @@ export interface IssuesPageLabels {
   selectIssues: string;
   chatSubmit: string;
   chatSubmitting: string;
+  fixInOriginalSession: string;
+  newFixSession: string;
 }
 
 const defaultLabels: IssuesPageLabels = {
@@ -111,6 +113,8 @@ const defaultLabels: IssuesPageLabels = {
   selectIssues: "Select the issues to submit:",
   chatSubmit: "Submit Selected",
   chatSubmitting: "Submitting...",
+  fixInOriginalSession: "Fix in original session",
+  newFixSession: "New fix session",
 };
 
 const heLabels: IssuesPageLabels = {
@@ -158,6 +162,8 @@ const heLabels: IssuesPageLabels = {
   selectIssues: "בחרו את הבעיות שברצונכם לשלוח:",
   chatSubmit: "שליחת הנבחרים",
   chatSubmitting: "שולח...",
+  fixInOriginalSession: "תיקון בסשן המקורי",
+  newFixSession: "סשן תיקון חדש",
 };
 
 const issuesTranslations: Record<string, IssuesPageLabels> = {
@@ -754,6 +760,33 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       setChatMessages(prev => [...prev, { role: "assistant", text: "Something went wrong. Please try again." }]);
     }
     setChatSubmitting(false);
+  }
+
+  async function handleChatFixIssues(resumeSessionId?: string) {
+    if (!chatSubmitResults) return;
+    const successIssues = chatSubmitResults
+      .filter(r => r.success && r.issueNumber)
+      .map(r => ({ number: r.issueNumber!, title: r.title }));
+    if (successIssues.length === 0) return;
+
+    setFixSessionLoading(true);
+    try {
+      const res = await fetch("/api/feedback/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "fix",
+          ...(appName && { app: appName }),
+          issues: successIssues,
+          ...(resumeSessionId && { resumeSessionId }),
+        }),
+      });
+      if (res.ok) {
+        closeRegressionChat();
+        fetchIssues();
+      }
+    } catch { /* ignore */ }
+    setFixSessionLoading(false);
   }
 
   async function handleCloseIssue(issueNumber: number) {
@@ -1481,6 +1514,36 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                       {result.success ? `Issue #${result.issueNumber ?? "?"} — ${result.title}` : `Failed: ${result.title}`}
                     </p>
                   ))}
+                </div>
+              )}
+
+              {/* Fix action buttons after successful submit */}
+              {chatSubmitResults && chatSubmitResults.some(r => r.success) && (
+                <div className="flex gap-2 flex-wrap">
+                  {chatTarget?.claudeSessionIds?.length ? (
+                    <button
+                      data-id="chat-fix-original-session"
+                      onClick={() => handleChatFixIssues(chatTarget!.claudeSessionIds![chatTarget!.claudeSessionIds!.length - 1])}
+                      disabled={fixSessionLoading}
+                      className={`flex-1 text-xs px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
+                        isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
+                      } disabled:opacity-50`}
+                    >
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" /></svg>
+                      {fixSessionLoading ? labels.launching : labels.fixInOriginalSession}
+                    </button>
+                  ) : null}
+                  <button
+                    data-id="chat-fix-new-session"
+                    onClick={() => handleChatFixIssues()}
+                    disabled={fixSessionLoading}
+                    className={`flex-1 text-xs px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
+                      isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
+                    } disabled:opacity-50`}
+                  >
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" /></svg>
+                    {fixSessionLoading ? labels.launching : labels.newFixSession}
+                  </button>
                 </div>
               )}
 
