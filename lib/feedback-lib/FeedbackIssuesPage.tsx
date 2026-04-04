@@ -62,6 +62,8 @@ export interface IssuesPageLabels {
   noSessionHistory: string;
   sendMessage: string;
   selectIssues: string;
+  chatSubmit: string;
+  chatSubmitting: string;
 }
 
 const defaultLabels: IssuesPageLabels = {
@@ -107,6 +109,8 @@ const defaultLabels: IssuesPageLabels = {
   noSessionHistory: "No previous conversation found.",
   sendMessage: "Send",
   selectIssues: "Select the issues to submit:",
+  chatSubmit: "Submit Selected",
+  chatSubmitting: "Submitting...",
 };
 
 const heLabels: IssuesPageLabels = {
@@ -152,6 +156,8 @@ const heLabels: IssuesPageLabels = {
   noSessionHistory: "לא נמצאה שיחה קודמת.",
   sendMessage: "שליחה",
   selectIssues: "בחרו את הבעיות שברצונכם לשלוח:",
+  chatSubmit: "שליחת הנבחרים",
+  chatSubmitting: "שולח...",
 };
 
 const issuesTranslations: Record<string, IssuesPageLabels> = {
@@ -267,13 +273,17 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const [chatSessionId, setChatSessionId] = useState<string | null>(null);
   const [chatTmuxSession, setChatTmuxSession] = useState<string | null>(null);
   const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
+  const [chatIssues, setChatIssues] = useState<{ title: string; description: string }[] | null>(null);
+  const [chatCheckedIssues, setChatCheckedIssues] = useState<boolean[]>([]);
+  const [chatSubmitting, setChatSubmitting] = useState(false);
+  const [chatSubmitResults, setChatSubmitResults] = useState<{ title: string; issueNumber?: number; success: boolean }[] | null>(null);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
   const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
 
   // Auto-scroll chat messages
   useEffect(() => {
     chatMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages, chatLoading]);
+  }, [chatMessages, chatLoading, chatIssues, chatSubmitResults]);
 
   // Tabs: "issues" or "maintenance"
   const [activeTab, setActiveTab] = useState<"issues" | "maintenance">("issues");
@@ -654,6 +664,10 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     setChatSessionId(null);
     setChatTmuxSession(null);
     setChatLoading(false);
+    setChatIssues(null);
+    setChatCheckedIssues([]);
+    setChatSubmitting(false);
+    setChatSubmitResults(null);
   }
 
   async function handleChatSend() {
@@ -661,8 +675,16 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     if (!text || chatLoading || !chatTarget) return;
 
     setChatInput("");
-    setChatMessages(prev => [...prev, { role: "user", text }]);
+    // Move current active issues to stale before sending new message
+    if (chatIssues && chatIssues.length > 0) {
+      setChatMessages(prev => [...prev, { role: "assistant", text: "", staleIssues: chatIssues }, { role: "user", text }]);
+      setChatIssues(null);
+      setChatCheckedIssues([]);
+    } else {
+      setChatMessages(prev => [...prev, { role: "user", text }]);
+    }
     setChatLoading(true);
+    setChatSubmitResults(null);
 
     try {
       const res = await fetch("/api/feedback", {
@@ -696,13 +718,42 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       if (data.issues) {
         displayText = displayText.replace(/```json\s*\n[\s\S]*?\n```\s*/g, "").trim();
       }
-      if (displayText || data.issues) {
-        setChatMessages(prev => [...prev, { role: "assistant", text: displayText, ...(data.issues && { staleIssues: data.issues }) }]);
+      if (displayText) {
+        setChatMessages(prev => [...prev, { role: "assistant", text: displayText }]);
+      }
+      if (data.issues) {
+        setChatIssues(data.issues);
+        setChatCheckedIssues(new Array(data.issues.length).fill(true));
       }
     } catch {
       setChatMessages(prev => [...prev, { role: "assistant", text: "Something went wrong. Please try again." }]);
     }
     setChatLoading(false);
+  }
+
+  async function handleChatSubmitIssues() {
+    if (!chatIssues || chatSubmitting) return;
+    const selected = chatIssues.filter((_, i) => chatCheckedIssues[i]);
+    if (selected.length === 0) return;
+
+    setChatSubmitting(true);
+    try {
+      const res = await fetch("/api/feedback/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ issues: selected, pagePath: "/issues", pageContext: "Issues", sessionId: chatSessionId || chatTarget?.clarifierSessionId }),
+      });
+      if (!res.ok) throw new Error("Submit failed");
+      const data = await res.json();
+      setChatSubmitResults(data.results);
+      setChatIssues(null);
+      setChatCheckedIssues([]);
+      // Refresh the issues list to show newly created issues
+      fetchIssues();
+    } catch {
+      setChatMessages(prev => [...prev, { role: "assistant", text: "Something went wrong. Please try again." }]);
+    }
+    setChatSubmitting(false);
   }
 
   async function handleCloseIssue(issueNumber: number) {
@@ -1391,6 +1442,48 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                   )}
                 </Fragment>
               ))}
+              {/* Active issue checklist */}
+              {chatIssues && chatIssues.length > 0 && (
+                <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
+                  <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.selectIssues}</p>
+                  {chatIssues.map((issue, i) => (
+                    <label key={i} className={`flex items-start gap-2 cursor-pointer p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
+                      <input
+                        type="checkbox"
+                        checked={chatCheckedIssues[i] ?? true}
+                        onChange={() => setChatCheckedIssues(prev => { const next = [...prev]; next[i] = !next[i]; return next; })}
+                        className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
+                        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} whitespace-pre-wrap`}>
+                          {issue.description}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                  <button
+                    data-id="chat-modal-submit-issues"
+                    onClick={handleChatSubmitIssues}
+                    disabled={chatSubmitting || !chatCheckedIssues.some(Boolean)}
+                    className={`w-full mt-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 ${isDark ? 'disabled:bg-slate-600' : 'disabled:bg-slate-300'} text-white text-sm font-medium rounded-lg transition-colors`}
+                  >
+                    {chatSubmitting ? labels.chatSubmitting : labels.chatSubmit}
+                  </button>
+                </div>
+              )}
+
+              {/* Submit results */}
+              {chatSubmitResults && (
+                <div className={`${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'} border rounded-xl p-3 space-y-1`}>
+                  {chatSubmitResults.map((result, i) => (
+                    <p key={i} className={`text-sm ${isDark ? 'text-green-300' : 'text-green-800'}`}>
+                      {result.success ? `Issue #${result.issueNumber ?? "?"} — ${result.title}` : `Failed: ${result.title}`}
+                    </p>
+                  ))}
+                </div>
+              )}
+
               {chatLoading && (
                 <div className="flex justify-start">
                   <div className={`${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'} px-3 py-2 rounded-xl text-sm`}>
