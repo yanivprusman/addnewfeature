@@ -571,20 +571,16 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   if (!open) {
     return (
       <div
-        className="fixed bottom-6 end-6 z-[10001] w-14 h-14 rounded-full pointer-events-none [&:hover>span:first-child]:border-indigo-400"
-        ref={(el) => {
-          if (!el || (el as any)._ctx) return;
-          (el as any)._ctx = true;
-          el.addEventListener('contextmenu', (e) => { e.preventDefault(); handleOpen(); });
-          el.addEventListener('pointerdown', (e) => {
-            if (e.button === 0) {
-              el.style.pointerEvents = 'none';
-              const under = document.elementFromPoint(e.clientX, e.clientY);
-              el.style.pointerEvents = '';
-              if (under && under !== el) (under as HTMLElement).click();
-            }
-          });
-          el.style.pointerEvents = 'auto';
+        className="fixed bottom-6 end-6 z-[10001] w-14 h-14 rounded-full [&:hover>span:first-child]:border-indigo-400"
+        onContextMenu={(e) => { e.preventDefault(); handleOpen(); }}
+        onPointerDown={(e) => {
+          if (e.button === 0) {
+            const el = e.currentTarget;
+            el.style.pointerEvents = 'none';
+            const under = document.elementFromPoint(e.clientX, e.clientY);
+            el.style.pointerEvents = '';
+            if (under) (under as HTMLElement).click();
+          }
         }}
         title={labels.button}
       >
