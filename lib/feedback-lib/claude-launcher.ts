@@ -300,7 +300,7 @@ export function launchFix(config: FixConfig): LaunchResult {
       launchMethod: 'tmux',
       source: 'terminal',
       issueKeys,
-      issues: issues.map(i => ({ number: i.number, title: i.title })),
+      issues: issues.map(i => ({ key: `${appName}#${i.number}`, number: i.number, title: i.title })),
     }),
   }).catch(() => {});
 
@@ -451,7 +451,7 @@ export function launchFixResume(config: FixResumeConfig): LaunchResult {
       launchMethod: 'tmux',
       source: 'terminal',
       issueKeys,
-      issues: [{ number: issue.number, title: issue.title }],
+      issues: [{ key: `${appName}#${issue.number}`, number: issue.number, title: issue.title }],
     }),
   }).catch(() => {});
 
