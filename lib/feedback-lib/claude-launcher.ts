@@ -504,7 +504,7 @@ export interface ConcludeConfig {
 }
 
 /**
- * Resume a Claude session and run /conclude-issues-skill-and-close-session.
+ * Resume a Claude session and run /conclude-issues-and-close-session-skill.
  * If the session already has a live tmux, sends the conclude prompt there.
  * Returns null if the session file doesn't exist (cleaned up).
  */
@@ -516,7 +516,7 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
   const sessionFile = `${home}/.claude/projects/${projectKey}/${claudeSessionId}.jsonl`;
   if (!existsSync(sessionFile)) return null;
 
-  // Skip if the session's last user prompt was already /conclude-issues-skill-and-close-session.
+  // Skip if the session's last user prompt was already /conclude-issues-and-close-session-skill.
   // The CLI stores skill invocations wrapped in XML tags, so check for both raw and tagged forms.
   try {
     const lines = readFileSync(sessionFile, 'utf-8').split('\n').filter(Boolean);
@@ -524,7 +524,7 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
       const obj = JSON.parse(lines[i]);
       if (obj.type === 'user' && typeof obj.message?.content === 'string') {
         const text = obj.message.content.trim();
-        if (text === '/conclude-issues-skill-and-close-session' || text.includes('conclude-issues-skill-and-close-session</command-name>')) return null;
+        if (text === '/conclude-issues-and-close-session-skill' || text.includes('conclude-issues-and-close-session-skill</command-name>')) return null;
         break;
       }
     }
@@ -537,7 +537,7 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
   const existingTmux = findLiveTmuxForSession(claudeSessionId);
   if (existingTmux) {
     if (isClaudeProcessAlive(claudeSessionId)) {
-      sendMessage(existingTmux, '/conclude-issues-skill-and-close-session');
+      sendMessage(existingTmux, '/conclude-issues-and-close-session-skill');
       return { tmuxSession: existingTmux };
     }
     // Claude has exited — kill stale tmux so we can launch a fresh resume
@@ -553,7 +553,7 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
   const launchScriptFile = `/tmp/${appName}-launch-${tmuxSession}.sh`;
 
   const claudeCmd = `claude -r ${claudeSessionId} --dangerously-skip-permissions`;
-  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'/conclude-issues-skill-and-close-session'; exec bash`;
+  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'/conclude-issues-and-close-session-skill'; exec bash`;
 
   const sessionEnv = getSessionEnv(user);
   const envArgs = Object.entries(sessionEnv).map(([k, v]) => `${k}=${v}`);
