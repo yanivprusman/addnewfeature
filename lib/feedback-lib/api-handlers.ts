@@ -163,16 +163,31 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
         throw err;
       }
 
-      // Check if the response contains a fenced JSON block with issues
-      const jsonMatch = response.match(/```json\s*\n([\s\S]*?)\n```/);
+      // Check if the response contains an issue array — try multiple formats:
+      // 1. ```json fenced block (case-insensitive)
+      // 2. Plain ``` fenced block (no language tag)
+      // 3. Raw JSON array in the text
       let issues: { title: string; description: string }[] | undefined;
-      if (jsonMatch) {
+      const fencedMatch = response.match(/```(?:json)?\s*\n([\s\S]*?)\n```/i);
+      if (fencedMatch) {
         try {
-          const parsed = JSON.parse(jsonMatch[1]);
+          const parsed = JSON.parse(fencedMatch[1]);
           if (Array.isArray(parsed) && parsed.every((item: Record<string, unknown>) => item.title && item.description)) {
             issues = parsed;
           }
         } catch { /* Not valid JSON — ignore */ }
+      }
+      if (!issues) {
+        // Try raw JSON array (e.g. model omitted code fences)
+        const rawMatch = response.match(/\[[\s\S]*\]/);
+        if (rawMatch) {
+          try {
+            const parsed = JSON.parse(rawMatch[0]);
+            if (Array.isArray(parsed) && parsed.length > 0 && parsed.every((item: Record<string, unknown>) => item.title && item.description)) {
+              issues = parsed;
+            }
+          } catch { /* Not valid JSON — ignore */ }
+        }
       }
 
       return NextResponse.json({
@@ -619,16 +634,33 @@ export function handleFeedbackSessionHistory(_appName: string, workDir: string) 
           let combined = texts.join('\n').trim();
           // Extract issue proposals from JSON code blocks before stripping them
           let staleIssues: { title: string; description: string }[] | undefined;
-          const jsonMatch = combined.match(/```json\s*\n([\s\S]*?)\n```/);
-          if (jsonMatch) {
+          const fencedHistMatch = combined.match(/```(?:json)?\s*\n([\s\S]*?)\n```/i);
+          if (fencedHistMatch) {
             try {
-              const parsed = JSON.parse(jsonMatch[1]);
+              const parsed = JSON.parse(fencedHistMatch[1]);
               if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].title) {
                 staleIssues = parsed.map((i: { title: string; description?: string }) => ({ title: i.title, description: i.description || '' }));
               }
             } catch { /* not valid issue JSON, ignore */ }
           }
-          combined = combined.replace(/```json\s*\n[\s\S]*?\n```\s*/g, '').trim();
+          if (!staleIssues) {
+            const rawHistMatch = combined.match(/\[[\s\S]*\]/);
+            if (rawHistMatch) {
+              try {
+                const parsed = JSON.parse(rawHistMatch[0]);
+                if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].title) {
+                  staleIssues = parsed.map((i: { title: string; description?: string }) => ({ title: i.title, description: i.description || '' }));
+                }
+              } catch { /* ignore */ }
+            }
+          }
+          // Strip fenced blocks and raw JSON arrays from display text
+          combined = combined.replace(/```(?:json)?\s*\n[\s\S]*?\n```\s*/gi, '').trim();
+          if (staleIssues && combined.match(/\[[\s\S]*\]/)) {
+            combined = combined.replace(/\[[\s\S]*\]\s*/g, (m) => {
+              try { const p = JSON.parse(m); return Array.isArray(p) && p[0]?.title ? '' : m; } catch { return m; }
+            }).trim();
+          }
           if (combined || staleIssues) {
             messages.push({ role: 'assistant', text: combined, ...(staleIssues && { staleIssues }) });
           }

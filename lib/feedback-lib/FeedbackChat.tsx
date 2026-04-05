@@ -456,7 +456,14 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
       let displayText = data.response;
       if (data.issues) {
-        displayText = displayText.replace(/```json\s*\n[\s\S]*?\n```\s*/g, "").trim();
+        // Strip fenced JSON blocks (```json or plain ```)
+        displayText = displayText.replace(/```(?:json)?\s*\n[\s\S]*?\n```\s*/gi, "").trim();
+        // Strip raw JSON arrays if no fenced block was found
+        if (displayText === data.response.trim()) {
+          displayText = displayText.replace(/\[[\s\S]*\]\s*/g, (match: string) => {
+            try { const p = JSON.parse(match); return Array.isArray(p) && p[0]?.title ? "" : match; } catch { return match; }
+          }).trim();
+        }
       }
 
       setMessages((prev) => [...prev, { role: "assistant", text: displayText }]);
