@@ -32,6 +32,8 @@ export const feedbackTranslations: Record<string, FeedbackLabels> = {
     goToIssuesPrompt: "Issues submitted! Would you like to view them on the Issues page?",
     goToIssuesYes: "View Issues Page",
     goToIssuesNo: "Close",
+    fullScreen: "Full Screen",
+    exitFullScreen: "Exit Full Screen",
   },
   he: {
     greeting:
@@ -63,5 +65,7 @@ export const feedbackTranslations: Record<string, FeedbackLabels> = {
     goToIssuesPrompt: "הבעיות נשלחו בהצלחה! רוצים לצפות בהן בדף הבעיות?",
     goToIssuesYes: "צפייה בדף הבעיות",
     goToIssuesNo: "סגירה",
+    fullScreen: "מסך מלא",
+    exitFullScreen: "יציאה ממסך מלא",
   },
 };
