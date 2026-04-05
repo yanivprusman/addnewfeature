@@ -536,7 +536,11 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   }
 
   function handleGoToIssues() {
-    openIssuesTab(issuesPath || '/issues');
+    if (isOnIssuesPage) {
+      window.location.href = '/issues?app=addnewfeature';
+    } else {
+      openIssuesTab(issuesPath || '/issues');
+    }
     handlePostSubmitCleanup();
   }
 
