@@ -671,7 +671,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     setChatTmuxSession(null);
     setChatHistoryLoading(true);
     try {
-      const res = await fetch(`/api/feedback/session-history?sessionId=${encodeURIComponent(issue.clarifierSessionId!)}`);
+      const res = await fetch(`/api/feedback/session-history?sessionId=${encodeURIComponent(issue.clarifierSessionId!)}${appName ? `&app=${appName}` : ''}`);
       const data = await res.json();
       if (data.found && data.messages.length > 0) {
         setChatMessages(data.messages);

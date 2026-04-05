@@ -602,7 +602,9 @@ export function handleFeedbackSessionHistory(_appName: string, workDir: string) 
     }
 
     const home = process.env.HOME || '/root';
-    const projectKey = workDir.replace(/\//g, '-');
+    const app = request.nextUrl.searchParams.get('app');
+    const effectiveWorkDir = app ? `/opt/dev/${app}` : workDir;
+    const projectKey = effectiveWorkDir.replace(/\//g, '-');
     const sessionFile = `${home}/.claude/projects/${projectKey}/${sessionId}.jsonl`;
 
     if (!existsSync(sessionFile)) {
