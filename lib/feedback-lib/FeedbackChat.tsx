@@ -152,6 +152,9 @@ interface FeedbackChatProps {
   colorScheme?: 'system' | 'light' | 'dark';
   /** Path to the issues page (e.g. "/issues"). If set, shows a link in the header. */
   issuesPath?: string;
+  /** Override the target app for all feedback requests.
+   *  When set, issues are created against this app instead of the host app's default. */
+  app?: string;
 }
 
 const STORAGE_KEY_BASE = "feedback-chat-session";
@@ -200,7 +203,7 @@ function FeedbackChatDev(props: FeedbackChatProps) {
   );
 }
 
-function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorScheme = 'system', issuesPath = '/issues' }: FeedbackChatProps) {
+function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorScheme = 'system', issuesPath = '/issues', app: appProp }: FeedbackChatProps) {
   const langLabels = lang ? (feedbackTranslations[lang] ?? defaultLabels) : defaultLabels;
   const labels = { ...langLabels, ...labelOverrides };
   const accent = accentClass ?? "bg-indigo-600 hover:bg-indigo-700";
@@ -238,6 +241,9 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   useEffect(() => {
     setIsOnIssuesPage(window.location.pathname === issuesPath);
   }, [issuesPath]);
+
+  // Target app override: explicit prop takes precedence, then issues-page default
+  const appOverride = appProp || (isOnIssuesPage ? 'addnewfeature' : undefined);
 
   // Scope localStorage key by page context — issues page targets addnewfeature,
   // not the host app, so it needs its own independent session.
@@ -429,6 +435,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           resumeSessionId: !sessionId ? resumeId : undefined,
           pagePath: getFullPagePath(),
           pageContext: getPageContext(),
+          ...(appOverride && { app: appOverride }),
         }),
       });
 
@@ -497,7 +504,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       const res = await fetch("/api/feedback/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issues: selected, pagePath: getFullPagePath(), pageContext: getPageContext(), sessionId: sessionId || resumeId, ...(isOnIssuesPage && { app: 'addnewfeature' }) }),
+        body: JSON.stringify({ issues: selected, pagePath: getFullPagePath(), pageContext: getPageContext(), sessionId: sessionId || resumeId, ...(appOverride && { app: appOverride }) }),
       });
 
       if (!res.ok) throw new Error("Submit failed");
@@ -576,7 +583,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       const res = await fetch("/api/feedback/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create", title: directTitle, description: directDesc, pagePath: getFullPagePath(), pageContext: getPageContext(), ...(isOnIssuesPage && { app: 'addnewfeature' }) }),
+        body: JSON.stringify({ action: "create", title: directTitle, description: directDesc, pagePath: getFullPagePath(), pageContext: getPageContext(), ...(appOverride && { app: appOverride }) }),
       });
       if (!res.ok) throw new Error("Create failed");
       const data = await res.json();
