@@ -467,7 +467,7 @@ export interface ConcludeConfig {
 }
 
 /**
- * Resume a Claude session and run /conclude-issues-skill.
+ * Resume a Claude session and run /conclude-issues-skill-and-close-session.
  * Returns null if the session file doesn't exist (cleaned up).
  */
 export function launchConclude(config: ConcludeConfig): { tmuxSession: string } | null {
@@ -478,7 +478,7 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
   const sessionFile = `${home}/.claude/projects/${projectKey}/${claudeSessionId}.jsonl`;
   if (!existsSync(sessionFile)) return null;
 
-  // Skip if the session's last user prompt was already /conclude-issues-skill.
+  // Skip if the session's last user prompt was already /conclude-issues-skill-and-close-session.
   // The CLI stores skill invocations wrapped in XML tags, so check for both raw and tagged forms.
   try {
     const lines = readFileSync(sessionFile, 'utf-8').split('\n').filter(Boolean);
@@ -486,7 +486,7 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
       const obj = JSON.parse(lines[i]);
       if (obj.type === 'user' && typeof obj.message?.content === 'string') {
         const text = obj.message.content.trim();
-        if (text === '/conclude-issues-skill' || text.includes('conclude-issues-skill</command-name>')) return null;
+        if (text === '/conclude-issues-skill-and-close-session' || text.includes('conclude-issues-skill-and-close-session</command-name>')) return null;
         break;
       }
     }
@@ -497,7 +497,7 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
   const launchScriptFile = `/tmp/${appName}-launch-${tmuxSession}.sh`;
 
   const claudeCmd = `claude -r ${claudeSessionId} --dangerously-skip-permissions`;
-  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'/conclude-issues-skill'; exec bash`;
+  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'/conclude-issues-skill-and-close-session'; exec bash`;
 
   const sessionEnv = getSessionEnv(user);
   const envArgs = Object.entries(sessionEnv).map(([k, v]) => `${k}=${v}`);
