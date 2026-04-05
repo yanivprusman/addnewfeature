@@ -536,7 +536,12 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   }
 
   function handleGoToIssues() {
-    openIssuesTab(isOnIssuesPage ? '/issues?app=addnewfeature' : (issuesPath || '/issues'));
+    if (isOnIssuesPage) {
+      // Already on the issues page — trigger a data refresh instead of navigating
+      window.dispatchEvent(new Event('feedback-issues-refresh'));
+    } else {
+      openIssuesTab(issuesPath || '/issues');
+    }
     handlePostSubmitCleanup();
   }
 
@@ -634,7 +639,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             {labels.newChat}
           </button>
           {issuesPath && (
-            <button onClick={() => openIssuesTab(isOnIssuesPage ? '/issues?app=addnewfeature' : issuesPath!)} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
+            <button onClick={() => isOnIssuesPage ? window.dispatchEvent(new Event('feedback-issues-refresh')) : openIssuesTab(issuesPath!)} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
               {labels.viewIssues}
             </button>
           )}

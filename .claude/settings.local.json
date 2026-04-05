@@ -1,12 +1,20 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(git -C /opt/dev/addnewfeature add -A)",
+      "Bash(git -C /opt/dev/addnewfeature commit -m '#83: dispatch refresh event instead of navigating when already on issues page')",
+      "Bash(git -C /opt/dev/addnewfeature push)"
+    ]
+  },
   "hooks": {
     "Stop": [
       {
         "hooks": [
           {
-            "timeout": 5,
             "type": "http",
-            "url": "http://localhost:3039/api/feedback/response"
+            "url": "http://localhost:3039/api/feedback/response",
+            "timeout": 5
           }
         ]
       }

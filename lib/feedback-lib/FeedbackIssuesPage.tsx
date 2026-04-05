@@ -406,7 +406,10 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   useEffect(() => {
     fetchIssues();
     const interval = setInterval(fetchIssues, 15_000);
-    return () => clearInterval(interval);
+    // Allow FeedbackChat to trigger an immediate refresh when on the issues page
+    const onRefresh = () => fetchIssues();
+    window.addEventListener('feedback-issues-refresh', onRefresh);
+    return () => { clearInterval(interval); window.removeEventListener('feedback-issues-refresh', onRefresh); };
   }, [fetchIssues]);
 
   function toggleSelect(issueNumber: number) {
