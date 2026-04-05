@@ -601,6 +601,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   if (!open) {
     return (
       <div
+        data-id="feedback-chat-bubble"
         className="fixed bottom-6 end-6 z-[10001] w-14 h-14 rounded-full [&:hover>span:first-child]:border-indigo-400"
         onContextMenu={(e) => { e.preventDefault(); handleOpen(); }}
         onPointerDown={(e) => {
@@ -621,16 +622,16 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         </span>
         {/* Session active indicator dot */}
         {hasSession && (
-          <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-green-400 border-2 border-white rounded-full pointer-events-none" />
+          <span data-id="session-indicator" className="absolute top-0 right-0 w-3.5 h-3.5 bg-green-400 border-2 border-white rounded-full pointer-events-none" />
         )}
       </div>
     );
   }
 
   return (
-    <div className={`fixed z-[10001] ${fullScreen ? 'inset-0' : 'bottom-6 end-6 w-96 max-h-[min(32rem,calc(100dvh-3rem))] rounded-2xl'} ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-2xl border flex flex-col overflow-hidden`}>
+    <div data-id="feedback-chat" className={`fixed z-[10001] ${fullScreen ? 'inset-0' : 'bottom-6 end-6 w-96 max-h-[min(32rem,calc(100dvh-3rem))] rounded-2xl'} ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-2xl border flex flex-col overflow-hidden`}>
       {/* Header */}
-      <div className={`flex items-center justify-between px-4 py-3 ${accentBase} text-white`}>
+      <div data-id="chat-header" className={`flex items-center justify-between px-4 py-3 ${accentBase} text-white`}>
         <div className="flex items-center gap-2">
           <span className="font-semibold text-sm">{labels.title}</span>
           {hasSession && (
@@ -642,7 +643,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         </div>
         <div className="flex items-center gap-2">
           {hasSession && (
-            <button onClick={handleEndSession} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.endSession}>
+            <button data-id="end-session" onClick={handleEndSession} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.endSession}>
               {labels.endSession}
             </button>
           )}
@@ -653,15 +654,15 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           >
             {directMode ? labels.useClarifier : labels.writeDirectly}
           </button>
-          <button onClick={handleNewChat} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.newChat}>
+          <button data-id="new-chat" onClick={handleNewChat} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.newChat}>
             {labels.newChat}
           </button>
           {issuesPath && (
-            <button onClick={() => { if (!isOnIssuesPage) { openIssuesTab(issuesPath!); } else if (new URLSearchParams(window.location.search).get('app') === 'addnewfeature') { window.dispatchEvent(new Event('feedback-issues-refresh')); } else { const w = window.open('/issues?app=addnewfeature', 'addnewfeature-issues'); w?.focus(); } }} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
+            <button data-id="view-issues" onClick={() => { if (!isOnIssuesPage) { openIssuesTab(issuesPath!); } else if (new URLSearchParams(window.location.search).get('app') === 'addnewfeature') { window.dispatchEvent(new Event('feedback-issues-refresh')); } else { const w = window.open('/issues?app=addnewfeature', 'addnewfeature-issues'); w?.focus(); } }} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
               {labels.viewIssues}
             </button>
           )}
-          <button onClick={() => setFullScreen(f => !f)} className="text-indigo-200 hover:text-white transition-colors" title={fullScreen ? labels.exitFullScreen : labels.fullScreen}>
+          <button data-id="fullscreen-toggle" onClick={() => setFullScreen(f => !f)} className="text-indigo-200 hover:text-white transition-colors" title={fullScreen ? labels.exitFullScreen : labels.fullScreen}>
             {fullScreen ? (
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                 <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
@@ -672,7 +673,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
               </svg>
             )}
           </button>
-          <button onClick={handleClose} className="text-indigo-200 hover:text-white transition-colors">
+          <button data-id="close-chat" onClick={handleClose} className="text-indigo-200 hover:text-white transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
               <path d="M18 6L6 18M6 6l12 12" />
             </svg>
@@ -682,14 +683,14 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
       {/* Hook warning banner */}
       {hookWarning && (
-        <div className={`px-3 py-2 text-xs ${isDark ? 'bg-yellow-900/40 text-yellow-300 border-yellow-800' : 'bg-yellow-50 text-yellow-800 border-yellow-200'} border-b`}>
+        <div data-id="hook-warning" className={`px-3 py-2 text-xs ${isDark ? 'bg-yellow-900/40 text-yellow-300 border-yellow-800' : 'bg-yellow-50 text-yellow-800 border-yellow-200'} border-b`}>
           {hookWarning}
         </div>
       )}
 
       {directMode ? (
         /* Direct issue creation form */
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        <div data-id="direct-issue-form" className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
           <p className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.directTitle}</p>
           <input
             data-id="direct-title"
@@ -720,7 +721,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
           {/* Submit results in direct mode */}
           {submitResults && (
-            <div className={`${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'} border rounded-xl p-3 space-y-1`}>
+            <div data-id="direct-submit-results" className={`${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'} border rounded-xl p-3 space-y-1`}>
               {submitResults.map((result, i) => (
                 <p key={i} className={`text-sm ${isDark ? 'text-green-300' : 'text-green-800'}`}>
                   {result.success ? `${labels.issueSubmitted}${result.issueNumber ?? "?"} — ${result.title}` : `Failed: ${result.title}`}
@@ -731,11 +732,11 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
           {/* Post-submit navigation prompt */}
           {showPostSubmitPrompt && (
-            <div className={`${isDark ? 'border-slate-600' : 'border-slate-200'} border rounded-xl p-3 space-y-2`}>
+            <div data-id="post-submit-prompt" className={`${isDark ? 'border-slate-600' : 'border-slate-200'} border rounded-xl p-3 space-y-2`}>
               <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.goToIssuesPrompt}</p>
               <div className="flex gap-2">
-                <button onClick={handleGoToIssues} className={`flex-1 px-3 py-2 ${accent} text-white text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesYes}</button>
-                <button onClick={handlePostSubmitCleanup} className={`flex-1 px-3 py-2 ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'} text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesNo}</button>
+                <button data-id="go-to-issues" onClick={handleGoToIssues} className={`flex-1 px-3 py-2 ${accent} text-white text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesYes}</button>
+                <button data-id="dismiss-prompt" onClick={handlePostSubmitCleanup} className={`flex-1 px-3 py-2 ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'} text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesNo}</button>
               </div>
             </div>
           )}
@@ -743,7 +744,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       ) : (
         <>
         {/* Messages */}
-        <div className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 ${fullScreen ? '' : 'min-h-[12rem] max-h-[20rem]'}`}>
+        <div data-id="messages-area" className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 ${fullScreen ? '' : 'min-h-[12rem] max-h-[20rem]'}`}>
           {messages.map((msg, i) => (
             msg.staleIssues ? (
               <StaleIssueList key={i} issues={msg.staleIssues} isDark={isDark} label={labels.selectIssues} />
@@ -758,7 +759,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
           {/* Active issue checklist */}
           {issues && issues.length > 0 && (
-            <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
+            <div data-id="issue-checklist" className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
               <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.selectIssues}</p>
               {issues.map((issue, i) => (
                 <label key={i} className={`flex items-start gap-2 cursor-pointer p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
@@ -777,6 +778,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
                 </label>
               ))}
               <button
+                data-id="submit-issues"
                 onClick={handleSubmitIssues}
                 disabled={submitting || !checkedIssues.some(Boolean)}
                 className={`w-full mt-1 px-3 py-2 ${accent} ${isDark ? 'disabled:bg-slate-600' : 'disabled:bg-slate-300'} text-white text-sm font-medium rounded-lg transition-colors`}
@@ -788,7 +790,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
           {/* Submit results */}
           {submitResults && (
-            <div className={`${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'} border rounded-xl p-3 space-y-1`}>
+            <div data-id="submit-results" className={`${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'} border rounded-xl p-3 space-y-1`}>
               {submitResults.map((result, i) => (
                 <p key={i} className={`text-sm ${isDark ? 'text-green-300' : 'text-green-800'}`}>
                   {result.success ? `${labels.issueSubmitted}${result.issueNumber ?? "?"} — ${result.title}` : `Failed: ${result.title}`}
@@ -799,11 +801,11 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
           {/* Post-submit navigation prompt */}
           {showPostSubmitPrompt && (
-            <div className={`${isDark ? 'border-slate-600' : 'border-slate-200'} border rounded-xl p-3 space-y-2`}>
+            <div data-id="chat-post-submit-prompt" className={`${isDark ? 'border-slate-600' : 'border-slate-200'} border rounded-xl p-3 space-y-2`}>
               <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.goToIssuesPrompt}</p>
               <div className="flex gap-2">
-                <button onClick={handleGoToIssues} className={`flex-1 px-3 py-2 ${accent} text-white text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesYes}</button>
-                <button onClick={handlePostSubmitCleanup} className={`flex-1 px-3 py-2 ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'} text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesNo}</button>
+                <button data-id="chat-go-to-issues" onClick={handleGoToIssues} className={`flex-1 px-3 py-2 ${accent} text-white text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesYes}</button>
+                <button data-id="chat-dismiss-prompt" onClick={handlePostSubmitCleanup} className={`flex-1 px-3 py-2 ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'} text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesNo}</button>
               </div>
             </div>
           )}
@@ -817,8 +819,9 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         </div>
 
         {/* Input */}
-        <div className={`border-t ${isDark ? 'border-slate-700' : 'border-slate-200'} px-3 py-2 flex gap-2`}>
+        <div data-id="chat-input-area" className={`border-t ${isDark ? 'border-slate-700' : 'border-slate-200'} px-3 py-2 flex gap-2`}>
           <textarea
+            data-id="chat-input"
             ref={inputRef}
             value={input}
             onChange={(e) => { setInput(e.target.value); autoResize(e.target); }}
@@ -828,6 +831,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             className={`flex-1 resize-none rounded-lg border ${isDark ? 'border-slate-600 bg-slate-700 text-slate-200 placeholder-slate-500' : 'border-slate-300 bg-white text-slate-900 placeholder-slate-400'} px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent`}
           />
           <button
+            data-id="chat-send"
             onClick={handleSend}
             disabled={!input.trim() || (loading && !sessionId)}
             className={`px-3 py-2 ${accent} ${isDark ? 'disabled:bg-slate-600' : 'disabled:bg-slate-300'} text-white rounded-lg transition-colors`}

@@ -48,21 +48,22 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
+    <div data-id="register-page" className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold">Create account</h1>
+          <h1 data-id="register-title" className="text-2xl font-bold">Create account</h1>
           <p className="mt-1 text-sm text-gray-400">Start building with AI-powered feedback</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form data-id="register-form" onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="rounded bg-red-900/50 px-3 py-2 text-sm text-red-300">{error}</div>
+            <div data-id="register-error" className="rounded bg-red-900/50 px-3 py-2 text-sm text-red-300">{error}</div>
           )}
 
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-300">Name</label>
             <input
+              data-id="register-name"
               id="name"
               type="text"
               value={name}
@@ -74,6 +75,7 @@ export default function RegisterPage() {
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-300">Email</label>
             <input
+              data-id="register-email"
               id="email"
               type="email"
               value={email}
@@ -86,6 +88,7 @@ export default function RegisterPage() {
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-300">Password</label>
             <input
+              data-id="register-password"
               id="password"
               type="password"
               value={password}
@@ -97,6 +100,7 @@ export default function RegisterPage() {
           </div>
 
           <button
+            data-id="register-submit"
             type="submit"
             disabled={loading}
             className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
@@ -107,7 +111,7 @@ export default function RegisterPage() {
 
         <p className="text-center text-sm text-gray-400">
           Already have an account?{' '}
-          <Link href="/login" className="text-blue-400 hover:underline">Sign in</Link>
+          <Link data-id="register-login-link" href="/login" className="text-blue-400 hover:underline">Sign in</Link>
         </p>
       </div>
     </div>

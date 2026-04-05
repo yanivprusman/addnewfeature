@@ -15,14 +15,14 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen">
-      <nav className="border-b border-gray-800 bg-gray-900/50">
+      <nav data-id="dashboard-nav" className="border-b border-gray-800 bg-gray-900/50">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link href="/apps" className="text-lg font-bold">
+          <Link data-id="dashboard-logo" href="/apps" className="text-lg font-bold">
             addnewfeature
           </Link>
           <div className="flex items-center gap-4 text-sm text-gray-400">
             <NavLinks />
-            <span>{session.user.email}</span>
+            <span data-id="user-email">{session.user.email}</span>
           </div>
         </div>
       </nav>

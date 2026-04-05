@@ -947,11 +947,11 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const dialogBgClass = isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-300";
 
   return (
-    <div className={`min-h-screen ${bgClass} p-6`}>
+    <div data-id="issues-page" className={`min-h-screen ${bgClass} p-6`}>
       <div className="max-w-3xl mx-auto">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold">{appName ? `${appName} — ${labels.pageTitle}` : labels.pageTitle}</h1>
+        <div data-id="issues-header" className="mb-6 flex items-center justify-between gap-3">
+          <h1 data-id="issues-title" className="text-2xl font-bold">{appName ? `${appName} — ${labels.pageTitle}` : labels.pageTitle}</h1>
           <div className="flex items-center gap-2">
           <button
             data-id="refresh-issues"
@@ -1006,7 +1006,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         </div>
 
         {/* Tab bar */}
-        <div className={`flex gap-1 mb-4 border-b ${isDark ? "border-slate-700" : "border-slate-200"}`}>
+        <div data-id="issues-tab-bar" className={`flex gap-1 mb-4 border-b ${isDark ? "border-slate-700" : "border-slate-200"}`}>
           <button
             data-id="tab-issues"
             onClick={() => setActiveTab("issues")}
@@ -1034,14 +1034,14 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         </div>
 
         {activeTab === "issues" && <>
-        {loading && <p className={isDark ? "text-slate-400" : "text-slate-500"}>{labels.loading}</p>}
-        {error && <p className="text-red-500">{error}</p>}
+        {loading && <p data-id="issues-loading" className={isDark ? "text-slate-400" : "text-slate-500"}>{labels.loading}</p>}
+        {error && <p data-id="issues-error" className="text-red-500">{error}</p>}
 
         {!loading && !error && displayIssues.length === 0 && (
-          <p className={isDark ? "text-slate-400" : "text-slate-500"}>{labels.noIssues}</p>
+          <p data-id="issues-empty" className={isDark ? "text-slate-400" : "text-slate-500"}>{labels.noIssues}</p>
         )}
 
-        <div className="space-y-3 overflow-y-auto max-h-[calc(100vh-12rem)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div data-id="issues-list" className="space-y-3 overflow-y-auto max-h-[calc(100vh-12rem)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {displayIssues.map((issue) => {
             const isExpanded = expandedIds.has(issue.issueNumber);
             const isEditing = editingId === issue.issueNumber;
@@ -1052,7 +1052,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
             const isRegression = issue.status === "regression";
 
             return (
-              <div key={issue.issueNumber} className={`border rounded-lg p-4 ${cardClass} transition-colors ${
+              <div key={issue.issueNumber} data-id={`issue-card-${issue.issueNumber}`} className={`border rounded-lg p-4 ${cardClass} transition-colors ${
                 isRegression
                   ? (isDark ? "bg-red-500/10 border-red-500/20" : "bg-red-50 border-red-200")
                   : isReview
@@ -1269,13 +1269,13 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         </>}
 
         {activeTab === "maintenance" && (
-          <div className="space-y-2">
+          <div data-id="maintenance-tab" className="space-y-2">
             {MAINTENANCE_PROMPTS.map(mp => {
               const activeIssue = maintenanceIssues.get(mp.title);
               const isInProgress = activeIssue?.status === "in_progress";
               const isReview = activeIssue?.status === "review";
               return (
-                <div key={mp.id} className={`flex items-center justify-between gap-3 border rounded-lg px-4 py-3 ${cardClass}`}>
+                <div key={mp.id} data-id={`maintenance-card-${mp.id}`} className={`flex items-center justify-between gap-3 border rounded-lg px-4 py-3 ${cardClass}`}>
                   <div className="min-w-0 flex items-center gap-2">
                     <div>
                       <p className={`text-sm font-medium ${isDark ? "text-slate-200" : "text-slate-800"}`}>{mp.title}</p>
@@ -1319,7 +1319,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
 
       {/* Review Dialog Overlay */}
       {reviewDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !reviewLoading && setReviewDialog(null)}>
+        <div data-id="review-dialog" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !reviewLoading && setReviewDialog(null)}>
           <div className="absolute inset-0 bg-black/50" />
           <div
             className={`relative border rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 ${dialogBgClass}`}
@@ -1406,7 +1406,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
 
       {/* Regression Dialog Overlay */}
       {regressionTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !regressionLoading && (setRegressionTarget(null), setRegressionDesc(""))}>
+        <div data-id="regression-dialog" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !regressionLoading && (setRegressionTarget(null), setRegressionDesc(""))}>
           <div className="absolute inset-0 bg-black/50" />
           <div
             className={`relative border rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 ${dialogBgClass}`}
@@ -1467,7 +1467,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
 
       {/* Fix Session Choice Dialog */}
       {fixSessionTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !fixSessionLoading && setFixSessionTarget(null)}>
+        <div data-id="fix-session-dialog" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !fixSessionLoading && setFixSessionTarget(null)}>
           <div className="absolute inset-0 bg-black/50" />
           <div
             className={`relative border rounded-xl shadow-2xl p-6 max-w-lg w-full mx-4 ${dialogBgClass}`}
@@ -1550,7 +1550,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
 
       {/* Regression Chat Modal — resumes original clarifier session */}
       {chatTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !chatLoading && closeRegressionChat()}>
+        <div data-id="regression-chat-modal" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !chatLoading && closeRegressionChat()}>
           <div className="absolute inset-0 bg-black/50" />
           <div
             className={`relative rounded-2xl shadow-2xl w-96 max-h-[min(32rem,calc(100dvh-3rem))] flex flex-col overflow-hidden ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}

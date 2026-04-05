@@ -52,43 +52,44 @@ export default function AppDetailPage({ params }: { params: Promise<{ slug: stri
   const issuesUrl = `https://${devUrl}/issues`;
 
   return (
-    <div className="space-y-6">
+    <div data-id="app-detail-page" className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">{app.name}</h1>
-        {app.description && <p className="mt-1 text-gray-400">{app.description}</p>}
+        <h1 data-id="app-title" className="text-2xl font-bold">{app.name}</h1>
+        {app.description && <p data-id="app-description" className="mt-1 text-gray-400">{app.description}</p>}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded border border-gray-800 bg-gray-900/50 p-4">
+        <div data-id="env-dev" className="rounded border border-gray-800 bg-gray-900/50 p-4">
           <h3 className="text-sm font-medium text-gray-400">Dev</h3>
-          <a href={`https://${devUrl}`} target="_blank" rel="noreferrer"
+          <a data-id="dev-url" href={`https://${devUrl}`} target="_blank" rel="noreferrer"
             className="mt-1 block text-blue-400 hover:underline">{devUrl}</a>
           <p className="mt-1 text-xs text-gray-500">Port {app.devPort}</p>
         </div>
-        <div className="rounded border border-gray-800 bg-gray-900/50 p-4">
+        <div data-id="env-prod" className="rounded border border-gray-800 bg-gray-900/50 p-4">
           <h3 className="text-sm font-medium text-gray-400">Prod</h3>
-          <a href={`https://${prodUrl}`} target="_blank" rel="noreferrer"
+          <a data-id="prod-url" href={`https://${prodUrl}`} target="_blank" rel="noreferrer"
             className="mt-1 block text-blue-400 hover:underline">{prodUrl}</a>
           <p className="mt-1 text-xs text-gray-500">Port {app.prodPort}</p>
         </div>
       </div>
 
-      <div className="rounded border border-gray-800 bg-gray-900/50 p-4">
+      <div data-id="service-status" className="rounded border border-gray-800 bg-gray-900/50 p-4">
         <h3 className="text-sm font-medium text-gray-400">Service Status</h3>
         <pre className="mt-2 whitespace-pre-wrap text-xs text-gray-300">{app.daemonStatus}</pre>
       </div>
 
-      <div className="rounded border border-gray-800 bg-gray-900/50 p-4">
+      <div data-id="issues-section" className="rounded border border-gray-800 bg-gray-900/50 p-4">
         <h3 className="text-sm font-medium text-gray-400">Issues</h3>
         <p className="mt-1 text-sm text-gray-300">
           View and manage issues reported via the feedback widget:
         </p>
-        <a href={issuesUrl} target="_blank" rel="noreferrer"
+        <a data-id="issues-url" href={issuesUrl} target="_blank" rel="noreferrer"
           className="mt-2 inline-block text-blue-400 hover:underline">{issuesUrl}</a>
       </div>
 
       <div className="flex gap-3">
         <button
+          data-id="deploy-to-prod"
           onClick={handleDeploy}
           disabled={deploying}
           className="rounded bg-green-700 px-4 py-2 text-sm font-medium hover:bg-green-600 disabled:opacity-50"
@@ -98,7 +99,7 @@ export default function AppDetailPage({ params }: { params: Promise<{ slug: stri
       </div>
 
       {deployMsg && (
-        <div className={`rounded px-3 py-2 text-sm ${deployMsg.includes('success') ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>
+        <div data-id="deploy-message" className={`rounded px-3 py-2 text-sm ${deployMsg.includes('success') ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>
           {deployMsg}
         </div>
       )}

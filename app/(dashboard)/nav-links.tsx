@@ -19,6 +19,7 @@ export function NavLinks() {
           <Link
             key={href}
             href={href}
+            data-id={`nav-${label.toLowerCase()}`}
             className="hover:text-gray-200"
             {...(isActive ? { 'data-active-tab': label } : {})}
           >

@@ -71,10 +71,11 @@ export default function AppsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div data-id="apps-page" className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Your Apps</h1>
+        <h1 data-id="apps-title" className="text-2xl font-bold">Your Apps</h1>
         <button
+          data-id="create-app"
           onClick={() => setShowCreate(true)}
           className="rounded bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700"
         >
@@ -83,11 +84,12 @@ export default function AppsPage() {
       </div>
 
       {showCreate && (
-        <form onSubmit={handleCreate} className="space-y-3 rounded border border-gray-700 bg-gray-900 p-4">
-          {error && <div className="text-sm text-red-400">{error}</div>}
+        <form data-id="create-app-form" onSubmit={handleCreate} className="space-y-3 rounded border border-gray-700 bg-gray-900 p-4">
+          {error && <div data-id="create-app-error" className="text-sm text-red-400">{error}</div>}
           <div>
             <label className="block text-sm text-gray-300">App Name</label>
             <input
+              data-id="app-name-input"
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
@@ -99,6 +101,7 @@ export default function AppsPage() {
           <div>
             <label className="block text-sm text-gray-300">Description</label>
             <input
+              data-id="app-description-input"
               type="text"
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
@@ -108,6 +111,7 @@ export default function AppsPage() {
           </div>
           <div className="flex gap-2">
             <button
+              data-id="create-app-submit"
               type="submit"
               disabled={creating}
               className="rounded bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
@@ -115,6 +119,7 @@ export default function AppsPage() {
               {creating ? 'Creating...' : 'Create'}
             </button>
             <button
+              data-id="create-app-cancel"
               type="button"
               onClick={() => setShowCreate(false)}
               className="rounded border border-gray-700 px-4 py-2 text-sm hover:bg-gray-800"
@@ -126,15 +131,16 @@ export default function AppsPage() {
       )}
 
       {apps.length === 0 ? (
-        <div className="rounded border border-gray-800 bg-gray-900/50 p-12 text-center">
+        <div data-id="apps-empty-state" className="rounded border border-gray-800 bg-gray-900/50 p-12 text-center">
           <p className="text-gray-400">No apps yet. Create your first app to get started.</p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div data-id="apps-grid" className="grid gap-4">
           {apps.map((app) => (
             <Link
               key={app.id}
               href={`/apps/${app.appSlug}`}
+              data-id={`app-card-${app.appSlug}`}
               className="block rounded border border-gray-800 bg-gray-900/50 p-4 hover:border-gray-700"
             >
               <div className="flex items-center justify-between">
@@ -149,7 +155,7 @@ export default function AppsPage() {
                     {app.prodPort && <span>prod: {app.prodPort}</span>}
                   </div>
                 </div>
-                <span className={`rounded px-2 py-1 text-xs ${statusColors[app.status] || 'bg-gray-800 text-gray-400'}`}>
+                <span data-id={`app-status-${app.appSlug}`} className={`rounded px-2 py-1 text-xs ${statusColors[app.status] || 'bg-gray-800 text-gray-400'}`}>
                   {app.status}
                 </span>
               </div>

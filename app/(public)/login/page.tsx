@@ -33,21 +33,22 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
+    <div data-id="login-page" className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold">Sign in</h1>
+          <h1 data-id="login-title" className="text-2xl font-bold">Sign in</h1>
           <p className="mt-1 text-sm text-gray-400">Welcome back to addnewfeature</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form data-id="login-form" onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="rounded bg-red-900/50 px-3 py-2 text-sm text-red-300">{error}</div>
+            <div data-id="login-error" className="rounded bg-red-900/50 px-3 py-2 text-sm text-red-300">{error}</div>
           )}
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-300">Email</label>
             <input
+              data-id="login-email"
               id="email"
               type="email"
               value={email}
@@ -60,6 +61,7 @@ export default function LoginPage() {
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-300">Password</label>
             <input
+              data-id="login-password"
               id="password"
               type="password"
               value={password}
@@ -70,6 +72,7 @@ export default function LoginPage() {
           </div>
 
           <button
+            data-id="login-submit"
             type="submit"
             disabled={loading}
             className="w-full rounded bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
@@ -80,7 +83,7 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-gray-400">
           Don&apos;t have an account?{' '}
-          <Link href="/register" className="text-blue-400 hover:underline">Sign up</Link>
+          <Link data-id="login-register-link" href="/register" className="text-blue-400 hover:underline">Sign up</Link>
         </p>
       </div>
     </div>
