@@ -192,7 +192,7 @@ const MAINTENANCE_PROMPTS: MaintenancePrompt[] = [
     id: "assign-data-ids",
     title: "Assign data-id to all significant UI elements",
     description: "Scan for interactive elements AND significant non-interactive UI sections missing a data-id attribute and add appropriate values.",
-    prompt: "Scan all React components in this app for elements missing a `data-id` attribute. Cover TWO categories:\n\n1. **Interactive elements**: buttons, links, inputs, toggles, checkboxes, selects, textareas, and other clickable/focusable elements.\n2. **Significant non-interactive sections**: page containers, cards, summary boxes, info panels, feature grids, nav bars, headers, footers, form containers, dialog/modal overlays, tab bars, list containers, status indicators, loading/error/empty states, and any visually distinct section a user might reference when reporting an issue.\n\nFor each element found, add a `data-id` with a descriptive kebab-case value (e.g. `data-id=\"save-settings\"`, `data-id=\"billing-summary\"`, `data-id=\"feature-instant-setup\"`). For elements rendered in a loop, include a dynamic identifier (e.g. `data-id={\\`app-card-${slug}\\`}`). Do not modify elements that already have a `data-id`. Commit and push when done.",
+    prompt: "Scan all React components in this app for elements missing a `data-id` attribute. Cover TWO categories:\n\n1. **Interactive elements**: buttons, links, inputs, toggles, checkboxes, selects, textareas, and other clickable/focusable elements.\n2. **Significant non-interactive sections**: page containers, cards, summary boxes, info panels, feature grids, nav bars, headers, footers, form containers, dialog/modal overlays, tab bars, list containers, status indicators, loading/error/empty states, and any visually distinct section a user might reference when reporting an issue.\n\n**IMPORTANT — scan at every nesting level.** Do NOT stop after tagging top-level page containers. After tagging a component's outer wrapper, look INSIDE it for nested subsections that are themselves significant (e.g. a summary box inside a guide page, an info card inside a dashboard panel, a stats grid inside a settings section). Each visually distinct nested section should get its own `data-id`. Work depth-first: open each component file, tag the outermost significant element, then continue scanning its children for further significant elements before moving to the next file.\n\nFor each element found, add a `data-id` with a descriptive kebab-case value (e.g. `data-id=\"save-settings\"`, `data-id=\"billing-summary\"`, `data-id=\"feature-instant-setup\"`). For elements rendered in a loop, include a dynamic identifier (e.g. `data-id={\\`app-card-${slug}\\`}`). Do not modify elements that already have a `data-id`. Commit and push when done.",
   },
   {
     id: "refactor-large-files",
@@ -1223,6 +1223,26 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                         >
                           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><polyline points="9 12 11 14 15 10" /></svg>
                           {labels.clearRegression}
+                        </button>
+                      )}
+                      {/* Fix with Claude button for open/in_progress issues */}
+                      {(issue.status === "open" || issue.status === "in_progress") && (
+                        <button
+                          data-id={`fix-issue-${issue.issueNumber}`}
+                          onClick={() => {
+                            if (issue.claudeSessionIds?.length) {
+                              setFixSessionTarget(issue);
+                            } else {
+                              handleFixSingleIssue(issue);
+                            }
+                          }}
+                          disabled={fixSessionLoading}
+                          className={`text-xs px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                            isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
+                          } disabled:opacity-50`}
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" /></svg>
+                          {fixSessionLoading ? labels.launching : labels.fixWithClaude}
                         </button>
                       )}
                       {/* Close button for open/in_progress issues */}
