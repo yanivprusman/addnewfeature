@@ -342,7 +342,9 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       for (const m of mutations) {
         for (const node of m.addedNodes) {
           if (node instanceof HTMLLinkElement && node !== link && (node.rel === 'icon' || node.rel === 'shortcut icon')) {
-            node.remove();
+            // Defer removal so React finishes its DOM reconciliation first —
+            // removing synchronously causes "Cannot read properties of null (reading 'removeChild')"
+            queueMicrotask(() => { if (node.parentNode) node.remove(); });
           }
         }
       }
