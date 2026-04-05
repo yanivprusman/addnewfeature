@@ -537,7 +537,9 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
   function handleGoToIssues() {
     if (isOnIssuesPage) {
-      // Already on the issues page — trigger a data refresh instead of navigating
+      // Navigate to addnewfeature issues (may change URL if on another app's issues)
+      // and also trigger a data refresh for when the URL is already correct.
+      openIssuesTab('/issues?app=addnewfeature');
       window.dispatchEvent(new Event('feedback-issues-refresh'));
     } else {
       openIssuesTab(issuesPath || '/issues');
@@ -639,7 +641,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             {labels.newChat}
           </button>
           {issuesPath && (
-            <button onClick={() => isOnIssuesPage ? window.dispatchEvent(new Event('feedback-issues-refresh')) : openIssuesTab(issuesPath!)} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
+            <button onClick={() => { if (isOnIssuesPage) { openIssuesTab('/issues?app=addnewfeature'); window.dispatchEvent(new Event('feedback-issues-refresh')); } else { openIssuesTab(issuesPath!); } }} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
               {labels.viewIssues}
             </button>
           )}

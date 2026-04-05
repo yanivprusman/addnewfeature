@@ -4,7 +4,8 @@
       "Bash(npx tsc:*)",
       "Bash(git -C /opt/dev/addnewfeature add -A)",
       "Bash(git -C /opt/dev/addnewfeature commit -m '#83: dispatch refresh event instead of navigating when already on issues page')",
-      "Bash(git -C /opt/dev/addnewfeature push)"
+      "Bash(git -C /opt/dev/addnewfeature push)",
+      "Bash(git -C /opt/dev/addnewfeature commit -m '#83: navigate to addnewfeature issues via openIssuesTab when on another app'\\\\''s issues page, plus dispatch refresh')"
     ]
   },
   "hooks": {
