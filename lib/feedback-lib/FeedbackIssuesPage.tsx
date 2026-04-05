@@ -953,7 +953,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const dialogBgClass = isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-300";
 
   return (
-    <div data-id="issues-page" className={`min-h-screen ${bgClass} p-6`}>
+    <div data-id="issues-page" data-feedback-target-app={appName || undefined} className={`min-h-screen ${bgClass} p-6`}>
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div data-id="issues-header" className="mb-6 flex items-center justify-between gap-3">

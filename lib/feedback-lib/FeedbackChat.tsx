@@ -242,11 +242,14 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setIsOnIssuesPage(window.location.pathname === issuesPath);
   }, [issuesPath]);
 
-  // Target app override: explicit prop takes precedence, then issues-page default
-  const appOverride = appProp || (isOnIssuesPage ? 'addnewfeature' : undefined);
+  // Target app override: explicit prop takes precedence, then read from FeedbackIssuesPage DOM attribute
+  const feedbackTargetApp = typeof document !== 'undefined'
+    ? document.querySelector('[data-feedback-target-app]')?.getAttribute('data-feedback-target-app') || undefined
+    : undefined;
+  const appOverride = appProp || feedbackTargetApp;
 
-  // Scope localStorage key by page context — issues page targets addnewfeature,
-  // not the host app, so it needs its own independent session.
+  // Scope localStorage key by page context — issues page may target a different app,
+  // so it needs its own independent session.
   const [storageKey] = useState(() =>
     typeof window !== 'undefined' && window.location.pathname === issuesPath
       ? `${STORAGE_KEY_BASE}-issues`
@@ -551,13 +554,12 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   function handleGoToIssues() {
     if (!isOnIssuesPage) {
       openIssuesTab(issuesPath || '/issues');
-    } else if (new URLSearchParams(window.location.search).get('app') === 'addnewfeature') {
-      // Already viewing addnewfeature issues — just refresh data
+    } else if (!appOverride || new URLSearchParams(window.location.search).get('app') === appOverride) {
+      // Already viewing the target app's issues — just refresh data
       window.dispatchEvent(new Event('feedback-issues-refresh'));
     } else {
-      // On another app's issues page — open addnewfeature issues in a separate tab
-      // so the current view isn't disrupted
-      const w = window.open('/issues?app=addnewfeature', 'addnewfeature-issues');
+      // On another app's issues page — open target app's issues in a separate tab
+      const w = window.open(`/issues?app=${appOverride}`, `${appOverride}-issues`);
       w?.focus();
     }
     handlePostSubmitCleanup();
@@ -658,7 +660,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             {labels.newChat}
           </button>
           {issuesPath && (
-            <button data-id="view-issues" onClick={() => { if (!isOnIssuesPage) { openIssuesTab(issuesPath!); } else if (new URLSearchParams(window.location.search).get('app') === 'addnewfeature') { window.dispatchEvent(new Event('feedback-issues-refresh')); } else { const w = window.open('/issues?app=addnewfeature', 'addnewfeature-issues'); w?.focus(); } }} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
+            <button data-id="view-issues" onClick={handleGoToIssues} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
               {labels.viewIssues}
             </button>
           )}
