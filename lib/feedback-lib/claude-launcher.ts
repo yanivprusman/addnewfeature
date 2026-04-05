@@ -311,6 +311,8 @@ export interface MaintenanceConfig {
   appName: string;
   workDir: string;
   prompt: string;
+  issueNumber?: number;
+  title?: string;
   user?: string;
   dashboardPort?: number;
 }
@@ -319,7 +321,7 @@ export interface MaintenanceConfig {
  * Launch a Claude session to run a maintenance prompt against the app.
  */
 export function launchMaintenance(config: MaintenanceConfig): LaunchResult {
-  const { appName, workDir, prompt, user = 'root', dashboardPort = 3007 } = config;
+  const { appName, workDir, prompt, issueNumber, title, user = 'root', dashboardPort = 3007 } = config;
 
   const claudeSessionId = crypto.randomUUID();
   const tmuxSession = `${appName}-maint-${Date.now().toString(36)}`;
@@ -332,7 +334,13 @@ export function launchMaintenance(config: MaintenanceConfig): LaunchResult {
   ];
   const claudeCmd = ['claude', ...claudeFlags].join(' ');
 
-  const bashEscapedPrompt = prompt
+  // Append issue review instructions if tracking an issue
+  let fullPrompt = prompt;
+  if (issueNumber) {
+    fullPrompt += `\n\nAfter completing the work and pushing, mark the maintenance issue as reviewed:\nd updateIssue --app ${appName} --issueNumber ${issueNumber} --status review --insights "describe what was done" --claudeSessionId "$CLAUDE_SESSION_ID" --claudeLaunchDir "$CLAUDE_LAUNCH_DIR"`;
+  }
+
+  const bashEscapedPrompt = fullPrompt
     .replace(/\\/g, '\\\\')
     .replace(/'/g, "\\'")
     .replace(/\n/g, '\\n')
@@ -359,6 +367,9 @@ export function launchMaintenance(config: MaintenanceConfig): LaunchResult {
     if (err) console.error(`${appName} maintenance launch failed:`, err.message);
   });
 
+  // Register with dashboard (fire-and-forget), including issue tracking if available
+  const issueKeys = issueNumber ? [`${appName}#${issueNumber}`] : undefined;
+  const issues = issueNumber && title ? [{ key: `${appName}#${issueNumber}`, number: issueNumber, title }] : undefined;
   fetch(`http://localhost:${dashboardPort}/api/claude-sessions/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -371,6 +382,8 @@ export function launchMaintenance(config: MaintenanceConfig): LaunchResult {
       termTitle: tmuxSession,
       launchMethod: 'tmux',
       source: 'terminal',
+      ...(issueKeys && { issueKeys }),
+      ...(issues && { issues }),
     }),
   }).catch(() => {});
 

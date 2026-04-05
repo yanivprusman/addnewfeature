@@ -312,6 +312,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   // Maintenance
   const [maintenanceLaunching, setMaintenanceLaunching] = useState<string | null>(null);
   const [maintenanceLaunched, setMaintenanceLaunched] = useState<string | null>(null);
+  const [maintenanceIssues, setMaintenanceIssues] = useState<Map<string, Issue>>(new Map());
 
   // Distinct tab title & favicon for the issues page
   const originalTitleRef = useRef<string>('');
@@ -398,6 +399,18 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           return new Date(bDate).getTime() - new Date(aDate).getTime();
         });
       setIssues(list);
+
+      // Extract maintenance issues — map prompt title to latest active (non-closed) issue
+      const maintMap = new Map<string, Issue>();
+      const maintIssues = all
+        .filter(i => i.labels?.includes("maintenance"))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      for (const mi of maintIssues) {
+        if (!maintMap.has(mi.title) && mi.status !== "closed") {
+          maintMap.set(mi.title, mi);
+        }
+      }
+      setMaintenanceIssues(maintMap);
     } catch {
       setError(labels.error);
     } finally {
@@ -863,14 +876,64 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       const res = await fetch("/api/feedback/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "maintenance", prompt: mp.prompt, ...(appName && { app: appName }) }),
+        body: JSON.stringify({ action: "maintenance", prompt: mp.prompt, title: mp.title, ...(appName && { app: appName }) }),
       });
       if (res.ok) {
+        const data = await res.json();
+        // Optimistically add the maintenance issue as in_progress
+        if (data.issueNumber) {
+          setMaintenanceIssues(prev => {
+            const next = new Map(prev);
+            next.set(mp.title, {
+              issueNumber: data.issueNumber,
+              title: mp.title,
+              description: "",
+              status: "in_progress",
+              labels: ["maintenance"],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              claudeSessionId: data.claudeSessionId,
+            });
+            return next;
+          });
+        }
         setMaintenanceLaunched(mp.id);
         setTimeout(() => setMaintenanceLaunched(null), 2000);
       }
     } catch { /* ignore */ }
     setMaintenanceLaunching(null);
+  }
+
+  async function handleMaintenanceReview(issue: Issue) {
+    setActionLoading(issue.issueNumber);
+    try {
+      const res = await fetch("/api/feedback/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "reviewed",
+          ...(appName && { app: appName }),
+          issueNumbers: [issue.issueNumber],
+          conclude: true,
+          claudeSessionId: issue.claudeSessionId,
+          claudeLaunchDir: issue.claudeLaunchDir,
+        }),
+      });
+      if (res.ok) {
+        // Remove from active maintenance issues (closed)
+        setMaintenanceIssues(prev => {
+          const next = new Map(prev);
+          for (const [title, mi] of next) {
+            if (mi.issueNumber === issue.issueNumber) {
+              next.delete(title);
+              break;
+            }
+          }
+          return next;
+        });
+      }
+    } catch { /* ignore */ }
+    setActionLoading(null);
   }
 
   const selectedCount = issues.filter(i => selectedIds.has(i.issueNumber) && i.status !== "closed" && i.status !== "review").length;
@@ -1207,26 +1270,49 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
 
         {activeTab === "maintenance" && (
           <div className="space-y-2">
-            {MAINTENANCE_PROMPTS.map(mp => (
-              <div key={mp.id} className={`flex items-center justify-between gap-3 border rounded-lg px-4 py-3 ${cardClass}`}>
-                <div className="min-w-0">
-                  <p className={`text-sm font-medium ${isDark ? "text-slate-200" : "text-slate-800"}`}>{mp.title}</p>
-                  <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>{mp.description}</p>
+            {MAINTENANCE_PROMPTS.map(mp => {
+              const activeIssue = maintenanceIssues.get(mp.title);
+              const isInProgress = activeIssue?.status === "in_progress";
+              const isReview = activeIssue?.status === "review";
+              return (
+                <div key={mp.id} className={`flex items-center justify-between gap-3 border rounded-lg px-4 py-3 ${cardClass}`}>
+                  <div className="min-w-0 flex items-center gap-2">
+                    <div>
+                      <p className={`text-sm font-medium ${isDark ? "text-slate-200" : "text-slate-800"}`}>{mp.title}</p>
+                      <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>{mp.description}</p>
+                    </div>
+                    {activeIssue && statusBadge(activeIssue.status, labels, isDark)}
+                  </div>
+                  {isReview ? (
+                    <button
+                      data-id={`maintenance-review-${mp.id}`}
+                      onClick={() => handleMaintenanceReview(activeIssue)}
+                      disabled={actionLoading === activeIssue.issueNumber}
+                      className={`text-xs px-3 py-1.5 rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                        isDark ? "bg-purple-800 hover:bg-purple-700 text-purple-200" : "bg-purple-100 hover:bg-purple-200 text-purple-700"
+                      } active:scale-95 disabled:opacity-50`}
+                    >
+                      {actionLoading === activeIssue.issueNumber ? labels.closing : labels.markReviewed}
+                    </button>
+                  ) : (
+                    <button
+                      data-id={`maintenance-launch-${mp.id}`}
+                      onClick={() => handleMaintenanceLaunch(mp)}
+                      disabled={maintenanceLaunching !== null || isInProgress}
+                      className={`text-xs px-3 py-1.5 rounded-md transition-colors cursor-pointer whitespace-nowrap ${
+                        maintenanceLaunched === mp.id
+                          ? (isDark ? "bg-green-800 text-green-200" : "bg-green-100 text-green-700")
+                          : isInProgress
+                            ? (isDark ? "bg-yellow-900 text-yellow-300" : "bg-yellow-100 text-yellow-800")
+                            : (isDark ? "bg-slate-600 hover:bg-slate-500 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-700")
+                      } disabled:opacity-50 active:scale-95`}
+                    >
+                      {maintenanceLaunched === mp.id ? labels.maintenanceLaunched : maintenanceLaunching === mp.id ? labels.maintenanceLaunching : isInProgress ? labels.inProgress : labels.maintenanceLaunch}
+                    </button>
+                  )}
                 </div>
-                <button
-                  data-id={`maintenance-launch-${mp.id}`}
-                  onClick={() => handleMaintenanceLaunch(mp)}
-                  disabled={maintenanceLaunching !== null}
-                  className={`text-xs px-3 py-1.5 rounded-md transition-colors cursor-pointer whitespace-nowrap ${
-                    maintenanceLaunched === mp.id
-                      ? (isDark ? "bg-green-800 text-green-200" : "bg-green-100 text-green-700")
-                      : (isDark ? "bg-slate-600 hover:bg-slate-500 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-700")
-                  } disabled:opacity-50 active:scale-95`}
-                >
-                  {maintenanceLaunched === mp.id ? labels.maintenanceLaunched : maintenanceLaunching === mp.id ? labels.maintenanceLaunching : labels.maintenanceLaunch}
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

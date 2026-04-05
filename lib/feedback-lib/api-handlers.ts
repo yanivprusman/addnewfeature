@@ -504,13 +504,43 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
         if (!workDir) {
           return NextResponse.json({ error: 'Maintenance not configured — workDir not set' }, { status: 400 });
         }
-        const { prompt } = body;
+        const { prompt, title } = body;
         if (!prompt || typeof prompt !== 'string') {
           return NextResponse.json({ error: 'prompt string required' }, { status: 400 });
         }
         const maintWorkDir = effectiveWorkDir || `/opt/dev/${effectiveApp}`;
-        const result = launchMaintenance({ appName: effectiveApp, workDir: maintWorkDir, prompt, dashboardPort });
-        return NextResponse.json({ ok: true, claudeSessionId: result.claudeSessionId, tmuxSession: result.tmuxSession });
+
+        // Create a tracking issue for the maintenance task
+        let issueNumber: number | undefined;
+        if (title) {
+          try {
+            const createOutput = await daemonExec([
+              'send', 'createIssue',
+              '--app', effectiveApp,
+              '--title', title,
+              '--labels', '["maintenance"]',
+            ]);
+            const createData = JSON.parse(createOutput);
+            issueNumber = createData.issueNumber;
+          } catch (err) {
+            console.error(`${effectiveApp} maintenance create issue:`, err instanceof Error ? err.message : err);
+          }
+        }
+
+        const result = launchMaintenance({ appName: effectiveApp, workDir: maintWorkDir, prompt, issueNumber, title, dashboardPort });
+
+        // Mark issue as in_progress with claudeSessionId (fire-and-forget)
+        if (issueNumber) {
+          daemonExec([
+            'send', 'updateIssue', '--app', effectiveApp,
+            '--issueNumber', String(issueNumber),
+            '--status', 'in_progress',
+            '--claudeSessionId', result.claudeSessionId,
+            '--claudeLaunchDir', maintWorkDir,
+          ]).catch(err => console.error(`${effectiveApp} mark maintenance in_progress #${issueNumber}:`, err.message));
+        }
+
+        return NextResponse.json({ ok: true, claudeSessionId: result.claudeSessionId, tmuxSession: result.tmuxSession, issueNumber });
       }
 
       // --- Mark as Reviewed (close + optional conclude) ---
