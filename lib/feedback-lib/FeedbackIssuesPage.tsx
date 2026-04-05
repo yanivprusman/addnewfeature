@@ -725,6 +725,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           ...(chatSessionId && chatTmuxSession
             ? { sessionId: chatSessionId, tmuxSession: chatTmuxSession }
             : { resumeSessionId: chatTarget.clarifierSessionId }),
+          ...(appName && { app: appName }),
           pagePath: "/issues",
           pageContext: "Issues",
         }),
@@ -776,7 +777,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       const res = await fetch("/api/feedback/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issues: selected, pagePath: "/issues", pageContext: "Issues", sessionId: chatSessionId || chatTarget?.clarifierSessionId }),
+        body: JSON.stringify({ issues: selected, ...(appName && { app: appName }), pagePath: "/issues", pageContext: "Issues", sessionId: chatSessionId || chatTarget?.clarifierSessionId }),
       });
       if (!res.ok) throw new Error("Submit failed");
       const data = await res.json();

@@ -88,7 +88,8 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
 
   return async function POST(request: NextRequest) {
     try {
-      const { message, sessionId, tmuxSession, resumeSessionId, pagePath, pageContext } = await request.json();
+      const body = await request.json();
+      const { message, sessionId, tmuxSession, resumeSessionId, pagePath, pageContext } = body;
 
       if (!message || typeof message !== 'string' || !message.trim()) {
         return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -114,8 +115,10 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
 
         // Extract pathname only (pagePath may include search/hash)
         const pathOnly = pagePath?.split(/[?#]/)[0];
-        const effectiveApp = appName;
-        const effectiveWorkDir = workDir;
+        // Allow ?app= override from the issues page when viewing another app's issues
+        const overrideApp = body.app;
+        const effectiveApp = overrideApp || appName;
+        const effectiveWorkDir = overrideApp && overrideApp !== appName ? `/opt/dev/${overrideApp}` : workDir;
 
         const locationTag = buildLocationTag(pagePath, pageContext);
         const firstMessage = locationTag

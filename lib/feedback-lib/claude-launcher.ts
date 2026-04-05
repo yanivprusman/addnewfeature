@@ -459,6 +459,19 @@ export function launchFixResume(config: FixResumeConfig): LaunchResult {
 }
 
 /**
+ * Check if a Claude process with the given session ID is actually running.
+ * Searches for both --session-id and -r (resume) patterns.
+ */
+function isClaudeProcessAlive(claudeSessionId: string): boolean {
+  try {
+    execFileSync('pgrep', ['-f', claudeSessionId], { timeout: 3000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Find a live tmux session that has CLAUDE_SESSION_ID set to the given value.
  * Returns the tmux session name, or null if none found.
  */
@@ -513,12 +526,18 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
     }
   } catch { /* parse error — proceed with launch */ }
 
-  // If there's already a live tmux session for this Claude session, send the
-  // conclude prompt directly instead of launching a new one.
+  // If there's already a live tmux session for this Claude session AND Claude
+  // is still running inside it, send the conclude prompt directly.
+  // If the tmux is alive but Claude has exited (replaced by `exec bash`),
+  // kill the stale tmux and fall through to launching a fresh resume session.
   const existingTmux = findLiveTmuxForSession(claudeSessionId);
   if (existingTmux) {
-    sendMessage(existingTmux, '/conclude-issues-skill-and-close-session');
-    return { tmuxSession: existingTmux };
+    if (isClaudeProcessAlive(claudeSessionId)) {
+      sendMessage(existingTmux, '/conclude-issues-skill-and-close-session');
+      return { tmuxSession: existingTmux };
+    }
+    // Claude has exited — kill stale tmux so we can launch a fresh resume
+    try { execFileSync('tmux', ['kill-session', '-t', existingTmux], { timeout: 3000 }); } catch { /* already dead */ }
   }
 
   const tmuxSession = `${appName}-conclude-${Date.now().toString(36)}`;
