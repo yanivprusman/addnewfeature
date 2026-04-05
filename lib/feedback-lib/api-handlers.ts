@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { execFile } from 'child_process';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, readdirSync } from 'fs';
 import { launchFeedback, resumeFeedback, sendMessage, killFeedback, isTmuxAlive, launchFix, launchFixResume, launchConclude, launchMaintenance } from './claude-launcher';
 import { waitForResponse, resolveResponse } from './pending-responses';
 
@@ -635,10 +635,26 @@ export function handleFeedbackSessionHistory(_appName: string, workDir: string) 
     const app = request.nextUrl.searchParams.get('app');
     const effectiveWorkDir = app ? `/opt/dev/${app}` : workDir;
     const projectKey = effectiveWorkDir.replace(/\//g, '-');
-    const sessionFile = `${home}/.claude/projects/${projectKey}/${sessionId}.jsonl`;
+    const projectsDir = `${home}/.claude/projects`;
+    let sessionFile = `${projectsDir}/${projectKey}/${sessionId}.jsonl`;
 
+    // Clarifier sessions may be stored under a different app's project dir
+    // (e.g. feedback widget used on CAD creates session under -opt-dev-cad)
     if (!existsSync(sessionFile)) {
-      return NextResponse.json({ messages: [], found: false });
+      let found = false;
+      try {
+        for (const dir of readdirSync(projectsDir)) {
+          const candidate = `${projectsDir}/${dir}/${sessionId}.jsonl`;
+          if (existsSync(candidate)) {
+            sessionFile = candidate;
+            found = true;
+            break;
+          }
+        }
+      } catch { /* projectsDir doesn't exist */ }
+      if (!found) {
+        return NextResponse.json({ messages: [], found: false });
+      }
     }
 
     try {
