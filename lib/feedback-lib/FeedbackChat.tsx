@@ -536,13 +536,16 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   }
 
   function handleGoToIssues() {
-    if (isOnIssuesPage) {
-      // Navigate to addnewfeature issues (may change URL if on another app's issues)
-      // and also trigger a data refresh for when the URL is already correct.
-      openIssuesTab('/issues?app=addnewfeature');
+    if (!isOnIssuesPage) {
+      openIssuesTab(issuesPath || '/issues');
+    } else if (new URLSearchParams(window.location.search).get('app') === 'addnewfeature') {
+      // Already viewing addnewfeature issues — just refresh data
       window.dispatchEvent(new Event('feedback-issues-refresh'));
     } else {
-      openIssuesTab(issuesPath || '/issues');
+      // On another app's issues page — open addnewfeature issues in a separate tab
+      // so the current view isn't disrupted
+      const w = window.open('/issues?app=addnewfeature', 'addnewfeature-issues');
+      w?.focus();
     }
     handlePostSubmitCleanup();
   }
@@ -641,7 +644,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             {labels.newChat}
           </button>
           {issuesPath && (
-            <button onClick={() => { if (isOnIssuesPage) { openIssuesTab('/issues?app=addnewfeature'); window.dispatchEvent(new Event('feedback-issues-refresh')); } else { openIssuesTab(issuesPath!); } }} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
+            <button onClick={() => { if (!isOnIssuesPage) { openIssuesTab(issuesPath!); } else if (new URLSearchParams(window.location.search).get('app') === 'addnewfeature') { window.dispatchEvent(new Event('feedback-issues-refresh')); } else { const w = window.open('/issues?app=addnewfeature', 'addnewfeature-issues'); w?.focus(); } }} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
               {labels.viewIssues}
             </button>
           )}
