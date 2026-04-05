@@ -472,7 +472,9 @@ function isClaudeProcessAlive(claudeSessionId: string): boolean {
 }
 
 /**
- * Find a live tmux session that has CLAUDE_SESSION_ID set to the given value.
+ * Find a live tmux session for the given Claude session ID.
+ * Checks both the tmux environment variable (set by launchFix/launchFeedback)
+ * and the session name pattern (e.g. "claude-<sessionId>" from dashboard launches).
  * Returns the tmux session name, or null if none found.
  */
 function findLiveTmuxForSession(claudeSessionId: string): string | null {
@@ -480,10 +482,12 @@ function findLiveTmuxForSession(claudeSessionId: string): string | null {
     const sessions = execFileSync('tmux', ['list-sessions', '-F', '#{session_name}'], { timeout: 3000 })
       .toString().trim().split('\n').filter(Boolean);
     for (const sess of sessions) {
+      // Check session name contains the session ID (dashboard launches use "claude-<id>")
+      if (sess.includes(claudeSessionId)) return sess;
+      // Check tmux environment variable (launchFix/launchFeedback set this via -e)
       try {
         const env = execFileSync('tmux', ['show-environment', '-t', sess, 'CLAUDE_SESSION_ID'], { timeout: 3000 })
           .toString().trim();
-        // Format: CLAUDE_SESSION_ID=<value>
         if (env === `CLAUDE_SESSION_ID=${claudeSessionId}`) return sess;
       } catch { /* env var not set in this session */ }
     }
