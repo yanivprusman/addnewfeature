@@ -538,6 +538,10 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
     }
     // Claude has exited — kill stale tmux so we can launch a fresh resume
     try { execFileSync('tmux', ['kill-session', '-t', existingTmux], { timeout: 3000 }); } catch { /* already dead */ }
+  } else if (isClaudeProcessAlive(claudeSessionId)) {
+    // Claude is running outside tmux (e.g., dashboard embedded session).
+    // Don't launch a competing resume session — skip conclude.
+    return null;
   }
 
   const tmuxSession = `${appName}-conclude-${Date.now().toString(36)}`;
