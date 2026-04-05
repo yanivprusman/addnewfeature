@@ -190,9 +190,9 @@ const MAINTENANCE_PROMPTS: MaintenancePrompt[] = [
   },
   {
     id: "assign-data-ids",
-    title: "Assign data-id to components",
-    description: "Scan for interactive or identifiable components missing a data-id attribute and add appropriate values.",
-    prompt: "Scan all React components in this app for interactive or identifiable elements (buttons, links, inputs, toggles, checkboxes, selects, textareas, and other clickable/focusable elements) that are missing a `data-id` attribute. For each one found, add a `data-id` with a descriptive kebab-case value that describes the element's action or purpose (e.g. `data-id=\"save-settings\"`, `data-id=\"search-input\"`). Do not modify elements that already have a `data-id`. Commit and push when done.",
+    title: "Assign data-id to all significant UI elements",
+    description: "Scan for interactive elements AND significant non-interactive UI sections missing a data-id attribute and add appropriate values.",
+    prompt: "Scan all React components in this app for elements missing a `data-id` attribute. Cover TWO categories:\n\n1. **Interactive elements**: buttons, links, inputs, toggles, checkboxes, selects, textareas, and other clickable/focusable elements.\n2. **Significant non-interactive sections**: page containers, cards, summary boxes, info panels, feature grids, nav bars, headers, footers, form containers, dialog/modal overlays, tab bars, list containers, status indicators, loading/error/empty states, and any visually distinct section a user might reference when reporting an issue.\n\nFor each element found, add a `data-id` with a descriptive kebab-case value (e.g. `data-id=\"save-settings\"`, `data-id=\"billing-summary\"`, `data-id=\"feature-instant-setup\"`). For elements rendered in a loop, include a dynamic identifier (e.g. `data-id={\\`app-card-${slug}\\`}`). Do not modify elements that already have a `data-id`. Commit and push when done.",
   },
 ];
 
