@@ -336,7 +336,21 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     );
     document.head.appendChild(link);
 
+    // Watch for frameworks (e.g. Next.js metadata) re-inserting favicon links
+    // after hydration, and remove them so ours stays active.
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node instanceof HTMLLinkElement && node !== link && (node.rel === 'icon' || node.rel === 'shortcut icon')) {
+            node.remove();
+          }
+        }
+      }
+    });
+    observer.observe(document.head, { childList: true });
+
     return () => {
+      observer.disconnect();
       document.title = originalTitleRef.current;
       link.remove();
       savedLinks.forEach(s => {

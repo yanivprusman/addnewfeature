@@ -536,11 +536,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   }
 
   function handleGoToIssues() {
-    if (isOnIssuesPage) {
-      window.location.href = '/issues?app=addnewfeature';
-    } else {
-      openIssuesTab(issuesPath || '/issues');
-    }
+    openIssuesTab(isOnIssuesPage ? '/issues?app=addnewfeature' : (issuesPath || '/issues'));
     handlePostSubmitCleanup();
   }
 
@@ -638,7 +634,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             {labels.newChat}
           </button>
           {issuesPath && (
-            <button onClick={() => isOnIssuesPage ? (window.location.href = '/issues?app=addnewfeature') : openIssuesTab(issuesPath!)} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
+            <button onClick={() => openIssuesTab(isOnIssuesPage ? '/issues?app=addnewfeature' : issuesPath!)} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
               {labels.viewIssues}
             </button>
           )}

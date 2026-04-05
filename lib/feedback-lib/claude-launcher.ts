@@ -458,6 +458,26 @@ export function launchFixResume(config: FixResumeConfig): LaunchResult {
   return { claudeSessionId: resumeSessionId, tmuxSession, scriptLogFile };
 }
 
+/**
+ * Find a live tmux session that has CLAUDE_SESSION_ID set to the given value.
+ * Returns the tmux session name, or null if none found.
+ */
+function findLiveTmuxForSession(claudeSessionId: string): string | null {
+  try {
+    const sessions = execFileSync('tmux', ['list-sessions', '-F', '#{session_name}'], { timeout: 3000 })
+      .toString().trim().split('\n').filter(Boolean);
+    for (const sess of sessions) {
+      try {
+        const env = execFileSync('tmux', ['show-environment', '-t', sess, 'CLAUDE_SESSION_ID'], { timeout: 3000 })
+          .toString().trim();
+        // Format: CLAUDE_SESSION_ID=<value>
+        if (env === `CLAUDE_SESSION_ID=${claudeSessionId}`) return sess;
+      } catch { /* env var not set in this session */ }
+    }
+  } catch { /* no tmux server or no sessions */ }
+  return null;
+}
+
 export interface ConcludeConfig {
   appName: string;
   workDir: string;
@@ -468,6 +488,7 @@ export interface ConcludeConfig {
 
 /**
  * Resume a Claude session and run /conclude-issues-skill-and-close-session.
+ * If the session already has a live tmux, sends the conclude prompt there.
  * Returns null if the session file doesn't exist (cleaned up).
  */
 export function launchConclude(config: ConcludeConfig): { tmuxSession: string } | null {
@@ -491,6 +512,14 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
       }
     }
   } catch { /* parse error — proceed with launch */ }
+
+  // If there's already a live tmux session for this Claude session, send the
+  // conclude prompt directly instead of launching a new one.
+  const existingTmux = findLiveTmuxForSession(claudeSessionId);
+  if (existingTmux) {
+    sendMessage(existingTmux, '/conclude-issues-skill-and-close-session');
+    return { tmuxSession: existingTmux };
+  }
 
   const tmuxSession = `${appName}-conclude-${Date.now().toString(36)}`;
   const scriptLogFile = `/tmp/${appName}-claude-${tmuxSession}.log`;
