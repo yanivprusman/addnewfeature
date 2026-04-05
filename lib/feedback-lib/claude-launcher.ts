@@ -217,6 +217,7 @@ export interface FixIssue {
   status?: string;
   insights?: string;
   claudeSessionIds?: string[];
+  claudeLaunchDir?: string;
 }
 
 export interface FixConfig {
@@ -406,8 +407,9 @@ export interface FixResumeConfig {
 export function launchFixResume(config: FixResumeConfig): LaunchResult {
   const { appName, workDir, resumeSessionId, issue, user = 'root', dashboardPort = 3007 } = config;
 
+  const resumeDir = issue.claudeLaunchDir || workDir;
   const home = process.env.HOME || '/root';
-  const projectKey = workDir.replace(/\//g, '-');
+  const projectKey = resumeDir.replace(/\//g, '-');
   const sessionFile = `${home}/.claude/projects/${projectKey}/${resumeSessionId}.jsonl`;
   if (!existsSync(sessionFile)) {
     return launchFix({ appName, workDir, issues: [issue], user, dashboardPort });
@@ -429,12 +431,12 @@ export function launchFixResume(config: FixResumeConfig): LaunchResult {
     .replace(/\n/g, '\\n')
     .replace(/\r/g, '\\r');
 
-  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'${bashEscapedPrompt}'; exec bash`;
+  const bashCmd = `cd '${resumeDir}' && ${claudeCmd} $'${bashEscapedPrompt}'; exec bash`;
 
   const sessionEnv = getSessionEnv(user);
   const envArgs = Object.entries(sessionEnv).map(([k, v]) => `${k}=${v}`);
   envArgs.push(`CLAUDE_SESSION_ID=${resumeSessionId}`);
-  envArgs.push(`CLAUDE_LAUNCH_DIR=${workDir}`);
+  envArgs.push(`CLAUDE_LAUNCH_DIR=${resumeDir}`);
 
   writeFileSync(launchScriptFile, bashCmd + '\n', { mode: 0o755 });
 
@@ -458,7 +460,7 @@ export function launchFixResume(config: FixResumeConfig): LaunchResult {
       sessionId: `${appName}-fix-${resumeSessionId.slice(0, 8)}`,
       claudeSessionId: resumeSessionId,
       appName,
-      workDir,
+      workDir: resumeDir,
       scriptFile: scriptLogFile,
       termTitle: tmuxSession,
       launchMethod: 'tmux',
