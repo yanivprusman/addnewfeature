@@ -21,32 +21,46 @@ export interface LaunchResult {
   scriptLogFile: string;
 }
 
-export function launchFeedback(config: LaunchConfig): LaunchResult {
-  const { appName, workDir, firstMessage, user = 'root', dashboardPort = 3007, appPort } = config;
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
 
-  const claudeSessionId = crypto.randomUUID();
-  const tmuxSession = `${appName}-feedback-${Date.now().toString(36)}`;
-  const scriptLogFile = `/tmp/${appName}-claude-${tmuxSession}.log`;
-  const launchScriptFile = `/tmp/${appName}-launch-${tmuxSession}.sh`;
-
-  const claudeFlags = [
-    `--session-id ${claudeSessionId}`,
-    '--agent issue-clarifier-agent',
-    '--dangerously-skip-permissions',
-    '--tools=Read,Grep,Glob',
-  ];
-  const claudeCmd = ['claude', ...claudeFlags].join(' ');
-
-  // Escape prompt for bash $'...' syntax
-  const bashEscapedPrompt = firstMessage
+/** Escape a prompt string for bash $'...' syntax. */
+function escapeBashPrompt(prompt: string): string {
+  return prompt
     .replace(/\\/g, '\\\\')
     .replace(/'/g, "\\'")
     .replace(/\n/g, '\\n')
     .replace(/\r/g, '\\r');
+}
 
-  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'${bashEscapedPrompt}'; exec bash`;
+interface TmuxLaunchConfig {
+  appName: string;
+  workDir: string;
+  /** Prefix for the tmux session name (e.g. "feedback", "fix", "maint", "conclude") */
+  tmuxPrefix: string;
+  claudeSessionId: string;
+  /** Full bash command to execute inside the tmux session */
+  bashCmd: string;
+  user?: string;
+  appPort?: number;
+  dashboardPort?: number;
+  /** Extra fields merged into the dashboard registration body */
+  dashboardExtra?: Record<string, unknown>;
+}
 
-  // Get session env vars for runuser
+/**
+ * Shared tmux launch logic used by all launch* functions.
+ * Handles: env setup, script file creation, tmux session creation via systemd-run,
+ * and dashboard registration.
+ */
+function launchInTmux(config: TmuxLaunchConfig): LaunchResult {
+  const { appName, workDir, tmuxPrefix, claudeSessionId, bashCmd, user = 'root', appPort, dashboardPort = 3007, dashboardExtra } = config;
+
+  const tmuxSession = `${appName}-${tmuxPrefix}-${Date.now().toString(36)}`;
+  const scriptLogFile = `/tmp/${appName}-claude-${tmuxSession}.log`;
+  const launchScriptFile = `/tmp/${appName}-launch-${tmuxSession}.sh`;
+
   const sessionEnv = getSessionEnv(user);
   const envArgs = Object.entries(sessionEnv).map(([k, v]) => `${k}=${v}`);
   envArgs.push(`CLAUDE_SESSION_ID=${claudeSessionId}`);
@@ -60,17 +74,15 @@ export function launchFeedback(config: LaunchConfig): LaunchResult {
     execFileSync('tmux', ['kill-session', '-t', tmuxSession], { timeout: 3000 });
   } catch { /* no existing session */ }
 
-  // Launch in tmux — use -e flags so env vars reach the session
-  // (env prefix only sets vars on the tmux client, not the session)
+  // Launch in tmux — use -e flags so env vars reach the session.
+  // systemd-run --scope escapes the calling service's cgroup so the tmux
+  // server survives service restarts.
   const tmuxArgs = ['new-session', '-d', '-s', tmuxSession];
   for (const e of envArgs) tmuxArgs.push('-e', e);
   tmuxArgs.push(`script -qf ${scriptLogFile} -c 'bash -l ${launchScriptFile}'`);
 
-  // Use systemd-run --scope to escape the calling service's cgroup.
-  // Without this, the tmux server inherits the app service's cgroup and gets
-  // killed when the service restarts (taking down ALL tmux sessions).
   execFile('systemd-run', ['--scope', '--quiet', '--', 'tmux', ...tmuxArgs], { timeout: 10000 }, (err) => {
-    if (err) console.error(`${appName} claude launch failed:`, err.message);
+    if (err) console.error(`${appName} ${tmuxPrefix} launch failed:`, err.message);
   });
 
   // Register with dashboard (fire-and-forget)
@@ -78,7 +90,7 @@ export function launchFeedback(config: LaunchConfig): LaunchResult {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      sessionId: `${appName}-feedback-${claudeSessionId.slice(0, 8)}`,
+      sessionId: `${appName}-${tmuxPrefix}-${claudeSessionId.slice(0, 8)}`,
       claudeSessionId,
       appName,
       workDir,
@@ -86,10 +98,25 @@ export function launchFeedback(config: LaunchConfig): LaunchResult {
       termTitle: tmuxSession,
       launchMethod: 'tmux',
       source: 'terminal',
+      ...dashboardExtra,
     }),
   }).catch(() => {});
 
   return { claudeSessionId, tmuxSession, scriptLogFile };
+}
+
+// ---------------------------------------------------------------------------
+// Public launch functions
+// ---------------------------------------------------------------------------
+
+export function launchFeedback(config: LaunchConfig): LaunchResult {
+  const { appName, workDir, firstMessage, user, dashboardPort, appPort } = config;
+
+  const claudeSessionId = crypto.randomUUID();
+  const claudeCmd = `claude --session-id ${claudeSessionId} --agent issue-clarifier-agent --dangerously-skip-permissions --tools=Read,Grep,Glob`;
+  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'${escapeBashPrompt(firstMessage)}'; exec bash`;
+
+  return launchInTmux({ appName, workDir, tmuxPrefix: 'feedback', claudeSessionId, bashCmd, user, appPort, dashboardPort });
 }
 
 export interface ResumeConfig {
@@ -107,7 +134,7 @@ export interface ResumeConfig {
  * Throws if the session file no longer exists on disk.
  */
 export function resumeFeedback(config: ResumeConfig): LaunchResult {
-  const { appName, workDir, resumeSessionId, firstMessage, user = 'root', dashboardPort = 3007, appPort } = config;
+  const { appName, workDir, resumeSessionId, firstMessage, user, dashboardPort, appPort } = config;
 
   const home = process.env.HOME || '/root';
   const projectKey = workDir.replace(/\//g, '-');
@@ -116,57 +143,10 @@ export function resumeFeedback(config: ResumeConfig): LaunchResult {
     throw new Error('session_expired');
   }
 
-  const tmuxSession = `${appName}-feedback-${Date.now().toString(36)}`;
-  const scriptLogFile = `/tmp/${appName}-claude-${tmuxSession}.log`;
-  const launchScriptFile = `/tmp/${appName}-launch-${tmuxSession}.sh`;
-
   const claudeCmd = `claude -r ${resumeSessionId} --dangerously-skip-permissions --tools=Read,Grep,Glob`;
+  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'${escapeBashPrompt(firstMessage)}'; exec bash`;
 
-  const bashEscapedPrompt = firstMessage
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "\\'")
-    .replace(/\n/g, '\\n')
-    .replace(/\r/g, '\\r');
-
-  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'${bashEscapedPrompt}'; exec bash`;
-
-  const sessionEnv = getSessionEnv(user);
-  const envArgs = Object.entries(sessionEnv).map(([k, v]) => `${k}=${v}`);
-  envArgs.push(`CLAUDE_SESSION_ID=${resumeSessionId}`);
-  envArgs.push(`CLAUDE_LAUNCH_DIR=${workDir}`);
-  if (appPort) envArgs.push(`FEEDBACK_APP_PORT=${appPort}`);
-
-  writeFileSync(launchScriptFile, bashCmd + '\n', { mode: 0o755 });
-
-  try {
-    execFileSync('tmux', ['kill-session', '-t', tmuxSession], { timeout: 3000 });
-  } catch { /* no existing session */ }
-
-  const tmuxArgs = ['new-session', '-d', '-s', tmuxSession];
-  for (const e of envArgs) tmuxArgs.push('-e', e);
-  tmuxArgs.push(`script -qf ${scriptLogFile} -c 'bash -l ${launchScriptFile}'`);
-
-  execFile('systemd-run', ['--scope', '--quiet', '--', 'tmux', ...tmuxArgs], { timeout: 10000 }, (err) => {
-    if (err) console.error(`${appName} claude resume failed:`, err.message);
-  });
-
-  // Register with dashboard (fire-and-forget)
-  fetch(`http://localhost:${dashboardPort}/api/claude-sessions/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sessionId: `${appName}-feedback-${resumeSessionId.slice(0, 8)}`,
-      claudeSessionId: resumeSessionId,
-      appName,
-      workDir,
-      scriptFile: scriptLogFile,
-      termTitle: tmuxSession,
-      launchMethod: 'tmux',
-      source: 'terminal',
-    }),
-  }).catch(() => {});
-
-  return { claudeSessionId: resumeSessionId, tmuxSession, scriptLogFile };
+  return launchInTmux({ appName, workDir, tmuxPrefix: 'feedback', claudeSessionId: resumeSessionId, bashCmd, user, appPort, dashboardPort });
 }
 
 export function sendMessage(tmuxSession: string, message: string, user = 'root'): void {
@@ -232,13 +212,9 @@ export interface FixConfig {
  * Launch a Claude session to fix issues using /fix-issues-skill.
  */
 export function launchFix(config: FixConfig): LaunchResult {
-  const { appName, workDir, issues, user = 'root', dashboardPort = 3007 } = config;
+  const { appName, workDir, issues, user, dashboardPort } = config;
 
   const claudeSessionId = crypto.randomUUID();
-  const tmuxSession = `${appName}-fix-${Date.now().toString(36)}`;
-  const scriptLogFile = `/tmp/${appName}-claude-${tmuxSession}.log`;
-  const launchScriptFile = `/tmp/${appName}-launch-${tmuxSession}.sh`;
-
   const issueLines = issues.map(i => {
     let line = `- #${i.number}: ${i.title} (repo:${appName})`;
     if (i.status === 'regression') {
@@ -253,59 +229,17 @@ export function launchFix(config: FixConfig): LaunchResult {
   });
   const prompt = `/fix-issues-skill ${appName}\n\nIssues to fix:\n${issueLines.join('\n')}`;
 
-  const claudeFlags = [
-    `--session-id ${claudeSessionId}`,
-    '--dangerously-skip-permissions',
-  ];
-  const claudeCmd = ['claude', ...claudeFlags].join(' ');
+  const claudeCmd = `claude --session-id ${claudeSessionId} --dangerously-skip-permissions`;
+  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'${escapeBashPrompt(prompt)}'; exec bash`;
 
-  const bashEscapedPrompt = prompt
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "\\'")
-    .replace(/\n/g, '\\n')
-    .replace(/\r/g, '\\r');
-
-  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'${bashEscapedPrompt}'; exec bash`;
-
-  const sessionEnv = getSessionEnv(user);
-  const envArgs = Object.entries(sessionEnv).map(([k, v]) => `${k}=${v}`);
-  envArgs.push(`CLAUDE_SESSION_ID=${claudeSessionId}`);
-  envArgs.push(`CLAUDE_LAUNCH_DIR=${workDir}`);
-
-  writeFileSync(launchScriptFile, bashCmd + '\n', { mode: 0o755 });
-
-  try {
-    execFileSync('tmux', ['kill-session', '-t', tmuxSession], { timeout: 3000 });
-  } catch { /* no existing session */ }
-
-  const tmuxArgs = ['new-session', '-d', '-s', tmuxSession];
-  for (const e of envArgs) tmuxArgs.push('-e', e);
-  tmuxArgs.push(`script -qf ${scriptLogFile} -c 'bash -l ${launchScriptFile}'`);
-
-  execFile('systemd-run', ['--scope', '--quiet', '--', 'tmux', ...tmuxArgs], { timeout: 10000 }, (err) => {
-    if (err) console.error(`${appName} fix launch failed:`, err.message);
-  });
-
-  // Register with dashboard (fire-and-forget)
   const issueKeys = issues.map(i => `${appName}#${i.number}`);
-  fetch(`http://localhost:${dashboardPort}/api/claude-sessions/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sessionId: `${appName}-fix-${claudeSessionId.slice(0, 8)}`,
-      claudeSessionId,
-      appName,
-      workDir,
-      scriptFile: scriptLogFile,
-      termTitle: tmuxSession,
-      launchMethod: 'tmux',
-      source: 'terminal',
+  return launchInTmux({
+    appName, workDir, tmuxPrefix: 'fix', claudeSessionId, bashCmd, user, dashboardPort,
+    dashboardExtra: {
       issueKeys,
       issues: issues.map(i => ({ key: `${appName}#${i.number}`, number: i.number, title: i.title })),
-    }),
-  }).catch(() => {});
-
-  return { claudeSessionId, tmuxSession, scriptLogFile };
+    },
+  });
 }
 
 export interface MaintenanceConfig {
@@ -322,18 +256,9 @@ export interface MaintenanceConfig {
  * Launch a Claude session to run a maintenance prompt against the app.
  */
 export function launchMaintenance(config: MaintenanceConfig): LaunchResult {
-  const { appName, workDir, prompt, issueNumber, title, user = 'root', dashboardPort = 3007 } = config;
+  const { appName, workDir, prompt, issueNumber, title, user, dashboardPort } = config;
 
   const claudeSessionId = crypto.randomUUID();
-  const tmuxSession = `${appName}-maint-${Date.now().toString(36)}`;
-  const scriptLogFile = `/tmp/${appName}-claude-${tmuxSession}.log`;
-  const launchScriptFile = `/tmp/${appName}-launch-${tmuxSession}.sh`;
-
-  const claudeFlags = [
-    `--session-id ${claudeSessionId}`,
-    '--dangerously-skip-permissions',
-  ];
-  const claudeCmd = ['claude', ...claudeFlags].join(' ');
 
   // Append issue review instructions if tracking an issue
   let fullPrompt = prompt;
@@ -341,54 +266,18 @@ export function launchMaintenance(config: MaintenanceConfig): LaunchResult {
     fullPrompt += `\n\nAfter completing the work and pushing, mark the maintenance issue as reviewed:\nd updateIssue --app ${appName} --issueNumber ${issueNumber} --status review --insights "describe what was done" --claudeSessionId "$CLAUDE_SESSION_ID" --claudeLaunchDir "$CLAUDE_LAUNCH_DIR"`;
   }
 
-  const bashEscapedPrompt = fullPrompt
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "\\'")
-    .replace(/\n/g, '\\n')
-    .replace(/\r/g, '\\r');
+  const claudeCmd = `claude --session-id ${claudeSessionId} --dangerously-skip-permissions`;
+  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'${escapeBashPrompt(fullPrompt)}'; exec bash`;
 
-  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'${bashEscapedPrompt}'; exec bash`;
-
-  const sessionEnv = getSessionEnv(user);
-  const envArgs = Object.entries(sessionEnv).map(([k, v]) => `${k}=${v}`);
-  envArgs.push(`CLAUDE_SESSION_ID=${claudeSessionId}`);
-  envArgs.push(`CLAUDE_LAUNCH_DIR=${workDir}`);
-
-  writeFileSync(launchScriptFile, bashCmd + '\n', { mode: 0o755 });
-
-  try {
-    execFileSync('tmux', ['kill-session', '-t', tmuxSession], { timeout: 3000 });
-  } catch { /* no existing session */ }
-
-  const tmuxArgs = ['new-session', '-d', '-s', tmuxSession];
-  for (const e of envArgs) tmuxArgs.push('-e', e);
-  tmuxArgs.push(`script -qf ${scriptLogFile} -c 'bash -l ${launchScriptFile}'`);
-
-  execFile('systemd-run', ['--scope', '--quiet', '--', 'tmux', ...tmuxArgs], { timeout: 10000 }, (err) => {
-    if (err) console.error(`${appName} maintenance launch failed:`, err.message);
-  });
-
-  // Register with dashboard (fire-and-forget), including issue tracking if available
   const issueKeys = issueNumber ? [`${appName}#${issueNumber}`] : undefined;
   const issues = issueNumber && title ? [{ key: `${appName}#${issueNumber}`, number: issueNumber, title }] : undefined;
-  fetch(`http://localhost:${dashboardPort}/api/claude-sessions/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sessionId: `${appName}-maint-${claudeSessionId.slice(0, 8)}`,
-      claudeSessionId,
-      appName,
-      workDir,
-      scriptFile: scriptLogFile,
-      termTitle: tmuxSession,
-      launchMethod: 'tmux',
-      source: 'terminal',
+  return launchInTmux({
+    appName, workDir, tmuxPrefix: 'maint', claudeSessionId, bashCmd, user, dashboardPort,
+    dashboardExtra: {
       ...(issueKeys && { issueKeys }),
       ...(issues && { issues }),
-    }),
-  }).catch(() => {});
-
-  return { claudeSessionId, tmuxSession, scriptLogFile };
+    },
+  });
 }
 
 export interface FixResumeConfig {
@@ -405,7 +294,7 @@ export interface FixResumeConfig {
  * Falls back to launchFix (new session) if the session file doesn't exist.
  */
 export function launchFixResume(config: FixResumeConfig): LaunchResult {
-  const { appName, workDir, resumeSessionId, issue, user = 'root', dashboardPort = 3007 } = config;
+  const { appName, workDir, resumeSessionId, issue, user, dashboardPort } = config;
 
   const resumeDir = issue.claudeLaunchDir || workDir;
   const home = process.env.HOME || '/root';
@@ -415,67 +304,29 @@ export function launchFixResume(config: FixResumeConfig): LaunchResult {
     return launchFix({ appName, workDir, issues: [issue], user, dashboardPort });
   }
 
-  const tmuxSession = `${appName}-fix-${Date.now().toString(36)}`;
-  const scriptLogFile = `/tmp/${appName}-claude-${tmuxSession}.log`;
-  const launchScriptFile = `/tmp/${appName}-launch-${tmuxSession}.sh`;
-
   let issueDesc = `- #${issue.number}: ${issue.title} (repo:${appName})\n  REGRESSION — this issue was previously fixed but broke again.`;
   if (issue.insights) issueDesc += `\n  User reported: ${issue.insights}`;
   const prompt = `/fix-issues-skill ${appName}\n\nIssues to fix:\n${issueDesc}`;
 
   const claudeCmd = `claude -r ${resumeSessionId} --dangerously-skip-permissions`;
-
-  const bashEscapedPrompt = prompt
-    .replace(/\\/g, '\\\\')
-    .replace(/'/g, "\\'")
-    .replace(/\n/g, '\\n')
-    .replace(/\r/g, '\\r');
-
-  const bashCmd = `cd '${resumeDir}' && ${claudeCmd} $'${bashEscapedPrompt}'; exec bash`;
-
-  const sessionEnv = getSessionEnv(user);
-  const envArgs = Object.entries(sessionEnv).map(([k, v]) => `${k}=${v}`);
-  envArgs.push(`CLAUDE_SESSION_ID=${resumeSessionId}`);
-  envArgs.push(`CLAUDE_LAUNCH_DIR=${resumeDir}`);
-
-  writeFileSync(launchScriptFile, bashCmd + '\n', { mode: 0o755 });
-
-  try {
-    execFileSync('tmux', ['kill-session', '-t', tmuxSession], { timeout: 3000 });
-  } catch { /* no existing session */ }
-
-  const tmuxArgs = ['new-session', '-d', '-s', tmuxSession];
-  for (const e of envArgs) tmuxArgs.push('-e', e);
-  tmuxArgs.push(`script -qf ${scriptLogFile} -c 'bash -l ${launchScriptFile}'`);
-
-  execFile('systemd-run', ['--scope', '--quiet', '--', 'tmux', ...tmuxArgs], { timeout: 10000 }, (err) => {
-    if (err) console.error(`${appName} fix-resume launch failed:`, err.message);
-  });
+  const bashCmd = `cd '${resumeDir}' && ${claudeCmd} $'${escapeBashPrompt(prompt)}'; exec bash`;
 
   const issueKeys = [`${appName}#${issue.number}`];
-  fetch(`http://localhost:${dashboardPort}/api/claude-sessions/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sessionId: `${appName}-fix-${resumeSessionId.slice(0, 8)}`,
-      claudeSessionId: resumeSessionId,
-      appName,
-      workDir: resumeDir,
-      scriptFile: scriptLogFile,
-      termTitle: tmuxSession,
-      launchMethod: 'tmux',
-      source: 'terminal',
+  return launchInTmux({
+    appName, workDir: resumeDir, tmuxPrefix: 'fix', claudeSessionId: resumeSessionId, bashCmd, user, dashboardPort,
+    dashboardExtra: {
       issueKeys,
       issues: [{ key: `${appName}#${issue.number}`, number: issue.number, title: issue.title }],
-    }),
-  }).catch(() => {});
-
-  return { claudeSessionId: resumeSessionId, tmuxSession, scriptLogFile };
+    },
+  });
 }
+
+// ---------------------------------------------------------------------------
+// Conclude helpers
+// ---------------------------------------------------------------------------
 
 /**
  * Check if a Claude process with the given session ID is actually running.
- * Searches for both --session-id and -r (resume) patterns.
  */
 function isClaudeProcessAlive(claudeSessionId: string): boolean {
   try {
@@ -488,18 +339,14 @@ function isClaudeProcessAlive(claudeSessionId: string): boolean {
 
 /**
  * Find a live tmux session for the given Claude session ID.
- * Checks both the tmux environment variable (set by launchFix/launchFeedback)
- * and the session name pattern (e.g. "claude-<sessionId>" from dashboard launches).
- * Returns the tmux session name, or null if none found.
+ * Checks both the tmux environment variable and the session name pattern.
  */
 function findLiveTmuxForSession(claudeSessionId: string): string | null {
   try {
     const sessions = execFileSync('tmux', ['list-sessions', '-F', '#{session_name}'], { timeout: 3000 })
       .toString().trim().split('\n').filter(Boolean);
     for (const sess of sessions) {
-      // Check session name contains the session ID (dashboard launches use "claude-<id>")
       if (sess.includes(claudeSessionId)) return sess;
-      // Check tmux environment variable (launchFix/launchFeedback set this via -e)
       try {
         const env = execFileSync('tmux', ['show-environment', '-t', sess, 'CLAUDE_SESSION_ID'], { timeout: 3000 })
           .toString().trim();
@@ -524,7 +371,7 @@ export interface ConcludeConfig {
  * Returns null if the session file doesn't exist (cleaned up).
  */
 export function launchConclude(config: ConcludeConfig): { tmuxSession: string } | null {
-  const { appName, workDir, claudeSessionId, user = 'root', dashboardPort = 3007 } = config;
+  const { appName, workDir, claudeSessionId, user, dashboardPort } = config;
 
   const home = process.env.HOME || '/root';
   const projectKey = workDir.replace(/\//g, '-');
@@ -532,7 +379,6 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
   if (!existsSync(sessionFile)) return null;
 
   // Skip if the session's last user prompt was already /conclude-issues-and-close-session-skill.
-  // The CLI stores skill invocations wrapped in XML tags, so check for both raw and tagged forms.
   try {
     const lines = readFileSync(sessionFile, 'utf-8').split('\n').filter(Boolean);
     for (let i = lines.length - 1; i >= 0; i--) {
@@ -545,65 +391,23 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
     }
   } catch { /* parse error — proceed with launch */ }
 
-  // If there's already a live tmux session for this Claude session AND Claude
-  // is still running inside it, send the conclude prompt directly.
-  // If the tmux is alive but Claude has exited (replaced by `exec bash`),
-  // kill the stale tmux and fall through to launching a fresh resume session.
+  // If there's already a live tmux with Claude running, send the prompt directly.
+  // If tmux is alive but Claude has exited, kill the stale tmux and launch fresh.
   const existingTmux = findLiveTmuxForSession(claudeSessionId);
   if (existingTmux) {
     if (isClaudeProcessAlive(claudeSessionId)) {
       sendMessage(existingTmux, '/conclude-issues-and-close-session-skill');
       return { tmuxSession: existingTmux };
     }
-    // Claude has exited — kill stale tmux so we can launch a fresh resume
     try { execFileSync('tmux', ['kill-session', '-t', existingTmux], { timeout: 3000 }); } catch { /* already dead */ }
   } else if (isClaudeProcessAlive(claudeSessionId)) {
-    // Claude is running outside tmux (e.g., dashboard embedded session).
-    // Don't launch a competing resume session — skip conclude.
+    // Claude is running outside tmux — don't launch a competing resume session.
     return null;
   }
-
-  const tmuxSession = `${appName}-conclude-${Date.now().toString(36)}`;
-  const scriptLogFile = `/tmp/${appName}-claude-${tmuxSession}.log`;
-  const launchScriptFile = `/tmp/${appName}-launch-${tmuxSession}.sh`;
 
   const claudeCmd = `claude -r ${claudeSessionId} --dangerously-skip-permissions`;
   const bashCmd = `cd '${workDir}' && ${claudeCmd} $'/conclude-issues-and-close-session-skill'; exec bash`;
 
-  const sessionEnv = getSessionEnv(user);
-  const envArgs = Object.entries(sessionEnv).map(([k, v]) => `${k}=${v}`);
-  envArgs.push(`CLAUDE_SESSION_ID=${claudeSessionId}`);
-  envArgs.push(`CLAUDE_LAUNCH_DIR=${workDir}`);
-
-  writeFileSync(launchScriptFile, bashCmd + '\n', { mode: 0o755 });
-
-  try {
-    execFileSync('tmux', ['kill-session', '-t', tmuxSession], { timeout: 3000 });
-  } catch { /* no existing session */ }
-
-  const tmuxArgs = ['new-session', '-d', '-s', tmuxSession];
-  for (const e of envArgs) tmuxArgs.push('-e', e);
-  tmuxArgs.push(`script -qf ${scriptLogFile} -c 'bash -l ${launchScriptFile}'`);
-
-  execFile('systemd-run', ['--scope', '--quiet', '--', 'tmux', ...tmuxArgs], { timeout: 10000 }, (err) => {
-    if (err) console.error(`${appName} conclude launch failed:`, err.message);
-  });
-
-  // Register with dashboard (fire-and-forget)
-  fetch(`http://localhost:${dashboardPort}/api/claude-sessions/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sessionId: `${appName}-conclude-${claudeSessionId.slice(0, 8)}`,
-      claudeSessionId,
-      appName,
-      workDir,
-      scriptFile: scriptLogFile,
-      termTitle: tmuxSession,
-      launchMethod: 'tmux',
-      source: 'terminal',
-    }),
-  }).catch(() => {});
-
-  return { tmuxSession };
+  const result = launchInTmux({ appName, workDir, tmuxPrefix: 'conclude', claudeSessionId, bashCmd, user, dashboardPort });
+  return { tmuxSession: result.tmuxSession };
 }

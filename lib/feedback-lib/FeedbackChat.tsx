@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { feedbackTranslations } from "./i18n";
 import { ProdToggle, useProdPreview } from "./prod-preview";
+import { useSystemDark } from "./shared-ui";
 
 const PAGE_CONTEXT_KEY = '__feedbackPageContext';
 
@@ -165,18 +166,6 @@ interface PersistedSession {
   messages: Message[];
   issues?: Issue[];
   checkedIssues?: boolean[];
-}
-
-function useSystemDark() {
-  const [dark, setDark] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    setDark(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setDark(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-  return dark;
 }
 
 function openIssuesTab(url: string, target = 'feedback-issues') {
