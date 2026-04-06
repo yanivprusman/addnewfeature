@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, Fragment } from "react";
-import { StaleIssueList } from "./FeedbackChat";
-import type { Issue, IssuesPageLabels, ReviewDialogState, MaintenancePrompt } from './issues-page-types';
+import { useState, useEffect, useCallback, useRef } from "react";
+import type { Issue, IssuesPageLabels, MaintenancePrompt } from './issues-page-types';
 import { issuesTranslations } from './issues-page-i18n';
 import { MAINTENANCE_PROMPTS } from './maintenance-prompts';
 import { useSystemDark, statusBadge, formatDate } from './shared-ui';
+import { RegressionChatModal } from './issues-page-chat-modal';
+import { ReviewDialog, RegressionDialog, FixSessionDialog } from './issues-page-dialogs';
 
 export type { Issue, IssuesPageLabels } from './issues-page-types';
 
@@ -36,40 +37,20 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const [fixLoading, setFixLoading] = useState(false);
 
   // Review dialog
-  const [reviewDialog, setReviewDialog] = useState<ReviewDialogState | null>(null);
-  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewTrigger, setReviewTrigger] = useState<{ trigger: Issue; relatedIssues: Issue[] } | null>(null);
 
   // Regression dialog
   const [regressionTarget, setRegressionTarget] = useState<Issue | null>(null);
-  const [regressionDesc, setRegressionDesc] = useState("");
-  const [regressionLoading, setRegressionLoading] = useState(false);
 
   // Fix session choice dialog (for regression issues with previous sessions)
   const [fixSessionTarget, setFixSessionTarget] = useState<Issue | null>(null);
   const [fixSessionLoading, setFixSessionLoading] = useState(false);
 
-  // Regression chat modal (resumes original clarifier session)
+  // Regression chat modal
   const [chatTarget, setChatTarget] = useState<Issue | null>(null);
-  const [chatMessages, setChatMessages] = useState<{ role: string; text: string; staleIssues?: { title: string; description: string }[] }[]>([]);
-  const [chatInput, setChatInput] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatSessionId, setChatSessionId] = useState<string | null>(null);
-  const [chatTmuxSession, setChatTmuxSession] = useState<string | null>(null);
-  const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
-  const [chatIssues, setChatIssues] = useState<{ title: string; description: string }[] | null>(null);
-  const [chatCheckedIssues, setChatCheckedIssues] = useState<boolean[]>([]);
-  const [chatSubmitting, setChatSubmitting] = useState(false);
-  const [chatSubmitResults, setChatSubmitResults] = useState<{ title: string; issueNumber?: number; success: boolean }[] | null>(null);
-  const [chatMaximized, setChatMaximized] = useState(false);
   // Pending same-session fix option preserved when chat modal is closed with submitted issues
   const [pendingSameSessionFix, setPendingSameSessionFix] = useState<{ issueNumbers: Set<number>; resumeSessionId: string } | null>(null);
-  const chatMessagesEndRef = useRef<HTMLDivElement>(null);
   const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
-
-  // Auto-scroll chat messages
-  useEffect(() => {
-    chatMessagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages, chatLoading, chatIssues, chatSubmitResults]);
 
   // Tabs: "issues" or "maintenance"
   const [activeTab, setActiveTab] = useState<"issues" | "maintenance">("issues");
@@ -344,14 +325,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           i.claudeSessionId === issue.claudeSessionId
         )
       : [];
-
-    const allNumbers = new Set([issue.issueNumber, ...related.map(i => i.issueNumber)]);
-    setReviewDialog({
-      trigger: issue,
-      relatedIssues: related,
-      selectedNumbers: allNumbers,
-      conclude: true,
-    });
+    setReviewTrigger({ trigger: issue, relatedIssues: related });
   }
 
   async function handleDirectReview(issue: Issue) {
@@ -378,22 +352,8 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     setActionLoading(null);
   }
 
-  function toggleReviewIssue(issueNumber: number) {
-    if (!reviewDialog) return;
-    // Don't allow deselecting the trigger issue
-    if (issueNumber === reviewDialog.trigger.issueNumber) return;
-    setReviewDialog(prev => {
-      if (!prev) return null;
-      const next = new Set(prev.selectedNumbers);
-      if (next.has(issueNumber)) next.delete(issueNumber);
-      else next.add(issueNumber);
-      return { ...prev, selectedNumbers: next };
-    });
-  }
-
-  async function handleConfirmReview() {
-    if (!reviewDialog) return;
-    setReviewLoading(true);
+  async function handleConfirmReview(selectedNumbers: Set<number>, conclude: boolean) {
+    if (!reviewTrigger) return;
     try {
       const res = await fetch("/api/feedback/issues", {
         method: "POST",
@@ -401,26 +361,24 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         body: JSON.stringify({
           action: "reviewed",
           ...(appName && { app: appName }),
-          issueNumbers: Array.from(reviewDialog.selectedNumbers),
-          conclude: reviewDialog.conclude,
-          claudeSessionId: reviewDialog.trigger.claudeSessionId,
-          claudeLaunchDir: reviewDialog.trigger.claudeLaunchDir,
+          issueNumbers: Array.from(selectedNumbers),
+          conclude,
+          claudeSessionId: reviewTrigger.trigger.claudeSessionId,
+          claudeLaunchDir: reviewTrigger.trigger.claudeLaunchDir,
         }),
       });
       if (res.ok) {
         // Optimistically mark as closed
         setIssues(prev => prev.map(i =>
-          reviewDialog.selectedNumbers.has(i.issueNumber) ? { ...i, status: "closed" } : i
+          selectedNumbers.has(i.issueNumber) ? { ...i, status: "closed" } : i
         ));
-        setReviewDialog(null);
+        setReviewTrigger(null);
       }
     } catch { /* ignore */ }
-    setReviewLoading(false);
   }
 
-  async function handleMarkRegression() {
+  async function handleMarkRegression(regressionDesc: string) {
     if (!regressionTarget) return;
-    setRegressionLoading(true);
     try {
       const res = await fetch("/api/feedback/issues", {
         method: "POST",
@@ -440,10 +398,8 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
             : i
         ));
         setRegressionTarget(null);
-        setRegressionDesc("");
       }
     } catch { /* ignore */ }
-    setRegressionLoading(false);
   }
 
   async function handleClearRegression(issueNumber: number) {
@@ -463,160 +419,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     setActionLoading(null);
   }
 
-  // --- Regression chat modal functions ---
-
-  async function openRegressionChat(issue: Issue) {
-    setChatTarget(issue);
-    setChatMessages([]);
-    setChatInput("");
-    setChatSessionId(null);
-    setChatTmuxSession(null);
-    setChatHistoryLoading(true);
-    try {
-      const res = await fetch(`/api/feedback/session-history?sessionId=${encodeURIComponent(issue.clarifierSessionId!)}${appName ? `&app=${appName}` : ''}`);
-      const data = await res.json();
-      if (data.found && data.messages.length > 0) {
-        setChatMessages(data.messages);
-      }
-    } catch { /* ignore — will show empty chat */ }
-    setChatHistoryLoading(false);
-  }
-
-  function closeRegressionChat(skipPreserve = false) {
-    // Preserve same-session fix option for issues submitted from the chat
-    if (!skipPreserve && chatSubmitResults) {
-      const successNumbers = chatSubmitResults.filter(r => r.success && r.issueNumber).map(r => r.issueNumber!);
-      if (successNumbers.length > 0) {
-        let resumeId: string | null = null;
-        const match = issues.find(i => successNumbers.includes(i.issueNumber) && i.claudeSessionIds?.length);
-        if (match) resumeId = match.claudeSessionIds![match.claudeSessionIds!.length - 1];
-        else if (chatTarget?.claudeSessionIds?.length) resumeId = chatTarget.claudeSessionIds[chatTarget.claudeSessionIds.length - 1];
-        if (resumeId) setPendingSameSessionFix({ issueNumbers: new Set(successNumbers), resumeSessionId: resumeId });
-      }
-    }
-    if (chatTmuxSession) {
-      fetch("/api/feedback/close", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tmuxSession: chatTmuxSession }),
-      }).catch(() => {});
-    }
-    setChatTarget(null);
-    setChatMessages([]);
-    setChatInput("");
-    setChatSessionId(null);
-    setChatTmuxSession(null);
-    setChatLoading(false);
-    setChatIssues(null);
-    setChatCheckedIssues([]);
-    setChatSubmitting(false);
-    setChatSubmitResults(null);
-    setChatMaximized(false);
-  }
-
-  async function handleChatSend() {
-    const text = chatInput.trim();
-    if (!text || chatLoading || !chatTarget) return;
-
-    setChatInput("");
-    // Move current active issues to stale before sending new message
-    if (chatIssues && chatIssues.length > 0) {
-      setChatMessages(prev => [...prev, { role: "assistant", text: "", staleIssues: chatIssues }, { role: "user", text }]);
-      setChatIssues(null);
-      setChatCheckedIssues([]);
-    } else {
-      setChatMessages(prev => [...prev, { role: "user", text }]);
-    }
-    setChatLoading(true);
-    setChatSubmitResults(null);
-
-    try {
-      const res = await fetch("/api/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: text,
-          ...(chatSessionId && chatTmuxSession
-            ? { sessionId: chatSessionId, tmuxSession: chatTmuxSession }
-            : { resumeSessionId: chatTarget.clarifierSessionId }),
-          ...(appName && { app: appName }),
-          pagePath: "/issues",
-          pageContext: "Issues",
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        if (data.error === 'session_expired') {
-          setChatMessages(prev => [...prev, { role: "assistant", text: labels.noSessionHistory }]);
-          setChatLoading(false);
-          return;
-        }
-        throw new Error(data.message || "Request failed");
-      }
-
-      const data = await res.json();
-      setChatSessionId(data.sessionId);
-      setChatTmuxSession(data.tmuxSession);
-
-      let displayText = data.response || "";
-      if (data.issues) {
-        displayText = displayText.replace(/```(?:json)?\s*\n[\s\S]*?\n```\s*/gi, "").trim();
-        if (displayText === (data.response || "").trim()) {
-          displayText = displayText.replace(/\[[\s\S]*\]\s*/g, (match: string) => {
-            try { const p = JSON.parse(match); return Array.isArray(p) && p[0]?.title ? "" : match; } catch { return match; }
-          }).trim();
-        }
-      }
-      if (displayText) {
-        setChatMessages(prev => [...prev, { role: "assistant", text: displayText }]);
-      }
-      if (data.issues) {
-        setChatIssues(data.issues);
-        setChatCheckedIssues(new Array(data.issues.length).fill(true));
-      }
-    } catch {
-      setChatMessages(prev => [...prev, { role: "assistant", text: "Something went wrong. Please try again." }]);
-    }
-    setChatLoading(false);
-  }
-
-  async function handleChatSubmitIssues() {
-    if (!chatIssues || chatSubmitting) return;
-    const selected = chatIssues.filter((_, i) => chatCheckedIssues[i]);
-    if (selected.length === 0) return;
-
-    setChatSubmitting(true);
-    try {
-      const res = await fetch("/api/feedback/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issues: selected, ...(appName && { app: appName }), pagePath: "/issues", pageContext: "Issues", sessionId: chatSessionId || chatTarget?.clarifierSessionId }),
-      });
-      if (!res.ok) throw new Error("Submit failed");
-      const data = await res.json();
-      setChatSubmitResults(data.results);
-      setChatIssues(null);
-      setChatCheckedIssues([]);
-      // Refresh the issues list to show newly created issues
-      fetchIssues();
-    } catch {
-      setChatMessages(prev => [...prev, { role: "assistant", text: "Something went wrong. Please try again." }]);
-    }
-    setChatSubmitting(false);
-  }
-
-  async function handleChatFixIssues(resumeSessionId?: string) {
-    if (!chatSubmitResults) return;
-    const successIssues = chatSubmitResults
-      .filter(r => r.success && r.issueNumber)
-      .map(r => {
-        const full = issues.find(i => i.issueNumber === r.issueNumber);
-        return { number: r.issueNumber!, title: r.title, claudeLaunchDir: full?.claudeLaunchDir };
-      });
-    if (successIssues.length === 0) return;
-
-    setFixSessionLoading(true);
+  async function handleChatFixIssues(successIssues: { number: number; title: string; claudeLaunchDir?: string }[], resumeSessionId?: string): Promise<boolean> {
     try {
       const res = await fetch("/api/feedback/issues", {
         method: "POST",
@@ -629,9 +432,10 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         }),
       });
       if (res.ok) {
-        closeRegressionChat(true);
+        setChatTarget(null);
         setPendingSameSessionFix(null);
         fetchIssues();
+        return true;
       } else {
         const data = await res.json().catch(() => ({}));
         if (res.status === 401 || data.error === 'auth_expired') {
@@ -639,7 +443,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         }
       }
     } catch { /* ignore */ }
-    setFixSessionLoading(false);
+    return false;
   }
 
   async function handleCloseIssue(issueNumber: number) {
@@ -750,18 +554,6 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const btnClass = isDark ? "bg-slate-700 hover:bg-slate-600 text-slate-300" : "bg-slate-100 hover:bg-slate-200 text-slate-700";
   const btnPrimaryClass = isDark ? "bg-indigo-700 hover:bg-indigo-600 text-white" : "bg-indigo-500 hover:bg-indigo-600 text-white";
   const dialogBgClass = isDark ? "bg-slate-800 border-slate-600" : "bg-white border-slate-300";
-
-  // For chat fix buttons: prefer session IDs from the submitted issues over chatTarget's
-  const chatFixResumeSessionId = (() => {
-    if (chatSubmitResults) {
-      const successNumbers = chatSubmitResults.filter(r => r.success && r.issueNumber).map(r => r.issueNumber!);
-      const match = issues.find(i => successNumbers.includes(i.issueNumber) && i.claudeSessionIds?.length);
-      if (match) return match.claudeSessionIds![match.claudeSessionIds!.length - 1];
-    }
-    return chatTarget?.claudeSessionIds?.length
-      ? chatTarget.claudeSessionIds[chatTarget.claudeSessionIds.length - 1]
-      : null;
-  })();
 
   return (
     <div data-id="issues-page" className={`min-h-screen ${bgClass} p-6`}>
@@ -982,10 +774,9 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                             data-id={`not-working-${issue.issueNumber}`}
                             onClick={() => {
                               if (issue.clarifierSessionId) {
-                                openRegressionChat(issue);
+                                setChatTarget(issue);
                               } else {
                                 setRegressionTarget(issue);
-                                setRegressionDesc("");
                               }
                             }}
                             className={`text-xs px-3 py-1.5 rounded-md transition-colors cursor-pointer ${btnClass} hover:text-red-500 active:scale-95`}
@@ -994,7 +785,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           </button>
                           <button
                             data-id={`not-working-direct-${issue.issueNumber}`}
-                            onClick={() => { setRegressionTarget(issue); setRegressionDesc(""); }}
+                            onClick={() => { setRegressionTarget(issue); }}
                             title={labels.markRegressionDirect}
                             className={`text-xs px-1.5 py-1.5 rounded-md transition-colors cursor-pointer ${btnClass} hover:text-red-500 active:scale-95 opacity-60 hover:opacity-100`}
                           >
@@ -1167,422 +958,62 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         )}
       </div>
 
-      {/* Review Dialog Overlay */}
-      {reviewDialog && (
-        <div data-id="review-dialog" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !reviewLoading && setReviewDialog(null)}>
-          <div className="absolute inset-0 bg-black/50" />
-          <div
-            className={`relative border rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 ${dialogBgClass}`}
-            onClick={e => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-bold mb-4">{labels.markReviewed}</h2>
-
-            {/* Trigger issue (always selected, can't deselect) */}
-            <label className="flex items-center gap-3 py-2">
-              <input data-id="review-trigger-issue" type="checkbox" checked disabled className="w-4 h-4 accent-purple-500" />
-              <span className="text-sm">
-                <span className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{reviewDialog.trigger.issueNumber}</span>
-                {" "}{reviewDialog.trigger.title}
-              </span>
-            </label>
-
-            {/* Related issues from same session */}
-            {reviewDialog.relatedIssues.length > 0 && (
-              <div className="mt-3">
-                <p className={`text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  {labels.alsoInSession}
-                </p>
-                {reviewDialog.relatedIssues.map(ri => (
-                  <label key={ri.issueNumber} className="flex items-center gap-3 py-1.5 cursor-pointer">
-                    <input
-                      data-id={`review-related-${ri.issueNumber}`}
-                      type="checkbox"
-                      checked={reviewDialog.selectedNumbers.has(ri.issueNumber)}
-                      onChange={() => toggleReviewIssue(ri.issueNumber)}
-                      className="w-4 h-4 accent-purple-500 cursor-pointer"
-                    />
-                    <span className="text-sm">
-                      <span className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{ri.issueNumber}</span>
-                      {" "}{ri.title}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            )}
-
-            {/* Conclude toggle */}
-            <label className={`flex items-center gap-3 mt-4 py-2 px-3 rounded-lg cursor-pointer ${isDark ? "bg-slate-700/50" : "bg-slate-50"}`}>
-              <input
-                data-id="review-conclude-toggle"
-                type="checkbox"
-                checked={reviewDialog.conclude}
-                onChange={() => setReviewDialog(prev => prev ? { ...prev, conclude: !prev.conclude } : null)}
-                className="w-4 h-4 accent-purple-500 cursor-pointer"
-              />
-              <span className="text-sm">{labels.conclude}</span>
-            </label>
-
-            {/* Actions */}
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                data-id="review-cancel"
-                onClick={() => setReviewDialog(null)}
-                disabled={reviewLoading}
-                className={`text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer ${btnClass} active:scale-95`}
-              >
-                {labels.cancel}
-              </button>
-              <button
-                data-id="review-confirm"
-                onClick={handleConfirmReview}
-                disabled={reviewLoading}
-                className={`text-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-2 cursor-pointer ${
-                  isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
-                } disabled:opacity-50 active:scale-95`}
-              >
-                {reviewLoading ? (
-                  <>{labels.reviewing}</>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
-                    {labels.markReviewed}
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Review Dialog */}
+      {reviewTrigger && (
+        <ReviewDialog
+          trigger={reviewTrigger.trigger}
+          relatedIssues={reviewTrigger.relatedIssues}
+          labels={labels}
+          isDark={isDark}
+          dialogBgClass={dialogBgClass}
+          btnClass={btnClass}
+          onClose={() => setReviewTrigger(null)}
+          onConfirm={handleConfirmReview}
+        />
       )}
 
-      {/* Regression Dialog Overlay */}
+      {/* Regression Dialog */}
       {regressionTarget && (
-        <div data-id="regression-dialog" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !regressionLoading && (setRegressionTarget(null), setRegressionDesc(""))}>
-          <div className="absolute inset-0 bg-black/50" />
-          <div
-            className={`relative border rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 ${dialogBgClass}`}
-            onClick={e => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-bold mb-2">{labels.markRegression}</h2>
-            <p className={`text-sm mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-              <span className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{regressionTarget.issueNumber}</span>
-              {" "}{regressionTarget.title}
-            </p>
-            {regressionTarget.description && (
-              <p className={`text-xs mb-1 whitespace-pre-wrap ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-                {regressionTarget.description}
-              </p>
-            )}
-            <div className="mb-3" />
-            <textarea
-              data-id="regression-description"
-              value={regressionDesc}
-              onChange={e => setRegressionDesc(e.target.value)}
-              placeholder={labels.regressionPlaceholder}
-              rows={3}
-              autoFocus
-              className={`w-full px-3 py-2 rounded-md border text-sm resize-y ${
-                isDark ? "bg-slate-700 border-slate-600 text-slate-200 placeholder-slate-500" : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
-              }`}
-            />
-            <div className="flex justify-end gap-3 mt-4">
-              <button
-                data-id="regression-cancel"
-                onClick={() => { setRegressionTarget(null); setRegressionDesc(""); }}
-                disabled={regressionLoading}
-                className={`text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer ${btnClass} active:scale-95`}
-              >
-                {labels.cancel}
-              </button>
-              <button
-                data-id="regression-confirm"
-                onClick={handleMarkRegression}
-                disabled={regressionLoading}
-                className={`text-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-2 cursor-pointer ${
-                  isDark ? "bg-red-700 hover:bg-red-600 text-white" : "bg-red-500 hover:bg-red-600 text-white"
-                } disabled:opacity-50 active:scale-95`}
-              >
-                {regressionLoading ? (
-                  <>{labels.markingRegression}</>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
-                    {labels.markRegression}
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+        <RegressionDialog
+          issue={regressionTarget}
+          labels={labels}
+          isDark={isDark}
+          dialogBgClass={dialogBgClass}
+          btnClass={btnClass}
+          onClose={() => setRegressionTarget(null)}
+          onConfirm={handleMarkRegression}
+        />
       )}
 
       {/* Fix Session Choice Dialog */}
       {fixSessionTarget && (
-        <div data-id="fix-session-dialog" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !fixSessionLoading && setFixSessionTarget(null)}>
-          <div className="absolute inset-0 bg-black/50" />
-          <div
-            className={`relative border rounded-xl shadow-2xl p-6 max-w-lg w-full mx-4 ${dialogBgClass}`}
-            onClick={e => e.stopPropagation()}
-          >
-            <h2 className="text-lg font-bold mb-2">{labels.fixWithClaude}</h2>
-            <p className={`text-sm mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-              <span className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{fixSessionTarget.issueNumber}</span>
-              {" "}{fixSessionTarget.title}
-            </p>
-            {fixSessionTarget.description && (
-              <p className={`text-xs mb-1 whitespace-pre-wrap ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-                {fixSessionTarget.description}
-              </p>
-            )}
-            {fixSessionTarget.status === "regression" && fixSessionTarget.insights && (
-              <p className={`text-xs mb-1 px-2 py-1 rounded ${isDark ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600"}`}>
-                Regression: {fixSessionTarget.insights}
-              </p>
-            )}
-            <div className="mb-4" />
-
-            {/* Previous sessions */}
-            {fixSessionTarget.claudeSessionIds && fixSessionTarget.claudeSessionIds.length > 0 && (
-              <div className="mb-4">
-                <p className={`text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                  {labels.previousSessions}
-                </p>
-                <div className="space-y-2">
-                  {fixSessionTarget.claudeSessionIds.map(sid => (
-                    <div key={sid} className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-slate-50"}`}>
-                      <span className={`font-mono text-xs break-all ${isDark ? "text-slate-400" : "text-slate-500"}`}>{sid}</span>
-                      <button
-                        data-id={`resume-session-${sid.slice(0, 8)}`}
-                        onClick={() => handleFixSingleIssue(fixSessionTarget, sid)}
-                        disabled={fixSessionLoading}
-                        className={`text-xs px-3 py-1 rounded-md transition-colors cursor-pointer active:scale-95 ${
-                          isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
-                        } disabled:opacity-50`}
-                      >
-                        {fixSessionLoading ? labels.launching : labels.resumeSession}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex justify-end gap-3">
-              <button
-                data-id="fix-session-cancel"
-                onClick={() => setFixSessionTarget(null)}
-                disabled={fixSessionLoading}
-                className={`text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer ${btnClass} active:scale-95`}
-              >
-                {labels.cancel}
-              </button>
-              <button
-                data-id="fix-session-new"
-                onClick={() => handleFixSingleIssue(fixSessionTarget)}
-                disabled={fixSessionLoading}
-                className={`text-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-2 cursor-pointer ${
-                  isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
-                } disabled:opacity-50 active:scale-95`}
-              >
-                {fixSessionLoading ? (
-                  <>{labels.launching}</>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" /></svg>
-                    {labels.newSession}
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+        <FixSessionDialog
+          issue={fixSessionTarget}
+          labels={labels}
+          isDark={isDark}
+          dialogBgClass={dialogBgClass}
+          btnClass={btnClass}
+          fixLoading={fixSessionLoading}
+          onClose={() => setFixSessionTarget(null)}
+          onFixSingleIssue={handleFixSingleIssue}
+        />
       )}
 
-      {/* Regression Chat Modal — resumes original clarifier session */}
+      {/* Regression Chat Modal */}
       {chatTarget && (
-        <div data-id="regression-chat-modal" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !chatLoading && closeRegressionChat()}>
-          <div className="absolute inset-0 bg-black/50" />
-          <div
-            className={`relative shadow-2xl flex flex-col overflow-hidden transition-all duration-200 ${chatMaximized ? 'rounded-lg w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)]' : 'rounded-2xl w-96 max-h-[min(32rem,calc(100dvh-3rem))]'} ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 bg-indigo-600 text-white">
-              <div className="flex-1 min-w-0">
-                <span className="font-semibold text-sm">{labels.resumeChat}</span>
-                <p className="text-xs truncate text-indigo-200">
-                  <span className="font-mono">#{chatTarget.issueNumber}</span>{" "}{chatTarget.title}
-                </p>
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  data-id="chat-modal-maximize"
-                  onClick={() => setChatMaximized(m => !m)}
-                  className="text-indigo-200 hover:text-white transition-colors"
-                  title={chatMaximized ? "Restore" : "Maximize"}
-                >
-                  {chatMaximized ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-                      <path d="M8 3v3a2 2 0 01-2 2H3m18 0h-3a2 2 0 01-2-2V3m0 18v-3a2 2 0 012-2h3M3 16h3a2 2 0 012 2v3" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-                      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-                    </svg>
-                  )}
-                </button>
-                <button
-                  data-id="chat-modal-close"
-                  onClick={() => closeRegressionChat()}
-                  disabled={chatLoading}
-                  className="text-indigo-200 hover:text-white transition-colors"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Messages area */}
-            <div className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[12rem] ${chatMaximized ? '' : 'max-h-[20rem]'}`}>
-              {chatHistoryLoading && (
-                <p className={`text-sm text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>{labels.loadingHistory}</p>
-              )}
-              {!chatHistoryLoading && chatMessages.length === 0 && (
-                <p className={`text-sm text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>{labels.noSessionHistory}</p>
-              )}
-              {chatMessages.map((msg, i) => (
-                <Fragment key={i}>
-                  {msg.text && (
-                    <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                      <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap ${
-                        msg.role === "user"
-                          ? "bg-indigo-600 text-white"
-                          : (isDark ? "bg-slate-700 text-slate-200" : "bg-slate-100 text-slate-800")
-                      }`}>
-                        {msg.text}
-                      </div>
-                    </div>
-                  )}
-                  {msg.staleIssues && (
-                    <StaleIssueList issues={msg.staleIssues} isDark={isDark} label={labels.selectIssues} />
-                  )}
-                </Fragment>
-              ))}
-              {/* Active issue checklist */}
-              {chatIssues && chatIssues.length > 0 && (
-                <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
-                  <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.selectIssues}</p>
-                  {chatIssues.map((issue, i) => (
-                    <label key={i} className={`flex items-start gap-2 cursor-pointer p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
-                      <input
-                        type="checkbox"
-                        checked={chatCheckedIssues[i] ?? true}
-                        onChange={() => setChatCheckedIssues(prev => { const next = [...prev]; next[i] = !next[i]; return next; })}
-                        className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
-                        <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} whitespace-pre-wrap`}>
-                          {issue.description}
-                        </p>
-                      </div>
-                    </label>
-                  ))}
-                  <button
-                    data-id="chat-modal-submit-issues"
-                    onClick={handleChatSubmitIssues}
-                    disabled={chatSubmitting || !chatCheckedIssues.some(Boolean)}
-                    className={`w-full mt-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 ${isDark ? 'disabled:bg-slate-600' : 'disabled:bg-slate-300'} text-white text-sm font-medium rounded-lg transition-colors`}
-                  >
-                    {chatSubmitting ? labels.chatSubmitting : labels.chatSubmit}
-                  </button>
-                </div>
-              )}
-
-              {/* Submit results */}
-              {chatSubmitResults && (
-                <div className={`${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'} border rounded-xl p-3 space-y-1`}>
-                  {chatSubmitResults.map((result, i) => (
-                    <p key={i} className={`text-sm ${isDark ? 'text-green-300' : 'text-green-800'}`}>
-                      {result.success ? `Issue #${result.issueNumber ?? "?"} — ${result.title}` : `Failed: ${result.title}`}
-                    </p>
-                  ))}
-                </div>
-              )}
-
-              {/* Fix action buttons after successful submit */}
-              {chatSubmitResults && chatSubmitResults.some(r => r.success) && (
-                <div className="flex gap-2 flex-wrap">
-                  {chatFixResumeSessionId ? (
-                    <button
-                      data-id="chat-fix-original-session"
-                      onClick={() => handleChatFixIssues(chatFixResumeSessionId)}
-                      disabled={fixSessionLoading}
-                      className={`flex-1 text-xs px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
-                        isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
-                      } disabled:opacity-50`}
-                    >
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" /></svg>
-                      {fixSessionLoading ? labels.launching : labels.fixInOriginalSession}
-                    </button>
-                  ) : null}
-                  <button
-                    data-id="chat-fix-new-session"
-                    onClick={() => handleChatFixIssues()}
-                    disabled={fixSessionLoading}
-                    className={`flex-1 text-xs px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
-                      isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
-                    } disabled:opacity-50`}
-                  >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" /></svg>
-                    {fixSessionLoading ? labels.launching : labels.newFixSession}
-                  </button>
-                </div>
-              )}
-
-              {chatLoading && (
-                <div className="flex justify-start">
-                  <div className={`${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'} px-3 py-2 rounded-xl text-sm`}>
-                    {labels.chatThinking}
-                  </div>
-                </div>
-              )}
-              <div ref={chatMessagesEndRef} />
-            </div>
-
-            {/* Input area */}
-            <div className={`border-t ${isDark ? 'border-slate-700' : 'border-slate-200'} px-3 py-2 flex gap-2`}>
-              <textarea
-                data-id="chat-modal-input"
-                value={chatInput}
-                onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleChatSend();
-                  }
-                }}
-                placeholder={labels.chatPlaceholder}
-                rows={1}
-                autoFocus
-                disabled={chatLoading}
-                className={`flex-1 resize-none rounded-lg border ${isDark ? 'border-slate-600 bg-slate-700 text-slate-200 placeholder-slate-500' : 'border-slate-300 bg-white text-slate-900 placeholder-slate-400'} px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50`}
-              />
-              <button
-                data-id="chat-modal-send"
-                onClick={handleChatSend}
-                disabled={chatLoading || !chatInput.trim()}
-                className={`px-3 py-2 bg-indigo-600 hover:bg-indigo-700 ${isDark ? 'disabled:bg-slate-600' : 'disabled:bg-slate-300'} text-white rounded-lg transition-colors`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                  <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
+        <RegressionChatModal
+          issue={chatTarget}
+          appName={appName}
+          labels={labels}
+          isDark={isDark}
+          parentIssues={issues}
+          onClose={(pendingFix) => {
+            setChatTarget(null);
+            if (pendingFix) setPendingSameSessionFix(pendingFix);
+          }}
+          onFixIssues={handleChatFixIssues}
+          fetchIssues={fetchIssues}
+        />
       )}
     </div>
   );
