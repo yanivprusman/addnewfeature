@@ -38,6 +38,15 @@ export function checkClaudeAuth(): string | null {
   }
 }
 
+/** Escape a prompt string for bash $'...' syntax. */
+function escapeBashPrompt(prompt: string): string {
+  return prompt
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r');
+}
+
 interface TmuxLaunchConfig {
   appName: string;
   workDir: string;
@@ -51,18 +60,6 @@ interface TmuxLaunchConfig {
   dashboardPort?: number;
   /** Extra fields merged into the dashboard registration body */
   dashboardExtra?: Record<string, unknown>;
-}
-
-/**
- * Build a bash command that pipes a prompt to the claude CLI.
- * Writes the prompt to a temp file and pipes it in, avoiding ARG_MAX limits
- * that occur when large content (e.g. base64 images) is embedded in CLI args.
- */
-function buildClaudeCmd(workDir: string, claudeCmd: string, prompt: string): { bashCmd: string; promptFile: string } {
-  const promptFile = `/tmp/claude-prompt-${crypto.randomUUID()}.txt`;
-  writeFileSync(promptFile, prompt, { mode: 0o600 });
-  const bashCmd = `cd '${workDir}' && ${claudeCmd} < '${promptFile}'; rm -f '${promptFile}'; exec bash`;
-  return { bashCmd, promptFile };
 }
 
 /**
@@ -133,7 +130,7 @@ export function launchFeedback(config: LaunchConfig): LaunchResult {
 
   const claudeSessionId = crypto.randomUUID();
   const claudeCmd = `claude --session-id ${claudeSessionId} --agent issue-clarifier-agent --dangerously-skip-permissions --tools=Read,Grep,Glob`;
-  const { bashCmd } = buildClaudeCmd(workDir, claudeCmd, firstMessage);
+  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'${escapeBashPrompt(firstMessage)}'; exec bash`;
 
   return launchInTmux({ appName, workDir, tmuxPrefix: 'feedback', claudeSessionId, bashCmd, user, appPort, dashboardPort });
 }
@@ -163,7 +160,7 @@ export function resumeFeedback(config: ResumeConfig): LaunchResult {
   }
 
   const claudeCmd = `claude -r ${resumeSessionId} --dangerously-skip-permissions --tools=Read,Grep,Glob`;
-  const { bashCmd } = buildClaudeCmd(workDir, claudeCmd, firstMessage);
+  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'${escapeBashPrompt(firstMessage)}'; exec bash`;
 
   return launchInTmux({ appName, workDir, tmuxPrefix: 'feedback', claudeSessionId: resumeSessionId, bashCmd, user, appPort, dashboardPort });
 }
@@ -249,7 +246,7 @@ export function launchFix(config: FixConfig): LaunchResult {
   const prompt = `/fix-issues-skill ${appName}\n\nIssues to fix:\n${issueLines.join('\n')}`;
 
   const claudeCmd = `claude --session-id ${claudeSessionId} --dangerously-skip-permissions`;
-  const { bashCmd } = buildClaudeCmd(workDir, claudeCmd, prompt);
+  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'${escapeBashPrompt(prompt)}'; exec bash`;
 
   const issueKeys = issues.map(i => `${appName}#${i.number}`);
   return launchInTmux({
@@ -286,7 +283,7 @@ export function launchMaintenance(config: MaintenanceConfig): LaunchResult {
   }
 
   const claudeCmd = `claude --session-id ${claudeSessionId} --dangerously-skip-permissions`;
-  const { bashCmd } = buildClaudeCmd(workDir, claudeCmd, fullPrompt);
+  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'${escapeBashPrompt(fullPrompt)}'; exec bash`;
 
   const issueKeys = issueNumber ? [`${appName}#${issueNumber}`] : undefined;
   const issues = issueNumber && title ? [{ key: `${appName}#${issueNumber}`, number: issueNumber, title }] : undefined;
@@ -328,7 +325,7 @@ export function launchFixResume(config: FixResumeConfig): LaunchResult {
   const prompt = `/fix-issues-skill ${appName}\n\nIssues to fix:\n${issueDesc}`;
 
   const claudeCmd = `claude -r ${resumeSessionId} --dangerously-skip-permissions`;
-  const { bashCmd } = buildClaudeCmd(resumeDir, claudeCmd, prompt);
+  const bashCmd = `cd '${resumeDir}' && ${claudeCmd} $'${escapeBashPrompt(prompt)}'; exec bash`;
 
   const issueKeys = [`${appName}#${issue.number}`];
   return launchInTmux({
@@ -425,7 +422,7 @@ export function launchConclude(config: ConcludeConfig): { tmuxSession: string } 
   }
 
   const claudeCmd = `claude -r ${claudeSessionId} --dangerously-skip-permissions`;
-  const { bashCmd } = buildClaudeCmd(workDir, claudeCmd, '/conclude-issues-and-close-session-skill');
+  const bashCmd = `cd '${workDir}' && ${claudeCmd} $'/conclude-issues-and-close-session-skill'; exec bash`;
 
   const result = launchInTmux({ appName, workDir, tmuxPrefix: 'conclude', claudeSessionId, bashCmd, user, dashboardPort });
   return { tmuxSession: result.tmuxSession };
