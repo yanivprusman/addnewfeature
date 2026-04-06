@@ -168,7 +168,7 @@ export function handleFeedbackResponse() {
       const body = await request.json();
       const { session_id, last_assistant_message } = body;
 
-      console.log(`[feedback-lib] handleFeedbackResponse received: session_id=${session_id}, has_message=${!!last_assistant_message}`);
+      console.log(`[feedback-lib] handleFeedbackResponse received: session_id=${session_id}, has_message=${!!last_assistant_message}, msg_len=${last_assistant_message?.length ?? 0}, preview=${JSON.stringify((last_assistant_message || '').slice(0, 120))}`);
 
       if (session_id && last_assistant_message) {
         const resolved = resolveResponse(session_id, last_assistant_message);

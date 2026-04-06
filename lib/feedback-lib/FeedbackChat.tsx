@@ -19,11 +19,15 @@ function getPageContext(): string | undefined {
   // 1. Explicit setter (escape hatch)
   const explicit = (window as unknown as Record<string, unknown>)[PAGE_CONTEXT_KEY];
   if (typeof explicit === 'string' && explicit) return explicit;
-  // 2. Scan DOM for active tab element
-  const activeTab = document.querySelector('[data-active-tab]');
-  if (activeTab) {
-    const val = activeTab.getAttribute('data-active-tab');
-    if (val) return val;
+  // 2. Scan DOM for all active tab elements (supports nested tabs, e.g. "Claude > All")
+  const activeTabs = document.querySelectorAll('[data-active-tab]');
+  if (activeTabs.length) {
+    const parts: string[] = [];
+    activeTabs.forEach(el => {
+      const val = el.getAttribute('data-active-tab');
+      if (val) parts.push(val);
+    });
+    if (parts.length) return parts.join(' > ');
   }
   return undefined;
 }
@@ -49,14 +53,15 @@ export function StaleIssueList({ issues, isDark, label }: { issues: Issue[]; isD
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const mouseRef = useRef<{ x: number; y: number } | null>(null);
   return (
-    <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2 opacity-50`}>
-      <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{label}</p>
+    <div data-id="stale-issues" className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2 opacity-50`}>
+      <p data-id="stale-issues-label" className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{label}</p>
       {issues.map((issue, j) => (
-        <div key={j} className="flex items-start gap-2 p-2">
-          <input type="checkbox" checked disabled className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600" />
-          <div className="flex-1 min-w-0">
-            <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
+        <div key={j} data-id={`stale-issue-${j}`} className="flex items-start gap-2 p-2">
+          <input data-id={`stale-issue-check-${j}`} type="checkbox" checked disabled className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600" />
+          <div data-id={`stale-issue-content-${j}`} className="flex-1 min-w-0">
+            <p data-id={`stale-issue-title-${j}`} className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
             <p
+              data-id={`stale-issue-desc-${j}`}
               className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} ${expanded[j] ? '' : 'line-clamp-2'} cursor-pointer whitespace-pre-wrap`}
               onMouseDown={(e) => { mouseRef.current = { x: e.clientX, y: e.clientY }; }}
               onClick={(e) => { const s = mouseRef.current; if (s && (Math.abs(e.clientX - s.x) > 3 || Math.abs(e.clientY - s.y) > 3)) return; if (window.getSelection()?.toString()) return; setExpanded(prev => ({ ...prev, [j]: !prev[j] })); }}
@@ -184,7 +189,7 @@ function FeedbackChatDev(props: FeedbackChatProps) {
       <ProdToggle />
       {/* Keep FeedbackChatInner mounted during prod preview to preserve
           conversation state — only hide it visually */}
-      <div style={preview ? { display: 'none' } : undefined}>
+      <div data-id="feedback-chat-wrapper" style={preview ? { display: 'none' } : undefined}>
         <FeedbackChatInner {...props} />
       </div>
     </>
@@ -454,6 +459,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       if (data.hookWarning) setHookWarning(data.hookWarning);
 
       let displayText = data.response;
+      console.log('[FeedbackChat] API response:', { response: data.response?.slice(0, 200), issues: !!data.issues, sessionId: data.sessionId });
       if (data.issues) {
         // Strip fenced JSON blocks (```json or plain ```)
         displayText = displayText.replace(/```(?:json)?\s*\n[\s\S]*?\n```\s*/gi, "").trim();
@@ -465,7 +471,10 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         }
       }
 
-      setMessages((prev) => [...prev, { role: "assistant", text: displayText }]);
+      console.log('[FeedbackChat] displayText:', displayText?.slice(0, 200), 'truthy:', !!displayText);
+      if (displayText) {
+        setMessages((prev) => [...prev, { role: "assistant", text: displayText }]);
+      }
 
       if (data.issues) {
         setIssues(data.issues);
@@ -600,7 +609,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         }}
         title={labels.button}
       >
-        <span className={`w-full h-full ${accent} text-white rounded-full shadow-lg flex items-center justify-center opacity-50 pointer-events-none border-2 border-indigo-400/50 transition-colors`}>
+        <span data-id="feedback-bubble-icon" className={`w-full h-full ${accent} text-white rounded-full shadow-lg flex items-center justify-center opacity-50 pointer-events-none border-2 border-indigo-400/50 transition-colors`}>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
@@ -617,16 +626,16 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     <div data-id="feedback-chat" className={`fixed z-[10001] ${fullScreen ? 'inset-0' : 'bottom-6 end-6 w-96 max-h-[min(32rem,calc(100dvh-3rem))] rounded-2xl'} ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-2xl border flex flex-col overflow-hidden`}>
       {/* Header */}
       <div data-id="chat-header" className={`flex items-center justify-between px-4 py-3 ${accentBase} text-white`}>
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-sm">{labels.title}</span>
+        <div data-id="chat-header-left" className="flex items-center gap-2">
+          <span data-id="chat-title-text" className="font-semibold text-sm">{labels.title}</span>
           {hasSession && (
-            <span className="flex items-center gap-1 text-xs opacity-80">
-              <span className="w-2 h-2 bg-green-400 rounded-full inline-block" />
+            <span data-id="chat-session-status" className="flex items-center gap-1 text-xs opacity-80">
+              <span data-id="chat-session-dot" className="w-2 h-2 bg-green-400 rounded-full inline-block" />
               {labels.sessionActive}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div data-id="chat-header-right" className="flex items-center gap-2">
           {hasSession && (
             <button data-id="end-session" onClick={handleEndSession} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.endSession}>
               {labels.endSession}
@@ -676,7 +685,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       {directMode ? (
         /* Direct issue creation form */
         <div data-id="direct-issue-form" className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-          <p className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.directTitle}</p>
+          <p data-id="direct-form-label" className={`text-sm font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.directTitle}</p>
           <input
             data-id="direct-title"
             type="text"
@@ -708,7 +717,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           {submitResults && (
             <div data-id="direct-submit-results" className={`${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'} border rounded-xl p-3 space-y-1`}>
               {submitResults.map((result, i) => (
-                <p key={i} className={`text-sm ${isDark ? 'text-green-300' : 'text-green-800'}`}>
+                <p key={i} data-id={`direct-result-${i}`} className={`text-sm ${isDark ? 'text-green-300' : 'text-green-800'}`}>
                   {result.success ? `${labels.issueSubmitted}${result.issueNumber ?? "?"} — ${result.title}` : `Failed: ${result.title}`}
                 </p>
               ))}
@@ -734,8 +743,8 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             msg.staleIssues ? (
               <StaleIssueList key={i} issues={msg.staleIssues} isDark={isDark} label={labels.selectIssues} />
             ) : (
-              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap ${msg.role === "user" ? `${accentBase} text-white` : `${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-800'}`}`}>
+              <div key={i} data-id={`chat-message-${i}`} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div data-id={`chat-bubble-${i}`} className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap ${msg.role === "user" ? `${accentBase} text-white` : `${isDark ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-800'}`}`}>
                   {msg.text}
                 </div>
               </div>
@@ -747,10 +756,10 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             <div data-id="issue-checklist" className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
               <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.selectIssues}</p>
               {issues.map((issue, i) => (
-                <label key={i} className={`flex items-start gap-2 cursor-pointer p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
-                  <input type="checkbox" checked={checkedIssues[i] ?? true} onChange={() => toggleIssue(i)} className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
+                <label key={i} data-id={`issue-label-${i}`} className={`flex items-start gap-2 cursor-pointer p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
+                  <input data-id={`issue-check-${i}`} type="checkbox" checked={checkedIssues[i] ?? true} onChange={() => toggleIssue(i)} className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                  <div data-id={`issue-content-${i}`} className="flex-1 min-w-0">
+                    <p data-id={`issue-title-${i}`} className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
                     <p
                       className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} ${expandedIssues[i] ? '' : 'line-clamp-2'} cursor-pointer whitespace-pre-wrap`}
                       onMouseDown={(e) => { mouseDownRef.current = { x: e.clientX, y: e.clientY }; }}
@@ -777,7 +786,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           {submitResults && (
             <div data-id="submit-results" className={`${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'} border rounded-xl p-3 space-y-1`}>
               {submitResults.map((result, i) => (
-                <p key={i} className={`text-sm ${isDark ? 'text-green-300' : 'text-green-800'}`}>
+                <p key={i} data-id={`submit-result-${i}`} className={`text-sm ${isDark ? 'text-green-300' : 'text-green-800'}`}>
                   {result.success ? `${labels.issueSubmitted}${result.issueNumber ?? "?"} — ${result.title}` : `Failed: ${result.title}`}
                 </p>
               ))}
@@ -796,8 +805,8 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           )}
 
           {loading && (
-            <div className="flex justify-start">
-              <div className={`${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'} px-3 py-2 rounded-xl text-sm`}>{labels.thinking}</div>
+            <div data-id="chat-thinking" className="flex justify-start">
+              <div data-id="chat-thinking-text" className={`${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'} px-3 py-2 rounded-xl text-sm`}>{labels.thinking}</div>
             </div>
           )}
           <div ref={messagesEndRef} />

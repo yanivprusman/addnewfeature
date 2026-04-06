@@ -40,17 +40,18 @@ export function ReviewDialog({ trigger, relatedIssues, labels, isDark, dialogBgC
 
   return (
     <div data-id="review-dialog" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !loading && onClose()}>
-      <div className="absolute inset-0 bg-black/50" />
+      <div data-id="review-dialog-backdrop" className="absolute inset-0 bg-black/50" />
       <div
+        data-id="review-dialog-body"
         className={`relative border rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 ${dialogBgClass}`}
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-lg font-bold mb-4">{labels.markReviewed}</h2>
+        <h2 data-id="review-dialog-title" className="text-lg font-bold mb-4">{labels.markReviewed}</h2>
 
         {/* Trigger issue (always selected, can't deselect) */}
-        <label className="flex items-center gap-3 py-2">
+        <label data-id="review-trigger-label" className="flex items-center gap-3 py-2">
           <input data-id="review-trigger-issue" type="checkbox" checked disabled className="w-4 h-4 accent-purple-500" />
-          <span className="text-sm">
+          <span data-id="review-trigger-text" className="text-sm">
             <span className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{trigger.issueNumber}</span>
             {" "}{trigger.title}
           </span>
@@ -58,12 +59,12 @@ export function ReviewDialog({ trigger, relatedIssues, labels, isDark, dialogBgC
 
         {/* Related issues from same session */}
         {relatedIssues.length > 0 && (
-          <div className="mt-3">
-            <p className={`text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+          <div data-id="review-related-section" className="mt-3">
+            <p data-id="review-related-label" className={`text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
               {labels.alsoInSession}
             </p>
             {relatedIssues.map(ri => (
-              <label key={ri.issueNumber} className="flex items-center gap-3 py-1.5 cursor-pointer">
+              <label data-id={`review-related-label-${ri.issueNumber}`} key={ri.issueNumber} className="flex items-center gap-3 py-1.5 cursor-pointer">
                 <input
                   data-id={`review-related-${ri.issueNumber}`}
                   type="checkbox"
@@ -71,7 +72,7 @@ export function ReviewDialog({ trigger, relatedIssues, labels, isDark, dialogBgC
                   onChange={() => toggleIssue(ri.issueNumber)}
                   className="w-4 h-4 accent-purple-500 cursor-pointer"
                 />
-                <span className="text-sm">
+                <span data-id={`review-related-text-${ri.issueNumber}`} className="text-sm">
                   <span className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{ri.issueNumber}</span>
                   {" "}{ri.title}
                 </span>
@@ -81,7 +82,7 @@ export function ReviewDialog({ trigger, relatedIssues, labels, isDark, dialogBgC
         )}
 
         {/* Conclude toggle */}
-        <label className={`flex items-center gap-3 mt-4 py-2 px-3 rounded-lg cursor-pointer ${isDark ? "bg-slate-700/50" : "bg-slate-50"}`}>
+        <label data-id="review-conclude-label" className={`flex items-center gap-3 mt-4 py-2 px-3 rounded-lg cursor-pointer ${isDark ? "bg-slate-700/50" : "bg-slate-50"}`}>
           <input
             data-id="review-conclude-toggle"
             type="checkbox"
@@ -89,11 +90,11 @@ export function ReviewDialog({ trigger, relatedIssues, labels, isDark, dialogBgC
             onChange={() => setConclude(prev => !prev)}
             className="w-4 h-4 accent-purple-500 cursor-pointer"
           />
-          <span className="text-sm">{labels.conclude}</span>
+          <span data-id="review-conclude-text" className="text-sm">{labels.conclude}</span>
         </label>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 mt-6">
+        <div data-id="review-dialog-actions" className="flex justify-end gap-3 mt-6">
           <button
             data-id="review-cancel"
             onClick={onClose}
@@ -149,22 +150,23 @@ export function RegressionDialog({ issue, labels, isDark, dialogBgClass, btnClas
 
   return (
     <div data-id="regression-dialog" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !loading && onClose()}>
-      <div className="absolute inset-0 bg-black/50" />
+      <div data-id="regression-dialog-backdrop" className="absolute inset-0 bg-black/50" />
       <div
+        data-id="regression-dialog-body"
         className={`relative border rounded-xl shadow-2xl p-6 max-w-md w-full mx-4 ${dialogBgClass}`}
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-lg font-bold mb-2">{labels.markRegression}</h2>
-        <p className={`text-sm mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+        <h2 data-id="regression-dialog-title" className="text-lg font-bold mb-2">{labels.markRegression}</h2>
+        <p data-id="regression-issue-info" className={`text-sm mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
           <span className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{issue.issueNumber}</span>
           {" "}{issue.title}
         </p>
         {issue.description && (
-          <p className={`text-xs mb-1 whitespace-pre-wrap ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+          <p data-id="regression-issue-desc" className={`text-xs mb-1 whitespace-pre-wrap ${isDark ? "text-slate-500" : "text-slate-400"}`}>
             {issue.description}
           </p>
         )}
-        <div className="mb-3" />
+        <div data-id="regression-spacer" className="mb-3" />
         <textarea
           data-id="regression-description"
           value={description}
@@ -176,7 +178,7 @@ export function RegressionDialog({ issue, labels, isDark, dialogBgClass, btnClas
             isDark ? "bg-slate-700 border-slate-600 text-slate-200 placeholder-slate-500" : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"
           }`}
         />
-        <div className="flex justify-end gap-3 mt-4">
+        <div data-id="regression-dialog-actions" className="flex justify-end gap-3 mt-4">
           <button
             data-id="regression-cancel"
             onClick={onClose}
@@ -224,38 +226,39 @@ interface FixSessionDialogProps {
 export function FixSessionDialog({ issue, labels, isDark, dialogBgClass, btnClass, fixLoading, onClose, onFixSingleIssue }: FixSessionDialogProps) {
   return (
     <div data-id="fix-session-dialog" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !fixLoading && onClose()}>
-      <div className="absolute inset-0 bg-black/50" />
+      <div data-id="fix-session-backdrop" className="absolute inset-0 bg-black/50" />
       <div
+        data-id="fix-session-body"
         className={`relative border rounded-xl shadow-2xl p-6 max-w-lg w-full mx-4 ${dialogBgClass}`}
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-lg font-bold mb-2">{labels.fixWithClaude}</h2>
-        <p className={`text-sm mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+        <h2 data-id="fix-session-title" className="text-lg font-bold mb-2">{labels.fixWithClaude}</h2>
+        <p data-id="fix-session-info" className={`text-sm mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
           <span className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{issue.issueNumber}</span>
           {" "}{issue.title}
         </p>
         {issue.description && (
-          <p className={`text-xs mb-1 whitespace-pre-wrap ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+          <p data-id="fix-session-desc" className={`text-xs mb-1 whitespace-pre-wrap ${isDark ? "text-slate-500" : "text-slate-400"}`}>
             {issue.description}
           </p>
         )}
         {issue.status === "regression" && issue.insights && (
-          <p className={`text-xs mb-1 px-2 py-1 rounded ${isDark ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600"}`}>
+          <p data-id="fix-session-insights" className={`text-xs mb-1 px-2 py-1 rounded ${isDark ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600"}`}>
             Regression: {issue.insights}
           </p>
         )}
-        <div className="mb-4" />
+        <div data-id="fix-session-spacer" className="mb-4" />
 
         {/* Previous sessions */}
         {issue.claudeSessionIds && issue.claudeSessionIds.length > 0 && (
-          <div className="mb-4">
-            <p className={`text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+          <div data-id="fix-previous-sessions" className="mb-4">
+            <p data-id="fix-previous-sessions-label" className={`text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
               {labels.previousSessions}
             </p>
-            <div className="space-y-2">
+            <div data-id="fix-session-list" className="space-y-2">
               {issue.claudeSessionIds.map(sid => (
-                <div key={sid} className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-slate-50"}`}>
-                  <span className={`font-mono text-xs break-all ${isDark ? "text-slate-400" : "text-slate-500"}`}>{sid}</span>
+                <div data-id={`fix-session-item-${sid.slice(0, 8)}`} key={sid} className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-slate-50"}`}>
+                  <span data-id={`fix-session-id-${sid.slice(0, 8)}`} className={`font-mono text-xs break-all ${isDark ? "text-slate-400" : "text-slate-500"}`}>{sid}</span>
                   <button
                     data-id={`resume-session-${sid.slice(0, 8)}`}
                     onClick={() => onFixSingleIssue(issue, sid)}
@@ -273,7 +276,7 @@ export function FixSessionDialog({ issue, labels, isDark, dialogBgClass, btnClas
         )}
 
         {/* Actions */}
-        <div className="flex justify-end gap-3">
+        <div data-id="fix-session-actions" className="flex justify-end gap-3">
           <button
             data-id="fix-session-cancel"
             onClick={onClose}

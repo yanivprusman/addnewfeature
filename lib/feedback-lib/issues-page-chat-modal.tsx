@@ -206,20 +206,21 @@ export function RegressionChatModal({ issue, appName, labels, isDark, parentIssu
 
   return (
     <div data-id="regression-chat-modal" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !loading && closeModal()}>
-      <div className="absolute inset-0 bg-black/50" />
+      <div data-id="chat-modal-backdrop" className="absolute inset-0 bg-black/50" />
       <div
+        data-id="chat-modal-dialog"
         className={`relative shadow-2xl flex flex-col overflow-hidden transition-all duration-200 ${maximized ? 'rounded-lg w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)]' : 'rounded-2xl w-96 max-h-[min(32rem,calc(100dvh-3rem))]'} ${dialogBgClass}`}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-indigo-600 text-white">
-          <div className="flex-1 min-w-0">
-            <span className="font-semibold text-sm">{labels.resumeChat}</span>
-            <p className="text-xs truncate text-indigo-200">
+        <div data-id="chat-modal-header" className="flex items-center justify-between px-4 py-3 bg-indigo-600 text-white">
+          <div data-id="chat-modal-header-text" className="flex-1 min-w-0">
+            <span data-id="chat-modal-title" className="font-semibold text-sm">{labels.resumeChat}</span>
+            <p data-id="chat-modal-subtitle" className="text-xs truncate text-indigo-200">
               <span className="font-mono">#{issue.issueNumber}</span>{" "}{issue.title}
             </p>
           </div>
-          <div className="flex items-center gap-1">
+          <div data-id="chat-modal-header-actions" className="flex items-center gap-1">
             <button
               data-id="chat-modal-maximize"
               onClick={() => setMaximized(m => !m)}
@@ -250,18 +251,18 @@ export function RegressionChatModal({ issue, appName, labels, isDark, parentIssu
         </div>
 
         {/* Messages area */}
-        <div className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[12rem] ${maximized ? '' : 'max-h-[20rem]'}`}>
+        <div data-id="chat-modal-messages" className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[12rem] ${maximized ? '' : 'max-h-[20rem]'}`}>
           {historyLoading && (
-            <p className={`text-sm text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>{labels.loadingHistory}</p>
+            <p data-id="chat-modal-loading" className={`text-sm text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>{labels.loadingHistory}</p>
           )}
           {!historyLoading && messages.length === 0 && (
-            <p className={`text-sm text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>{labels.noSessionHistory}</p>
+            <p data-id="chat-modal-no-history" className={`text-sm text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>{labels.noSessionHistory}</p>
           )}
           {messages.map((msg, i) => (
             <Fragment key={i}>
               {msg.text && (
-                <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap ${
+                <div data-id={`chat-modal-msg-${i}`} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div data-id={`chat-modal-bubble-${i}`} className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap ${
                     msg.role === "user"
                       ? "bg-indigo-600 text-white"
                       : (isDark ? "bg-slate-700 text-slate-200" : "bg-slate-100 text-slate-800")
@@ -277,19 +278,20 @@ export function RegressionChatModal({ issue, appName, labels, isDark, parentIssu
           ))}
           {/* Active issue checklist */}
           {chatIssues && chatIssues.length > 0 && (
-            <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
-              <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.selectIssues}</p>
+            <div data-id="chat-modal-issues" className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
+              <p data-id="chat-modal-issues-label" className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.selectIssues}</p>
               {chatIssues.map((ci, i) => (
-                <label key={i} className={`flex items-start gap-2 cursor-pointer p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
+                <label key={i} data-id={`chat-modal-issue-${i}`} className={`flex items-start gap-2 cursor-pointer p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
                   <input
+                    data-id={`chat-modal-issue-check-${i}`}
                     type="checkbox"
                     checked={checkedIssues[i] ?? true}
                     onChange={() => setCheckedIssues(prev => { const next = [...prev]; next[i] = !next[i]; return next; })}
                     className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                   />
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{ci.title}</p>
-                    <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} whitespace-pre-wrap`}>
+                  <div data-id={`chat-modal-issue-content-${i}`} className="flex-1 min-w-0">
+                    <p data-id={`chat-modal-issue-title-${i}`} className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{ci.title}</p>
+                    <p data-id={`chat-modal-issue-desc-${i}`} className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} whitespace-pre-wrap`}>
                       {ci.description}
                     </p>
                   </div>
@@ -308,9 +310,9 @@ export function RegressionChatModal({ issue, appName, labels, isDark, parentIssu
 
           {/* Submit results */}
           {submitResults && (
-            <div className={`${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'} border rounded-xl p-3 space-y-1`}>
+            <div data-id="chat-modal-results" className={`${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'} border rounded-xl p-3 space-y-1`}>
               {submitResults.map((result, i) => (
-                <p key={i} className={`text-sm ${isDark ? 'text-green-300' : 'text-green-800'}`}>
+                <p key={i} data-id={`chat-modal-result-${i}`} className={`text-sm ${isDark ? 'text-green-300' : 'text-green-800'}`}>
                   {result.success ? `Issue #${result.issueNumber ?? "?"} — ${result.title}` : `Failed: ${result.title}`}
                 </p>
               ))}
@@ -319,7 +321,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, parentIssu
 
           {/* Fix action buttons after successful submit */}
           {submitResults && submitResults.some(r => r.success) && (
-            <div className="flex gap-2 flex-wrap">
+            <div data-id="chat-modal-fix-actions" className="flex gap-2 flex-wrap">
               {fixResumeSessionId ? (
                 <button
                   data-id="chat-fix-original-session"
@@ -348,17 +350,17 @@ export function RegressionChatModal({ issue, appName, labels, isDark, parentIssu
           )}
 
           {loading && (
-            <div className="flex justify-start">
-              <div className={`${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'} px-3 py-2 rounded-xl text-sm`}>
+            <div data-id="chat-modal-thinking" className="flex justify-start">
+              <div data-id="chat-modal-thinking-text" className={`${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'} px-3 py-2 rounded-xl text-sm`}>
                 {labels.chatThinking}
               </div>
             </div>
           )}
-          <div ref={messagesEndRef} />
+          <div data-id="chat-modal-scroll-anchor" ref={messagesEndRef} />
         </div>
 
         {/* Input area */}
-        <div className={`border-t ${isDark ? 'border-slate-700' : 'border-slate-200'} px-3 py-2 flex gap-2`}>
+        <div data-id="chat-modal-input-area" className={`border-t ${isDark ? 'border-slate-700' : 'border-slate-200'} px-3 py-2 flex gap-2`}>
           <textarea
             data-id="chat-modal-input"
             value={input}

@@ -557,11 +557,11 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
 
   return (
     <div data-id="issues-page" className={`min-h-screen ${bgClass} p-6`}>
-      <div className="max-w-3xl mx-auto">
+      <div data-id="issues-container" className="max-w-3xl mx-auto">
         {/* Header */}
         <div data-id="issues-header" className="mb-6 flex items-center justify-between gap-3">
           <h1 data-id="issues-title" className="text-2xl font-bold">{appName ? `${appName} — ${labels.pageTitle}` : labels.pageTitle}</h1>
-          <div className="flex items-center gap-2">
+          <div data-id="issues-header-actions" className="flex items-center gap-2">
           <button
             data-id="refresh-issues"
             onClick={() => fetchIssues()}
@@ -669,9 +669,9 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                     : ""
               }`}>
                 {isEditing ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs font-mono ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{issue.issueNumber}</span>
+                  <div data-id={`issue-edit-form-${issue.issueNumber}`} className="space-y-3">
+                    <div data-id={`issue-edit-meta-${issue.issueNumber}`} className="flex items-center gap-2 mb-1">
+                      <span data-id={`issue-edit-number-${issue.issueNumber}`} className={`text-xs font-mono ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{issue.issueNumber}</span>
                       {statusBadge(issue.status, labels, isDark)}
                     </div>
                     <input
@@ -688,7 +688,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                       rows={4}
                       className={`w-full px-3 py-1.5 rounded-md border text-sm ${isDark ? "bg-slate-700 border-slate-600 text-slate-200" : "bg-white border-slate-300 text-slate-900"} whitespace-pre-wrap`}
                     />
-                    <div className="flex gap-2">
+                    <div data-id={`issue-edit-actions-${issue.issueNumber}`} className="flex gap-2">
                       <button
                         data-id="save-edit"
                         onClick={() => handleSaveEdit(issue.issueNumber)}
@@ -707,10 +707,10 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-start gap-3">
+                  <div data-id={`issue-content-${issue.issueNumber}`} className="flex items-start gap-3">
                     {/* Checkbox for selectable issues */}
                     {canSelect && (
-                      <div className="pt-1 flex-shrink-0">
+                      <div data-id={`issue-checkbox-wrap-${issue.issueNumber}`} className="pt-1 flex-shrink-0">
                         <input
                           data-id={`select-issue-${issue.issueNumber}`}
                           type="checkbox"
@@ -722,36 +722,37 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                     )}
 
                     <div
+                      data-id={`issue-body-${issue.issueNumber}`}
                       className="flex-1 min-w-0 cursor-pointer"
                       onMouseDown={(e) => { mouseDownRef.current = { x: e.clientX, y: e.clientY }; }}
                       onClick={(e) => { const s = mouseDownRef.current; if (s && (Math.abs(e.clientX - s.x) > 3 || Math.abs(e.clientY - s.y) > 3)) return; if (window.getSelection()?.toString()) return; setExpandedIds(prev => { const next = new Set(prev); if (next.has(issue.issueNumber)) next.delete(issue.issueNumber); else next.add(issue.issueNumber); return next; }); }}
                     >
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-xs font-mono ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{issue.issueNumber}</span>
+                      <div data-id={`issue-meta-${issue.issueNumber}`} className="flex items-center gap-2 mb-1">
+                        <span data-id={`issue-number-${issue.issueNumber}`} className={`text-xs font-mono ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{issue.issueNumber}</span>
                         {statusBadge(issue.status, labels, isDark)}
                         {issue.labels?.map((label, i) => (
-                          <span key={`${label}-${i}`} className={`text-xs px-1.5 py-0.5 rounded ${isDark ? "bg-slate-700 text-slate-400" : "bg-slate-100 text-slate-500"}`}>
+                          <span data-id={`issue-label-${issue.issueNumber}-${i}`} key={`${label}-${i}`} className={`text-xs px-1.5 py-0.5 rounded ${isDark ? "bg-slate-700 text-slate-400" : "bg-slate-100 text-slate-500"}`}>
                             {label}
                           </span>
                         ))}
                       </div>
-                      <h3 className="font-medium">{issue.title}</h3>
+                      <h3 data-id={`issue-title-${issue.issueNumber}`} className="font-medium">{issue.title}</h3>
                       {issue.description && (
-                        <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-600"} ${!isExpanded && hasLongDesc ? "line-clamp-2" : ""} whitespace-pre-wrap`}>
+                        <p data-id={`issue-desc-${issue.issueNumber}`} className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-600"} ${!isExpanded && hasLongDesc ? "line-clamp-2" : ""} whitespace-pre-wrap`}>
                           {issue.description}
                         </p>
                       )}
                       {issue.insights && isExpanded && (
-                        <p className={`text-sm mt-2 italic ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                        <p data-id={`issue-insights-${issue.issueNumber}`} className={`text-sm mt-2 italic ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                           {issue.insights}
                         </p>
                       )}
-                      <p className={`text-xs mt-2 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                      <p data-id={`issue-date-${issue.issueNumber}`} className={`text-xs mt-2 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                         {formatDate(issue.createdAt)}
                       </p>
                     </div>
 
-                    <div className="flex-shrink-0 flex items-center gap-2">
+                    <div data-id={`issue-actions-${issue.issueNumber}`} className="flex-shrink-0 flex items-center gap-2">
                       {/* Mark as Reviewed button for review-status issues */}
                       {isReview && (
                         <button
@@ -769,7 +770,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                       )}
                       {/* Not Working button for closed issues — default opens clarifier chat, pencil icon for direct dialog */}
                       {isClosed && (
-                        <div className="flex items-center gap-1">
+                        <div data-id={`issue-not-working-${issue.issueNumber}`} className="flex items-center gap-1">
                           <button
                             data-id={`not-working-${issue.issueNumber}`}
                             onClick={() => {
@@ -918,9 +919,9 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
               const isReview = activeIssue?.status === "review";
               return (
                 <div key={mp.id} data-id={`maintenance-card-${mp.id}`} className={`flex items-center justify-between gap-3 border rounded-lg px-4 py-3 ${cardClass}`}>
-                  <div className="min-w-0 flex items-center gap-2">
-                    <div title={mp.description}>
-                      <p className={`text-sm font-medium ${isDark ? "text-slate-200" : "text-slate-800"}`}>{mp.title}</p>
+                  <div data-id={`maintenance-info-${mp.id}`} className="min-w-0 flex items-center gap-2">
+                    <div data-id={`maintenance-title-wrap-${mp.id}`} title={mp.description}>
+                      <p data-id={`maintenance-title-${mp.id}`} className={`text-sm font-medium ${isDark ? "text-slate-200" : "text-slate-800"}`}>{mp.title}</p>
                     </div>
                     {activeIssue && statusBadge(activeIssue.status, labels, isDark)}
                   </div>

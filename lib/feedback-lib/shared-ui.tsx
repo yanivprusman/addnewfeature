@@ -23,7 +23,7 @@ export function statusBadge(status: string, labels: IssuesPageLabels, isDark: bo
   };
   const entry = map[status] ?? map.open;
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${entry.bg}`}>
+    <span data-id={`status-badge-${status}`} className={`text-xs px-2 py-0.5 rounded-full font-medium ${entry.bg}`}>
       {entry.label}
     </span>
   );

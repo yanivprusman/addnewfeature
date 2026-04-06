@@ -5,7 +5,7 @@ export const MAINTENANCE_PROMPTS: MaintenancePrompt[] = [
     id: "feedback-context",
     title: "Add feedback context tracking",
     description: "Ensure tab/section navigation sets data-active-tab on the active element so the feedback widget tracks which view the user is on.",
-    prompt: "Scan this app for tab or section navigation (tab bars, sidebars, segmented controls). For each one, ensure the currently active element has a `data-active-tab` attribute set to the visible label text. This attribute must move with the active state — only the active element should have it at any given time. The feedback-lib widget reads this via `document.querySelector('[data-active-tab]')` at issue-report time. Do not remove any existing attributes. Commit and push when done.",
+    prompt: "Scan this app for tab or section navigation (tab bars, sidebars, segmented controls). For each one, ensure the currently active element has a `data-active-tab` attribute set to the visible label text. This attribute must move with the active state — only the active element should have it at any given time. The feedback-lib widget reads all `data-active-tab` elements via `document.querySelectorAll('[data-active-tab]')` at issue-report time and joins them with ' > ' (e.g. 'Claude > All'). Do not remove any existing attributes. Commit and push when done.",
   },
   {
     id: "assign-data-ids",
