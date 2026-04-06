@@ -60,6 +60,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const [chatCheckedIssues, setChatCheckedIssues] = useState<boolean[]>([]);
   const [chatSubmitting, setChatSubmitting] = useState(false);
   const [chatSubmitResults, setChatSubmitResults] = useState<{ title: string; issueNumber?: number; success: boolean }[] | null>(null);
+  const [chatMaximized, setChatMaximized] = useState(false);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
   const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -490,6 +491,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     setChatCheckedIssues([]);
     setChatSubmitting(false);
     setChatSubmitResults(null);
+    setChatMaximized(false);
   }
 
   async function handleChatSend() {
@@ -1366,7 +1368,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         <div data-id="regression-chat-modal" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !chatLoading && closeRegressionChat()}>
           <div className="absolute inset-0 bg-black/50" />
           <div
-            className={`relative rounded-2xl shadow-2xl w-96 max-h-[min(32rem,calc(100dvh-3rem))] flex flex-col overflow-hidden ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}
+            className={`relative shadow-2xl flex flex-col overflow-hidden transition-all duration-200 ${chatMaximized ? 'rounded-lg w-[calc(100vw-2rem)] max-h-[calc(100dvh-2rem)]' : 'rounded-2xl w-96 max-h-[min(32rem,calc(100dvh-3rem))]'} ${isDark ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-slate-200'}`}
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
@@ -1377,20 +1379,38 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                   <span className="font-mono">#{chatTarget.issueNumber}</span>{" "}{chatTarget.title}
                 </p>
               </div>
-              <button
-                data-id="chat-modal-close"
-                onClick={closeRegressionChat}
-                disabled={chatLoading}
-                className="text-indigo-200 hover:text-white transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  data-id="chat-modal-maximize"
+                  onClick={() => setChatMaximized(m => !m)}
+                  className="text-indigo-200 hover:text-white transition-colors"
+                  title={chatMaximized ? "Restore" : "Maximize"}
+                >
+                  {chatMaximized ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
+                      <path d="M8 3v3a2 2 0 01-2 2H3m18 0h-3a2 2 0 01-2-2V3m0 18v-3a2 2 0 012-2h3M3 16h3a2 2 0 012 2v3" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
+                      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                    </svg>
+                  )}
+                </button>
+                <button
+                  data-id="chat-modal-close"
+                  onClick={closeRegressionChat}
+                  disabled={chatLoading}
+                  className="text-indigo-200 hover:text-white transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {/* Messages area */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[12rem] max-h-[20rem]">
+            <div className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[12rem] ${chatMaximized ? '' : 'max-h-[20rem]'}`}>
               {chatHistoryLoading && (
                 <p className={`text-sm text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>{labels.loadingHistory}</p>
               )}
