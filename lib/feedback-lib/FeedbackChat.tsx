@@ -107,6 +107,7 @@ export interface FeedbackLabels {
   goToIssuesNo: string;
   fullScreen: string;
   exitFullScreen: string;
+  authExpired: string;
 }
 
 const defaultLabels: FeedbackLabels = {
@@ -140,6 +141,7 @@ const defaultLabels: FeedbackLabels = {
   goToIssuesNo: "Close",
   fullScreen: "Full Screen",
   exitFullScreen: "Exit Full Screen",
+  authExpired: "Claude authentication expired. Run /login in a Claude Code session to refresh.",
 };
 
 interface FeedbackChatProps {
@@ -153,9 +155,6 @@ interface FeedbackChatProps {
   colorScheme?: 'system' | 'light' | 'dark';
   /** Path to the issues page (e.g. "/issues"). If set, shows a link in the header. */
   issuesPath?: string;
-  /** Override the target app for all feedback requests.
-   *  When set, issues are created against this app instead of the host app's default. */
-  app?: string;
 }
 
 const STORAGE_KEY_BASE = "feedback-chat-session";
@@ -192,7 +191,7 @@ function FeedbackChatDev(props: FeedbackChatProps) {
   );
 }
 
-function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorScheme = 'system', issuesPath = '/issues', app: appProp }: FeedbackChatProps) {
+function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorScheme = 'system', issuesPath = '/issues' }: FeedbackChatProps) {
   const langLabels = lang ? (feedbackTranslations[lang] ?? defaultLabels) : defaultLabels;
   const labels = { ...langLabels, ...labelOverrides };
   const accent = accentClass ?? "bg-indigo-600 hover:bg-indigo-700";
@@ -231,11 +230,9 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setIsOnIssuesPage(window.location.pathname === issuesPath);
   }, [issuesPath]);
 
-  // Target app override: explicit prop takes precedence, then read from FeedbackIssuesPage DOM attribute
-  const feedbackTargetApp = typeof document !== 'undefined'
-    ? document.querySelector('[data-feedback-target-app]')?.getAttribute('data-feedback-target-app') || undefined
-    : undefined;
-  const appOverride = appProp || feedbackTargetApp;
+  // On the issues page, feedback targets addnewfeature (the issues page is a feedback-lib feature).
+  // On all other pages, no override — the API route's appName determines the target.
+  const appOverride = isOnIssuesPage ? 'addnewfeature' : undefined;
 
   // Scope localStorage key by page context — issues page may target a different app,
   // so it needs its own independent session.
@@ -433,13 +430,17 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (data.error === 'auth_expired') {
+          setMessages((prev) => [...prev, { role: "assistant", text: labels.authExpired }]);
+          return;
+        }
         if (data.error === 'session_expired') {
           // Session file gone — notify user and reset to fresh state
           setMessages((prev) => [...prev, { role: "assistant", text: labels.sessionExpired }]);
           setResumeId(null);
           setIssues(null);
           setCheckedIssues([]);
-      
+
           localStorage.removeItem(storageKey);
           return;
         }

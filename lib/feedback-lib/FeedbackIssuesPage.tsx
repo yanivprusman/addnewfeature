@@ -315,6 +315,11 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           i.issueNumber === issue.issueNumber ? { ...i, status: "in_progress" } : i
         ));
         setFixSessionTarget(null);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401 || data.error === 'auth_expired') {
+          alert(labels.authExpired);
+        }
       }
     } catch { /* ignore */ }
     setFixSessionLoading(false);
@@ -604,6 +609,11 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       if (res.ok) {
         closeRegressionChat();
         fetchIssues();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401 || data.error === 'auth_expired') {
+          alert(labels.authExpired);
+        }
       }
     } catch { /* ignore */ }
     setFixSessionLoading(false);
@@ -731,7 +741,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   })();
 
   return (
-    <div data-id="issues-page" data-feedback-target-app={appName || undefined} className={`min-h-screen ${bgClass} p-6`}>
+    <div data-id="issues-page" className={`min-h-screen ${bgClass} p-6`}>
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div data-id="issues-header" className="mb-6 flex items-center justify-between gap-3">
