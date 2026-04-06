@@ -969,7 +969,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   })();
 
   return (
-    <div data-id="issues-page" data-feedback-target-app="addnewfeature" className={`min-h-screen ${bgClass} p-6`}>
+    <div data-id="issues-page" data-feedback-target-app={appName || undefined} className={`min-h-screen ${bgClass} p-6`}>
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div data-id="issues-header" className="mb-6 flex items-center justify-between gap-3">

@@ -481,7 +481,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
 
         const fixApp = effectiveApp;
         const fixWorkDir = effectiveWorkDir || `/opt/dev/${fixApp}`;
-        const result = body.resumeSessionId
+        const result = body.resumeSessionId && issues.length === 1
           ? launchFixResume({ appName: fixApp, workDir: fixWorkDir, resumeSessionId: body.resumeSessionId, issue: issues[0], dashboardPort })
           : launchFix({ appName: fixApp, workDir: fixWorkDir, issues, dashboardPort });
 
