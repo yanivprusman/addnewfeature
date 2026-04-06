@@ -444,13 +444,6 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           localStorage.removeItem(storageKey);
           return;
         }
-        if (res.status === 504 || data.error === 'timeout') {
-          setMessages((prev) => [...prev, { role: "assistant", text: labels.timeoutError }]);
-          // Preserve session info from timeout response
-          if (data.sessionId) setSessionId(data.sessionId);
-          if (data.tmuxSession) setTmuxSession(data.tmuxSession);
-          return;
-        }
         throw new Error(data.message || "Request failed");
       }
 

@@ -32,7 +32,7 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
       let csid: string;
       let tmux: string;
 
-      if (sessionId && tmuxSession) {
+      if (sessionId && tmuxSession && isTmuxAlive(tmuxSession)) {
         // Active session — send to existing tmux
         csid = sessionId;
         tmux = tmuxSession;
@@ -59,10 +59,13 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
           ? `${locationTag}\n\n${message.trim()}`
           : message.trim();
 
-        if (resumeSessionId) {
+        // Use sessionId as fallback resume ID when tmux died but session file still exists
+        const effectiveResumeId = resumeSessionId || sessionId;
+
+        if (effectiveResumeId) {
           // Resume a previous session in a new tmux
           try {
-            const result = resumeFeedback({ appName: effectiveApp, workDir: effectiveWorkDir, resumeSessionId, firstMessage, appPort });
+            const result = resumeFeedback({ appName: effectiveApp, workDir: effectiveWorkDir, resumeSessionId: effectiveResumeId, firstMessage, appPort });
             csid = result.claudeSessionId;
             tmux = result.tmuxSession;
             trackSessionId(csid, tmux, effectiveApp);
@@ -73,32 +76,36 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
                 { status: 410 },
               );
             }
+            if (err instanceof Error && err.message === 'auth_expired') {
+              return NextResponse.json(
+                { error: 'auth_expired', message: 'Claude authentication expired. Run /login to refresh.' },
+                { status: 401 },
+              );
+            }
             throw err;
           }
         } else {
           // New session
-          const result = launchFeedback({ appName: effectiveApp, workDir: effectiveWorkDir, firstMessage, appPort });
-          csid = result.claudeSessionId;
-          tmux = result.tmuxSession;
-          trackSessionId(csid, tmux, effectiveApp);
+          try {
+            const result = launchFeedback({ appName: effectiveApp, workDir: effectiveWorkDir, firstMessage, appPort });
+            csid = result.claudeSessionId;
+            tmux = result.tmuxSession;
+            trackSessionId(csid, tmux, effectiveApp);
+          } catch (err) {
+            if (err instanceof Error && err.message === 'auth_expired') {
+              return NextResponse.json(
+                { error: 'auth_expired', message: 'Claude authentication expired. Run /login to refresh.' },
+                { status: 401 },
+              );
+            }
+            throw err;
+          }
         }
       }
 
       touchSession(tmux, appName);
 
-      let response: string;
-      try {
-        response = await waitForResponse(csid, 300_000);
-      } catch (err) {
-        const isTimeout = err instanceof Error && err.message.includes('Timeout');
-        if (isTimeout) {
-          return NextResponse.json(
-            { error: 'timeout', message: 'Claude did not respond in time. Check ~/.claude/hooks/feedback-response-hook.sh and FEEDBACK_APP_PORT env var.', sessionId: csid, tmuxSession: tmux },
-            { status: 504 },
-          );
-        }
-        throw err;
-      }
+      const response = await waitForResponse(csid);
 
       // Check if the response contains an issue array — try multiple formats:
       // 1. ```json fenced block (case-insensitive)
@@ -415,9 +422,20 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
 
         const fixApp = effectiveApp;
         const fixWorkDir = effectiveWorkDir || `/opt/dev/${fixApp}`;
-        const result = body.resumeSessionId && issues.length === 1
-          ? launchFixResume({ appName: fixApp, workDir: fixWorkDir, resumeSessionId: body.resumeSessionId, issue: issues[0], dashboardPort })
-          : launchFix({ appName: fixApp, workDir: fixWorkDir, issues, dashboardPort });
+        let result;
+        try {
+          result = body.resumeSessionId
+            ? launchFixResume({ appName: fixApp, workDir: fixWorkDir, resumeSessionId: body.resumeSessionId, issue: issues[0], dashboardPort })
+            : launchFix({ appName: fixApp, workDir: fixWorkDir, issues, dashboardPort });
+        } catch (err) {
+          if (err instanceof Error && err.message === 'auth_expired') {
+            return NextResponse.json(
+              { error: 'auth_expired', message: 'Claude authentication expired. Run /login to refresh.' },
+              { status: 401 },
+            );
+          }
+          throw err;
+        }
 
         // Mark issues as in_progress (fire-and-forget)
         for (const issue of issues) {
@@ -461,7 +479,18 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
           }
         }
 
-        const result = launchMaintenance({ appName: effectiveApp, workDir: maintWorkDir, prompt, issueNumber, title, dashboardPort });
+        let result;
+        try {
+          result = launchMaintenance({ appName: effectiveApp, workDir: maintWorkDir, prompt, issueNumber, title, dashboardPort });
+        } catch (err) {
+          if (err instanceof Error && err.message === 'auth_expired') {
+            return NextResponse.json(
+              { error: 'auth_expired', message: 'Claude authentication expired. Run /login to refresh.' },
+              { status: 401 },
+            );
+          }
+          throw err;
+        }
 
         // Mark issue as in_progress with claudeSessionId (fire-and-forget)
         if (issueNumber) {

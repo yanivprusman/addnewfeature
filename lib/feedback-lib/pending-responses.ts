@@ -12,25 +12,11 @@ function getPendingMap(): Map<string, PendingEntry[]> {
   return g[PENDING_KEY] as Map<string, PendingEntry[]>;
 }
 
-export function waitForResponse(sessionId: string, timeoutMs: number): Promise<string> {
+export function waitForResponse(sessionId: string): Promise<string> {
   const pending = getPendingMap();
-  return new Promise<string>((resolve, reject) => {
-    let entry: PendingEntry;
-
-    const timer = setTimeout(() => {
-      const queue = pending.get(sessionId);
-      if (queue) {
-        const idx = queue.indexOf(entry);
-        if (idx !== -1) queue.splice(idx, 1);
-        if (queue.length === 0) pending.delete(sessionId);
-      }
-      console.log(`[feedback-lib] waitForResponse TIMEOUT for session ${sessionId} (queue size: ${pending.get(sessionId)?.length ?? 0})`);
-      reject(new Error('Timeout waiting for Claude response'));
-    }, timeoutMs);
-
-    entry = {
+  return new Promise<string>((resolve) => {
+    const entry: PendingEntry = {
       resolve: (text: string) => {
-        clearTimeout(timer);
         const queue = pending.get(sessionId);
         if (queue) {
           const idx = queue.indexOf(entry);

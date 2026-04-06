@@ -48,6 +48,7 @@ const defaultLabels: IssuesPageLabels = {
   chatSubmitting: "Submitting...",
   fixInOriginalSession: "Fix in original session",
   newFixSession: "New fix session",
+  authExpired: "Claude authentication expired. Run /login in a Claude Code session to refresh.",
 };
 
 const heLabels: IssuesPageLabels = {
@@ -98,6 +99,7 @@ const heLabels: IssuesPageLabels = {
   chatSubmitting: "שולח...",
   fixInOriginalSession: "תיקון בסשן המקורי",
   newFixSession: "סשן תיקון חדש",
+  authExpired: "אימות Claude פג תוקף. הריצו /login בסשן Claude Code כדי לרענן.",
 };
 
 export const issuesTranslations: Record<string, IssuesPageLabels> = {

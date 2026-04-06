@@ -25,6 +25,19 @@ export interface LaunchResult {
 // Shared helpers
 // ---------------------------------------------------------------------------
 
+/** Check if Claude Code auth is valid. Returns null if OK, error string if not. */
+export function checkClaudeAuth(): string | null {
+  try {
+    const home = process.env.HOME || '/root';
+    const creds = JSON.parse(readFileSync(`${home}/.claude/.credentials.json`, 'utf-8'));
+    const oauth = creds.claudeAiOauth;
+    if (!oauth?.accessToken || !oauth?.expiresAt || oauth.expiresAt < Date.now()) return 'auth_expired';
+    return null;
+  } catch {
+    return 'auth_expired';
+  }
+}
+
 /** Escape a prompt string for bash $'...' syntax. */
 function escapeBashPrompt(prompt: string): string {
   return prompt
@@ -55,6 +68,9 @@ interface TmuxLaunchConfig {
  * and dashboard registration.
  */
 function launchInTmux(config: TmuxLaunchConfig): LaunchResult {
+  const authErr = checkClaudeAuth();
+  if (authErr) throw new Error(authErr);
+
   const { appName, workDir, tmuxPrefix, claudeSessionId, bashCmd, user = 'root', appPort, dashboardPort = 3007, dashboardExtra } = config;
 
   const tmuxSession = `${appName}-${tmuxPrefix}-${Date.now().toString(36)}`;

@@ -62,6 +62,7 @@ export interface IssuesPageLabels {
   chatSubmitting: string;
   fixInOriginalSession: string;
   newFixSession: string;
+  authExpired: string;
 }
 
 export interface ReviewDialogState {
