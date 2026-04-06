@@ -969,7 +969,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   })();
 
   return (
-    <div data-id="issues-page" data-feedback-target-app={appName || undefined} className={`min-h-screen ${bgClass} p-6`}>
+    <div data-id="issues-page" data-feedback-target-app="addnewfeature" className={`min-h-screen ${bgClass} p-6`}>
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div data-id="issues-header" className="mb-6 flex items-center justify-between gap-3">
@@ -1319,9 +1319,8 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
               return (
                 <div key={mp.id} data-id={`maintenance-card-${mp.id}`} className={`flex items-center justify-between gap-3 border rounded-lg px-4 py-3 ${cardClass}`}>
                   <div className="min-w-0 flex items-center gap-2">
-                    <div>
+                    <div title={mp.description}>
                       <p className={`text-sm font-medium ${isDark ? "text-slate-200" : "text-slate-800"}`}>{mp.title}</p>
-                      <p className={`text-xs mt-0.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>{mp.description}</p>
                     </div>
                     {activeIssue && statusBadge(activeIssue.status, labels, isDark)}
                   </div>
