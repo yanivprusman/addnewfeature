@@ -61,6 +61,8 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const [chatSubmitting, setChatSubmitting] = useState(false);
   const [chatSubmitResults, setChatSubmitResults] = useState<{ title: string; issueNumber?: number; success: boolean }[] | null>(null);
   const [chatMaximized, setChatMaximized] = useState(false);
+  // Pending same-session fix option preserved when chat modal is closed with submitted issues
+  const [pendingSameSessionFix, setPendingSameSessionFix] = useState<{ issueNumbers: Set<number>; resumeSessionId: string } | null>(null);
   const chatMessagesEndRef = useRef<HTMLDivElement>(null);
   const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -316,6 +318,13 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           i.issueNumber === issue.issueNumber ? { ...i, status: "in_progress" } : i
         ));
         setFixSessionTarget(null);
+        // Clear from pending same-session fix if applicable
+        setPendingSameSessionFix(prev => {
+          if (!prev) return null;
+          const next = new Set(prev.issueNumbers);
+          next.delete(issue.issueNumber);
+          return next.size > 0 ? { ...prev, issueNumbers: next } : null;
+        });
       } else {
         const data = await res.json().catch(() => ({}));
         if (res.status === 401 || data.error === 'auth_expired') {
@@ -473,7 +482,18 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     setChatHistoryLoading(false);
   }
 
-  function closeRegressionChat() {
+  function closeRegressionChat(skipPreserve = false) {
+    // Preserve same-session fix option for issues submitted from the chat
+    if (!skipPreserve && chatSubmitResults) {
+      const successNumbers = chatSubmitResults.filter(r => r.success && r.issueNumber).map(r => r.issueNumber!);
+      if (successNumbers.length > 0) {
+        let resumeId: string | null = null;
+        const match = issues.find(i => successNumbers.includes(i.issueNumber) && i.claudeSessionIds?.length);
+        if (match) resumeId = match.claudeSessionIds![match.claudeSessionIds!.length - 1];
+        else if (chatTarget?.claudeSessionIds?.length) resumeId = chatTarget.claudeSessionIds[chatTarget.claudeSessionIds.length - 1];
+        if (resumeId) setPendingSameSessionFix({ issueNumbers: new Set(successNumbers), resumeSessionId: resumeId });
+      }
+    }
     if (chatTmuxSession) {
       fetch("/api/feedback/close", {
         method: "POST",
@@ -609,7 +629,8 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
         }),
       });
       if (res.ok) {
-        closeRegressionChat();
+        closeRegressionChat(true);
+        setPendingSameSessionFix(null);
         fetchIssues();
       } else {
         const data = await res.json().catch(() => ({}));
@@ -1015,6 +1036,20 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           {labels.clearRegression}
                         </button>
                       )}
+                      {/* Fix in original session button (preserved from chat modal) */}
+                      {(issue.status === "open" || issue.status === "in_progress") && pendingSameSessionFix?.issueNumbers.has(issue.issueNumber) && (
+                        <button
+                          data-id={`fix-same-session-${issue.issueNumber}`}
+                          onClick={() => handleFixSingleIssue(issue, pendingSameSessionFix.resumeSessionId)}
+                          disabled={fixSessionLoading}
+                          className={`text-xs px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                            isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
+                          } disabled:opacity-50`}
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" /></svg>
+                          {fixSessionLoading ? labels.launching : labels.fixInOriginalSession}
+                        </button>
+                      )}
                       {/* Fix with Claude button for open/in_progress issues */}
                       {(issue.status === "open" || issue.status === "in_progress") && (
                         <button
@@ -1398,7 +1433,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                 </button>
                 <button
                   data-id="chat-modal-close"
-                  onClick={closeRegressionChat}
+                  onClick={() => closeRegressionChat()}
                   disabled={chatLoading}
                   className="text-indigo-200 hover:text-white transition-colors"
                 >
