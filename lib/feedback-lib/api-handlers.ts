@@ -5,6 +5,11 @@ import { launchFeedback, resumeFeedback, sendMessage, killFeedback, isTmuxAlive,
 import { waitForResponse, resolveResponse } from './pending-responses';
 import { startSessionCleanupInterval, touchSession, removeSession, getSessionIdMap, trackSessionId } from './session-tracking';
 
+/** Strip base64 data URIs — they waste ~200K tokens and Claude can't interpret them as images. */
+function sanitizeMessage(text: string): string {
+  return text.replace(/data:[a-zA-Z]+\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=\s]+/g, '[base64 data removed]');
+}
+
 /** Build a location tag like [Page: /path | Tab: Design & 3D] from pagePath + pageContext */
 function buildLocationTag(pagePath?: string, pageContext?: string): string | null {
   const parts: string[] = [];
@@ -36,7 +41,7 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
         // Active session — send to existing tmux
         csid = sessionId;
         tmux = tmuxSession;
-        sendMessage(tmux, message.trim());
+        sendMessage(tmux, sanitizeMessage(message.trim()));
       } else {
         // Detect the app's port: try request URL, then Host header, then PORT env.
         // Behind a reverse proxy (nginx), request headers lose the port, so
@@ -54,10 +59,11 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
         const effectiveApp = overrideApp || appName;
         const effectiveWorkDir = overrideApp && overrideApp !== appName ? `/opt/dev/${overrideApp}` : workDir;
 
+        const sanitized = sanitizeMessage(message.trim());
         const locationTag = buildLocationTag(pagePath, pageContext);
         const firstMessage = locationTag
-          ? `${locationTag}\n\n${message.trim()}`
-          : message.trim();
+          ? `${locationTag}\n\n${sanitized}`
+          : sanitized;
 
         // Use sessionId as fallback resume ID when tmux died but session file still exists
         const effectiveResumeId = resumeSessionId || sessionId;
