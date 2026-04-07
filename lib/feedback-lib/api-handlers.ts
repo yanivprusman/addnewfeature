@@ -28,7 +28,7 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
   return async function POST(request: NextRequest) {
     try {
       const body = await request.json();
-      const { message, sessionId, tmuxSession, resumeSessionId, pagePath, pageContext } = body;
+      const { message, sessionId, tmuxSession, resumeSessionId, pagePath, pageContext, priorIssue } = body;
 
       if (!message || typeof message !== 'string' || !message.trim()) {
         return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -61,9 +61,28 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
 
         const sanitized = sanitizeMessage(message.trim());
         const locationTag = buildLocationTag(pagePath, pageContext);
-        const firstMessage = locationTag
-          ? `${locationTag}\n\n${sanitized}`
-          : sanitized;
+
+        // When resuming a clarifier session for a previously-submitted issue
+        // (e.g. user clicked "Working" on a closed issue), tell the agent so it
+        // doesn't behave as if this were a fresh first turn.
+        let priorIssueNote: string | null = null;
+        if (resumeSessionId && priorIssue && typeof priorIssue === 'object') {
+          const pi = priorIssue as { issueNumber?: number; title?: string; description?: string; status?: string; insights?: string };
+          const lines: string[] = [
+            `[Context: An issue was previously submitted from this conversation and the user is now continuing the chat.`,
+            `- Issue #${pi.issueNumber ?? '?'}: "${pi.title ?? ''}" (current status: ${pi.status ?? 'unknown'})`,
+          ];
+          if (pi.description) lines.push(`- Original description: ${pi.description}`);
+          if (pi.insights) lines.push(`- Insights from prior work: ${pi.insights}`);
+          lines.push(
+            `The user has reopened this clarifier chat — likely because the issue is still happening or they have more to add. Treat any new report as a follow-up to the existing issue, not a brand-new conversation. Their new message follows.]`,
+          );
+          priorIssueNote = lines.join('\n');
+        }
+
+        const firstMessage = [priorIssueNote, locationTag, sanitized]
+          .filter(Boolean)
+          .join('\n\n');
 
         // Use sessionId as fallback resume ID when tmux died but session file still exists
         const effectiveResumeId = resumeSessionId || sessionId;

@@ -105,7 +105,16 @@ export function RegressionChatModal({ issue, appName, labels, isDark, parentIssu
           message: text,
           ...(sessionId && tmuxSession
             ? { sessionId, tmuxSession }
-            : { resumeSessionId: issue.clarifierSessionId }),
+            : {
+                resumeSessionId: issue.clarifierSessionId,
+                priorIssue: {
+                  issueNumber: issue.issueNumber,
+                  title: issue.title,
+                  description: issue.description,
+                  status: issue.status,
+                  insights: issue.insights,
+                },
+              }),
           ...(appName && { app: appName }),
           pagePath: "/issues",
           pageContext: "Issues",
