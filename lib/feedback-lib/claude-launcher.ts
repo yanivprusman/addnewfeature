@@ -31,7 +31,9 @@ export function checkClaudeAuth(): string | null {
     const home = process.env.HOME || '/root';
     const creds = JSON.parse(readFileSync(`${home}/.claude/.credentials.json`, 'utf-8'));
     const oauth = creds.claudeAiOauth;
-    if (!oauth?.accessToken || !oauth?.expiresAt || oauth.expiresAt < Date.now()) return 'auth_expired';
+    // Access tokens expire hourly and Claude Code auto-refreshes via refreshToken.
+    // Only flag as expired when the refresh token itself is missing.
+    if (!oauth?.refreshToken) return 'auth_expired';
     return null;
   } catch {
     return 'auth_expired';
