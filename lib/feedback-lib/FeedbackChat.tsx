@@ -199,7 +199,10 @@ function openIssuesTab(url: string, target = 'feedback-issues') {
 const bubbleOpenCallback: { current: (() => void) | null } = { current: null };
 
 if (typeof window !== 'undefined') {
-  const w = window as unknown as { __fcCtxInstalled?: boolean };
+  const w = window as unknown as {
+    __fcCtxInstalled?: boolean;
+    __fcHydrationChecked?: boolean;
+  };
   if (!w.__fcCtxInstalled) {
     w.__fcCtxInstalled = true;
     document.addEventListener('contextmenu', (e) => {
@@ -209,24 +212,38 @@ if (typeof window !== 'undefined') {
       bubbleOpenCallback.current?.();
     });
   }
+
+  // Orphan-bubble detection: in Chrome's "Duplicate tab" flow (React 19 +
+  // Next.js 16), FeedbackChat was observed to SSR but never hydrate in the
+  // duplicated tab — the bubble existed in the DOM with no React fiber
+  // attached (issue #122). Detect this and reload the page once, which
+  // restores proper hydration. A per-session counter prevents reload loops.
+  if (!w.__fcHydrationChecked) {
+    w.__fcHydrationChecked = true;
+    const RELOAD_KEY = '__fcReloadCount';
+    setTimeout(() => {
+      const bubble = document.querySelector('[data-id="feedback-chat-bubble"]');
+      if (!bubble) return;
+      const hasFiber = Object.keys(bubble).some(k => k.startsWith('__reactFiber'));
+      if (hasFiber) {
+        // Healthy hydration — clear any stale reload counter
+        sessionStorage.removeItem(RELOAD_KEY);
+        return;
+      }
+      const count = parseInt(sessionStorage.getItem(RELOAD_KEY) || '0', 10);
+      if (count < 1) {
+        sessionStorage.setItem(RELOAD_KEY, String(count + 1));
+        window.location.reload();
+      } else {
+        // Give up silently after one attempt to avoid loops
+        console.warn('[feedback-lib] Bubble did not hydrate after reload');
+      }
+    }, 1500);
+  }
 }
 
 export function FeedbackChat(props: FeedbackChatProps = {}) {
-  if (typeof window !== 'undefined') {
-    (window as unknown as { __fcRenderCount?: number }).__fcRenderCount =
-      ((window as unknown as { __fcRenderCount?: number }).__fcRenderCount ?? 0) + 1;
-  }
   if (process.env.NEXT_PUBLIC_IS_PROD === 'true') return null;
-  // Force client-only rendering: initializer returns false on the server
-  // and true on the client, so the server output is null and the client
-  // renders the full widget. React 19 recovers from the resulting
-  // hydration mismatch by re-rendering this subtree client-side.
-  // This pattern is synchronous (no useEffect) so it works even in
-  // environments where post-commit effects don't fire for this component
-  // — observed in Chrome's "Duplicate tab" flow with React 19 +
-  // Next.js 16 (issue #122).
-  const [mounted] = useState(() => typeof window !== 'undefined');
-  if (!mounted) return null;
   return <FeedbackChatDev {...props} />;
 }
 
