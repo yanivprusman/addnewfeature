@@ -175,6 +175,42 @@ function openIssuesTab(url: string, target = 'feedback-issues') {
   w?.focus();
 }
 
+// -----------------------------------------------------------------------------
+// Module-level bubble right-click handling (issue #122)
+//
+// We install a document-level `contextmenu` listener at module load time
+// (when this file is imported), BEFORE any React component mounts. The
+// listener checks if the event target is inside the bubble and, if so,
+// prevents the browser's native context menu and invokes the component's
+// open callback via a module-scope ref.
+//
+// Why this module-level approach instead of `onContextMenu` / `useEffect`
+// / a ref callback:
+//   - React 19 + Next.js 16 + Chrome's "Duplicate tab" was observed to NOT
+//     fire ref callbacks or effects for the SSR'd bubble element in the
+//     duplicated tab (`__ctxMenuAttached` stayed undefined, `getEventListeners`
+//     returned {}). The listener must be attached independently of React's
+//     component lifecycle.
+//   - The component registers its `handleOpen` into `bubbleOpenCallback`
+//     during render (synchronous body assignment). Even if effects or refs
+//     don't fire, the render function IS called, so the callback is set.
+// -----------------------------------------------------------------------------
+
+const bubbleOpenCallback: { current: (() => void) | null } = { current: null };
+
+if (typeof window !== 'undefined') {
+  const w = window as unknown as { __fcCtxInstalled?: boolean };
+  if (!w.__fcCtxInstalled) {
+    w.__fcCtxInstalled = true;
+    document.addEventListener('contextmenu', (e) => {
+      const target = e.target as HTMLElement | null;
+      if (!target || !target.closest('[data-id="feedback-chat-bubble"]')) return;
+      e.preventDefault();
+      bubbleOpenCallback.current?.();
+    });
+  }
+}
+
 export function FeedbackChat(props: FeedbackChatProps = {}) {
   if (process.env.NEXT_PUBLIC_IS_PROD === 'true') return null;
   return <FeedbackChatDev {...props} />;
@@ -226,10 +262,6 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const [resumeId, setResumeId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  // Latest-ref for handleOpen so the native contextmenu listener (attached
-  // once via the ref callback) always calls the freshest handleOpen without
-  // stale-closure issues.
-  const handleOpenRef = useRef<() => void>(() => {});
 
   const hasSession = sessionId !== null;
   const [isOnIssuesPage, setIsOnIssuesPage] = useState(false);
@@ -358,28 +390,11 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setMessages(prev => prev.length === 0 ? [{ role: "assistant", text: labels.greeting }] : prev);
   }, [labels.greeting]);
 
-  // Keep the latest handleOpen in a ref so the native contextmenu listener
-  // (attached once per element via the ref callback below) always calls the
-  // freshest handleOpen.
-  handleOpenRef.current = handleOpen;
-
-  // Ref callback that attaches a native `contextmenu` listener directly to
-  // the bubble element as soon as React commits it. Native listener on the
-  // target element — not React's delegated `onContextMenu` — is required
-  // because React's synthetic event is unreliable in duplicated tabs / HMR
-  // re-renders (issue #122: `onContextMenu` failed to prevent the browser
-  // context menu on the first right-click in a duplicated tab).
-  const bubbleRef = useCallback((el: HTMLDivElement | null) => {
-    if (!el) return;
-    type WithCtx = HTMLDivElement & { __ctxMenuAttached?: boolean };
-    const withCtx = el as WithCtx;
-    if (withCtx.__ctxMenuAttached) return;
-    withCtx.__ctxMenuAttached = true;
-    el.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      handleOpenRef.current();
-    });
-  }, []);
+  // Register the current handleOpen into the module-scope callback so the
+  // document-level contextmenu listener can invoke it. Done during render
+  // (not in a hook) because render runs even in contexts where React refs
+  // / effects did not fire for the bubble element (issue #122).
+  bubbleOpenCallback.current = handleOpen;
 
   function handleClose() {
     setFullScreen(false);
@@ -619,7 +634,6 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   if (!open) {
     return (
       <div
-        ref={bubbleRef}
         data-id="feedback-chat-bubble"
         className="fixed bottom-6 end-6 z-[10001] w-14 h-14 rounded-full [&:hover>span:first-child]:border-indigo-400"
         onPointerDown={(e) => {
