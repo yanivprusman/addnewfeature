@@ -226,6 +226,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const [resumeId, setResumeId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const bubbleRef = useRef<HTMLDivElement | null>(null);
 
   const hasSession = sessionId !== null;
   const [isOnIssuesPage, setIsOnIssuesPage] = useState(false);
@@ -349,12 +350,28 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     }
   }, [open]);
 
-  function handleOpen() {
+  const handleOpen = useCallback(() => {
     setOpen(true);
-    if (messages.length === 0) {
-      setMessages([{ role: "assistant", text: labels.greeting }]);
-    }
-  }
+    setMessages(prev => prev.length === 0 ? [{ role: "assistant", text: labels.greeting }] : prev);
+  }, [labels.greeting]);
+
+  // Attach a native `contextmenu` listener directly to the bubble element.
+  // Using a native listener on the element itself (rather than React's
+  // delegated `onContextMenu`) guarantees the handler fires on the first
+  // right-click in every tab — it is not vulnerable to event delegation
+  // races, stopPropagation interference, or hydration timing, which were
+  // observed in a second browser tab (issue #122).
+  useEffect(() => {
+    if (open) return;
+    const el = bubbleRef.current;
+    if (!el) return;
+    const onCtx = (e: Event) => {
+      e.preventDefault();
+      handleOpen();
+    };
+    el.addEventListener('contextmenu', onCtx);
+    return () => el.removeEventListener('contextmenu', onCtx);
+  }, [open, handleOpen]);
 
   function handleClose() {
     setFullScreen(false);
@@ -594,9 +611,9 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   if (!open) {
     return (
       <div
+        ref={bubbleRef}
         data-id="feedback-chat-bubble"
         className="fixed bottom-6 end-6 z-[10001] w-14 h-14 rounded-full [&:hover>span:first-child]:border-indigo-400"
-        onContextMenu={(e) => { e.preventDefault(); handleOpen(); }}
         onPointerDown={(e) => {
           if (e.button === 0) {
             const el = e.currentTarget;
