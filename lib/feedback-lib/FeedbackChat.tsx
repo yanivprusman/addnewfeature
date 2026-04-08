@@ -226,7 +226,10 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const [resumeId, setResumeId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const bubbleRef = useRef<HTMLDivElement | null>(null);
+  // Latest-ref for handleOpen so the native contextmenu listener (attached
+  // once via the ref callback) always calls the freshest handleOpen without
+  // stale-closure issues.
+  const handleOpenRef = useRef<() => void>(() => {});
 
   const hasSession = sessionId !== null;
   const [isOnIssuesPage, setIsOnIssuesPage] = useState(false);
@@ -355,23 +358,28 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setMessages(prev => prev.length === 0 ? [{ role: "assistant", text: labels.greeting }] : prev);
   }, [labels.greeting]);
 
-  // Attach a native `contextmenu` listener directly to the bubble element.
-  // Using a native listener on the element itself (rather than React's
-  // delegated `onContextMenu`) guarantees the handler fires on the first
-  // right-click in every tab — it is not vulnerable to event delegation
-  // races, stopPropagation interference, or hydration timing, which were
-  // observed in a second browser tab (issue #122).
-  useEffect(() => {
-    if (open) return;
-    const el = bubbleRef.current;
+  // Keep the latest handleOpen in a ref so the native contextmenu listener
+  // (attached once per element via the ref callback below) always calls the
+  // freshest handleOpen.
+  handleOpenRef.current = handleOpen;
+
+  // Ref callback that attaches a native `contextmenu` listener directly to
+  // the bubble element as soon as React commits it. Native listener on the
+  // target element — not React's delegated `onContextMenu` — is required
+  // because React's synthetic event is unreliable in duplicated tabs / HMR
+  // re-renders (issue #122: `onContextMenu` failed to prevent the browser
+  // context menu on the first right-click in a duplicated tab).
+  const bubbleRef = useCallback((el: HTMLDivElement | null) => {
     if (!el) return;
-    const onCtx = (e: Event) => {
+    type WithCtx = HTMLDivElement & { __ctxMenuAttached?: boolean };
+    const withCtx = el as WithCtx;
+    if (withCtx.__ctxMenuAttached) return;
+    withCtx.__ctxMenuAttached = true;
+    el.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      handleOpen();
-    };
-    el.addEventListener('contextmenu', onCtx);
-    return () => el.removeEventListener('contextmenu', onCtx);
-  }, [open, handleOpen]);
+      handleOpenRef.current();
+    });
+  }, []);
 
   function handleClose() {
     setFullScreen(false);
