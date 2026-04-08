@@ -239,15 +239,16 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   // On all other pages, no override — the API route's appName determines the target.
   const appOverride = isOnIssuesPage ? 'addnewfeature' : undefined;
 
-  // Scope localStorage key by page context — issues page may target a different app,
-  // so it needs its own independent session.
+  // Scope sessionStorage key by page context — issues page may target a different app,
+  // so it needs its own independent session. sessionStorage is per-tab, so each browser
+  // tab automatically gets an independent clarifier session.
   const [storageKey] = useState(() =>
     typeof window !== 'undefined' && window.location.pathname === issuesPath
       ? `${STORAGE_KEY_BASE}-issues`
       : STORAGE_KEY_BASE
   );
 
-  // Persist session to localStorage whenever it changes
+  // Persist session to sessionStorage whenever it changes
   useEffect(() => {
     const sid = sessionId || resumeId;
     if (sid) {
@@ -257,23 +258,23 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         messages,
         ...(issues && issues.length > 0 && { issues, checkedIssues }),
       };
-      localStorage.setItem(storageKey, JSON.stringify(data));
+      sessionStorage.setItem(storageKey, JSON.stringify(data));
     }
   }, [storageKey, sessionId, tmuxSession, resumeId, messages, issues, checkedIssues]);
 
-  // Restore session from localStorage on mount
+  // Restore session from sessionStorage on mount
   useEffect(() => {
     if (restoredSession) return;
     setRestoredSession(true);
 
-    const stored = localStorage.getItem(storageKey);
+    const stored = sessionStorage.getItem(storageKey);
     if (!stored) return;
 
     try {
       const data: PersistedSession = JSON.parse(stored);
       if (!data.sessionId) return;
 
-      // Always restore messages and issues from localStorage
+      // Always restore messages and issues from sessionStorage
       if (data.messages?.length > 0) {
         setMessages(data.messages);
       }
@@ -304,7 +305,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           setResumeId(data.sessionId);
         });
     } catch {
-      localStorage.removeItem(storageKey);
+      sessionStorage.removeItem(storageKey);
     }
   }, [restoredSession, storageKey]);
 
@@ -328,7 +329,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     return () => clearInterval(interval);
   }, [hasSession, tmuxSession, sessionId, labels.sessionEnded]);
 
-  // Clean up tmux on page unload via sendBeacon (localStorage is NOT cleared — resume will restore the session)
+  // Clean up tmux on page unload via sendBeacon (sessionStorage is NOT cleared — resume will restore the session on reload)
   useEffect(() => {
     function handleUnload() {
       if (tmuxSession) {
@@ -370,7 +371,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         body: JSON.stringify({ tmuxSession }),
       }).catch(() => {});
     }
-    localStorage.removeItem(storageKey);
+    sessionStorage.removeItem(storageKey);
     setSessionId(null);
     setTmuxSession(null);
     setResumeId(null);
@@ -446,7 +447,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           setIssues(null);
           setCheckedIssues([]);
 
-          localStorage.removeItem(storageKey);
+          sessionStorage.removeItem(storageKey);
           return;
         }
         throw new Error(data.message || "Request failed");
