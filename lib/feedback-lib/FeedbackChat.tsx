@@ -217,28 +217,35 @@ if (typeof window !== 'undefined') {
   // tab" flow (React 19 + Next.js 16), FeedbackChat was observed to SSR but
   // never hydrate in the duplicated tab — the bubble existed in the DOM
   // with no React fiber attached (issue #122). While waiting to confirm
-  // hydration, we mark the bubble with `data-fc-loading="true"` which the
-  // injected CSS renders as a grayed-out pulsing disc with a `wait` cursor
-  // — the user can see that the widget is not ready and knows to wait.
-  // Poll for a fiber; once present, remove the loading mark. If no fiber
-  // appears after ~600ms, reload the page (up to two attempts with
-  // different navigation mechanisms) to force re-hydration. A per-session
-  // counter prevents reload loops. If recovery fails, the loading state
-  // stays set — that's accurate UX (the widget really doesn't work) and
-  // beats the old "looks normal but silently does nothing" behavior.
+  // hydration, the CSS below renders any bubble WITHOUT a `data-fc-hydrated`
+  // attribute as a grayed-out pulsing disc with a `wait` cursor — the
+  // loading state is the *default*. Once the polling detector observes a
+  // `__reactFiber*` on the bubble, we add `data-fc-hydrated="true"` which
+  // removes the loading state via the `:not()` selector. This avoids any
+  // pre-hydration DOM mutation (which caused a React hydration warning in
+  // an earlier attempt).
+  //
+  // If no fiber appears after ~600ms of polling, reload the page (up to
+  // two attempts with different navigation mechanisms) to force re-
+  // hydration. If recovery fails, the bubble stays in its loading
+  // appearance — the widget really doesn't work, and that's more honest
+  // than reverting to a "looks normal but silently unresponsive" state.
   if (!w.__fcHydrationChecked) {
     w.__fcHydrationChecked = true;
     const RELOAD_KEY = '__fcReloadCount';
     const POLL_MS = 50;
     const MAX_POLLS = 12; // ~600ms total
 
-    // Inject loading-state CSS once per document.
+    // Inject loading-state CSS once per document. Targeting the negated
+    // selector means any bubble without `data-fc-hydrated` is loading —
+    // including the one rendered by SSR before React has even run. No
+    // pre-hydration DOM mutation is required to apply the state.
     const style = document.createElement('style');
     style.textContent = `
-[data-id="feedback-chat-bubble"][data-fc-loading="true"] {
+[data-id="feedback-chat-bubble"]:not([data-fc-hydrated]) {
   cursor: wait !important;
 }
-[data-id="feedback-chat-bubble"][data-fc-loading="true"] > span:first-child {
+[data-id="feedback-chat-bubble"]:not([data-fc-hydrated]) > span:first-child {
   animation: fc-loading-pulse 1.2s ease-in-out infinite;
   filter: grayscale(0.8);
 }
@@ -249,36 +256,25 @@ if (typeof window !== 'undefined') {
 `;
     if (document.head) document.head.appendChild(style);
 
-    // Mark any existing bubble synchronously at module load — before the
-    // first poll runs. In the healthy case React will commit a fiber
-    // within ~50ms and the mark is removed, typically imperceptible. In
-    // the broken (duplicated tab) case the mark persists so the user sees
-    // the disabled state immediately.
-    document.querySelectorAll('[data-id="feedback-chat-bubble"]').forEach(el => {
-      (el as HTMLElement).setAttribute('data-fc-loading', 'true');
-    });
-
     let polls = 0;
     const poll = () => {
       polls++;
       const bubble = document.querySelector('[data-id="feedback-chat-bubble"]') as HTMLElement | null;
       if (bubble && Object.keys(bubble).some(k => k.startsWith('__reactFiber'))) {
-        // Healthy hydration — remove the loading state and stop polling.
-        bubble.removeAttribute('data-fc-loading');
+        // Healthy hydration detected. Adding the attribute post-hydration
+        // is safe — React has already finished its initial commit, so
+        // external DOM mutations no longer conflict with hydration checks.
+        bubble.setAttribute('data-fc-hydrated', 'true');
         sessionStorage.removeItem(RELOAD_KEY);
         return;
-      }
-      // Still no fiber — ensure the loading mark is applied. Handles late-
-      // mounted bubbles that weren't in the DOM at module load.
-      if (bubble && !bubble.hasAttribute('data-fc-loading')) {
-        bubble.setAttribute('data-fc-loading', 'true');
       }
       if (polls < MAX_POLLS) {
         setTimeout(poll, POLL_MS);
         return;
       }
-      // Gave up waiting for a fiber. Leave data-fc-loading in place and try
-      // to recover via reload.
+      // Gave up waiting for a fiber. The bubble still lacks
+      // `data-fc-hydrated` so it keeps the visible loading state. Try to
+      // recover via reload.
       if (!bubble) return; // no bubble at all — nothing to recover
       const count = parseInt(sessionStorage.getItem(RELOAD_KEY) || '0', 10);
       if (count === 0) {
