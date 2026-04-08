@@ -6,7 +6,7 @@ import { issuesTranslations } from './issues-page-i18n';
 import { MAINTENANCE_PROMPTS } from './maintenance-prompts';
 import { useSystemDark, statusBadge, formatDate } from './shared-ui';
 import { RegressionChatModal } from './issues-page-chat-modal';
-import { ReviewDialog, RegressionDialog, FixSessionDialog } from './issues-page-dialogs';
+import { ReviewDialog, FixSessionDialog } from './issues-page-dialogs';
 
 export type { Issue, IssuesPageLabels } from './issues-page-types';
 
@@ -38,9 +38,6 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
 
   // Review dialog
   const [reviewTrigger, setReviewTrigger] = useState<{ trigger: Issue; relatedIssues: Issue[] } | null>(null);
-
-  // Regression dialog
-  const [regressionTarget, setRegressionTarget] = useState<Issue | null>(null);
 
   // Fix session choice dialog (for regression issues with previous sessions)
   const [fixSessionTarget, setFixSessionTarget] = useState<Issue | null>(null);
@@ -373,31 +370,6 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           selectedNumbers.has(i.issueNumber) ? { ...i, status: "closed" } : i
         ));
         setReviewTrigger(null);
-      }
-    } catch { /* ignore */ }
-  }
-
-  async function handleMarkRegression(regressionDesc: string) {
-    if (!regressionTarget) return;
-    try {
-      const res = await fetch("/api/feedback/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "update",
-          ...(appName && { app: appName }),
-          issueNumber: regressionTarget.issueNumber,
-          status: "regression",
-          ...(regressionDesc.trim() && { insights: regressionDesc.trim() }),
-        }),
-      });
-      if (res.ok) {
-        setIssues(prev => prev.map(i =>
-          i.issueNumber === regressionTarget.issueNumber
-            ? { ...i, status: "regression", ...(regressionDesc.trim() && { insights: regressionDesc.trim() }) }
-            : i
-        ));
-        setRegressionTarget(null);
       }
     } catch { /* ignore */ }
   }
@@ -768,32 +740,16 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           {actionLoading === issue.issueNumber ? labels.reviewing : labels.markReviewed}
                         </button>
                       )}
-                      {/* Not Working button for closed issues — default opens clarifier chat, pencil icon for direct dialog */}
+                      {/* Closed issues — reopen the clarifier chat to report it's still broken */}
                       {isClosed && (
-                        <div data-id={`issue-not-working-${issue.issueNumber}`} className="flex items-center gap-1">
-                          <button
-                            data-id={`not-working-${issue.issueNumber}`}
-                            onClick={() => {
-                              if (issue.clarifierSessionId) {
-                                setChatTarget(issue);
-                              } else {
-                                setRegressionTarget(issue);
-                              }
-                            }}
-                            title={labels.notWorkingTooltip}
-                            className={`text-xs px-3 py-1.5 rounded-md transition-colors cursor-pointer ${btnClass} hover:text-red-500 active:scale-95`}
-                          >
-                            {labels.notWorking}
-                          </button>
-                          <button
-                            data-id={`not-working-direct-${issue.issueNumber}`}
-                            onClick={() => { setRegressionTarget(issue); }}
-                            title={labels.markRegressionDirect}
-                            className={`text-xs px-1.5 py-1.5 rounded-md transition-colors cursor-pointer ${btnClass} hover:text-red-500 active:scale-95 opacity-60 hover:opacity-100`}
-                          >
-                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                          </button>
-                        </div>
+                        <button
+                          data-id={`not-working-${issue.issueNumber}`}
+                          onClick={() => setChatTarget(issue)}
+                          title={labels.resumeClarifierSession}
+                          className={`text-xs px-3 py-1.5 rounded-md transition-colors cursor-pointer ${btnClass} hover:text-red-500 active:scale-95`}
+                        >
+                          {labels.notWorking}
+                        </button>
                       )}
                       {/* Fix with Claude button for regression issues */}
                       {isRegression && (
@@ -971,19 +927,6 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           btnClass={btnClass}
           onClose={() => setReviewTrigger(null)}
           onConfirm={handleConfirmReview}
-        />
-      )}
-
-      {/* Regression Dialog */}
-      {regressionTarget && (
-        <RegressionDialog
-          issue={regressionTarget}
-          labels={labels}
-          isDark={isDark}
-          dialogBgClass={dialogBgClass}
-          btnClass={btnClass}
-          onClose={() => setRegressionTarget(null)}
-          onConfirm={handleMarkRegression}
         />
       )}
 
