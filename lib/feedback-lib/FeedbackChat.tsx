@@ -105,7 +105,6 @@ export interface FeedbackLabels {
   directDescPlaceholder: string;
   directSubmit: string;
   directCreating: string;
-  sessionEnded: string;
   sessionExpired: string;
   goToIssuesPrompt: string;
   goToIssuesYes: string;
@@ -139,7 +138,6 @@ const defaultLabels: FeedbackLabels = {
   directDescPlaceholder: "Description (optional)",
   directSubmit: "Create Issue",
   directCreating: "Creating...",
-  sessionEnded: "Session ended — send a new message to continue where you left off.",
   sessionExpired: "Your previous session could not be restored. Starting a new conversation.",
   goToIssuesPrompt: "Issues submitted! Would you like to view them on the Issues page?",
   goToIssuesYes: "View Issues Page",
@@ -317,17 +315,17 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         const res = await fetch(`/api/feedback/status?tmuxSession=${encodeURIComponent(tmuxSession)}`);
         const data = await res.json();
         if (!data.alive) {
-          // Tmux died — preserve sessionId for resume, notify user
+          // Tmux died — preserve sessionId for resume silently; next user
+          // message will resume the prior session without any UI noise.
           setResumeId(sessionId);
           setSessionId(null);
           setTmuxSession(null);
           setHookWarning(null);
-          setMessages(prev => [...prev, { role: "assistant", text: labels.sessionEnded }]);
         }
       } catch { /* ignore fetch errors */ }
     }, 15_000);
     return () => clearInterval(interval);
-  }, [hasSession, tmuxSession, sessionId, labels.sessionEnded]);
+  }, [hasSession, tmuxSession, sessionId]);
 
   // Clean up tmux on page unload via sendBeacon (sessionStorage is NOT cleared — resume will restore the session on reload)
   useEffect(() => {
