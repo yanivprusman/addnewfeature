@@ -213,39 +213,87 @@ if (typeof window !== 'undefined') {
     });
   }
 
-  // Orphan-bubble detection: in Chrome's "Duplicate tab" flow (React 19 +
-  // Next.js 16), FeedbackChat was observed to SSR but never hydrate in the
-  // duplicated tab — the bubble existed in the DOM with no React fiber
-  // attached (issue #122). Detect this and try to recover by navigating to
-  // the same URL via different mechanisms. A per-session counter prevents
-  // infinite loops.
+  // Orphan-bubble detection + visible loading state: in Chrome's "Duplicate
+  // tab" flow (React 19 + Next.js 16), FeedbackChat was observed to SSR but
+  // never hydrate in the duplicated tab — the bubble existed in the DOM
+  // with no React fiber attached (issue #122). While waiting to confirm
+  // hydration, we mark the bubble with `data-fc-loading="true"` which the
+  // injected CSS renders as a grayed-out pulsing disc with a `wait` cursor
+  // — the user can see that the widget is not ready and knows to wait.
+  // Poll for a fiber; once present, remove the loading mark. If no fiber
+  // appears after ~600ms, reload the page (up to two attempts with
+  // different navigation mechanisms) to force re-hydration. A per-session
+  // counter prevents reload loops. If recovery fails, the loading state
+  // stays set — that's accurate UX (the widget really doesn't work) and
+  // beats the old "looks normal but silently does nothing" behavior.
   if (!w.__fcHydrationChecked) {
     w.__fcHydrationChecked = true;
     const RELOAD_KEY = '__fcReloadCount';
-    setTimeout(() => {
-      const bubble = document.querySelector('[data-id="feedback-chat-bubble"]');
-      if (!bubble) return;
-      const hasFiber = Object.keys(bubble).some(k => k.startsWith('__reactFiber'));
-      if (hasFiber) {
-        // Healthy hydration — clear any stale reload counter
+    const POLL_MS = 50;
+    const MAX_POLLS = 12; // ~600ms total
+
+    // Inject loading-state CSS once per document.
+    const style = document.createElement('style');
+    style.textContent = `
+[data-id="feedback-chat-bubble"][data-fc-loading="true"] {
+  cursor: wait !important;
+}
+[data-id="feedback-chat-bubble"][data-fc-loading="true"] > span:first-child {
+  animation: fc-loading-pulse 1.2s ease-in-out infinite;
+  filter: grayscale(0.8);
+}
+@keyframes fc-loading-pulse {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.45; }
+}
+`;
+    if (document.head) document.head.appendChild(style);
+
+    // Mark any existing bubble synchronously at module load — before the
+    // first poll runs. In the healthy case React will commit a fiber
+    // within ~50ms and the mark is removed, typically imperceptible. In
+    // the broken (duplicated tab) case the mark persists so the user sees
+    // the disabled state immediately.
+    document.querySelectorAll('[data-id="feedback-chat-bubble"]').forEach(el => {
+      (el as HTMLElement).setAttribute('data-fc-loading', 'true');
+    });
+
+    let polls = 0;
+    const poll = () => {
+      polls++;
+      const bubble = document.querySelector('[data-id="feedback-chat-bubble"]') as HTMLElement | null;
+      if (bubble && Object.keys(bubble).some(k => k.startsWith('__reactFiber'))) {
+        // Healthy hydration — remove the loading state and stop polling.
+        bubble.removeAttribute('data-fc-loading');
         sessionStorage.removeItem(RELOAD_KEY);
         return;
       }
+      // Still no fiber — ensure the loading mark is applied. Handles late-
+      // mounted bubbles that weren't in the DOM at module load.
+      if (bubble && !bubble.hasAttribute('data-fc-loading')) {
+        bubble.setAttribute('data-fc-loading', 'true');
+      }
+      if (polls < MAX_POLLS) {
+        setTimeout(poll, POLL_MS);
+        return;
+      }
+      // Gave up waiting for a fiber. Leave data-fc-loading in place and try
+      // to recover via reload.
+      if (!bubble) return; // no bubble at all — nothing to recover
       const count = parseInt(sessionStorage.getItem(RELOAD_KEY) || '0', 10);
       if (count === 0) {
         sessionStorage.setItem(RELOAD_KEY, '1');
-        // First attempt: standard reload
         window.location.reload();
       } else if (count === 1) {
         sessionStorage.setItem(RELOAD_KEY, '2');
-        // Second attempt: full navigation via location.replace — has
-        // different cache/history semantics than reload() and was observed
-        // to succeed in chains of tab duplications where reload() fails.
+        // Different cache/history semantics than reload() — observed to
+        // succeed in chains of tab duplications where reload() fails.
         window.location.replace(window.location.href);
       } else {
         console.warn('[feedback-lib] Bubble did not hydrate after 2 reload attempts');
       }
-    }, 1500);
+    };
+    setTimeout(poll, POLL_MS);
   }
 }
 
