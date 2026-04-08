@@ -213,6 +213,16 @@ if (typeof window !== 'undefined') {
 
 export function FeedbackChat(props: FeedbackChatProps = {}) {
   if (process.env.NEXT_PUBLIC_IS_PROD === 'true') return null;
+  // Force client-only rendering: return null on the server and on the first
+  // client render (so hydration matches), then flip to `true` in an effect
+  // that fires after commit. This avoids SSR-ing the bubble at all, which
+  // matters because in Chrome's "Duplicate tab" flow (React 19 + Next.js 16)
+  // the bubble's SSR HTML was being served in the duplicated tab but React
+  // was never hydrating it — bubble stayed as orphan DOM without a React
+  // fiber (issue #122).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
   return <FeedbackChatDev {...props} />;
 }
 
