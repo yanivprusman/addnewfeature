@@ -780,6 +780,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                                 setRegressionTarget(issue);
                               }
                             }}
+                            title={labels.notWorkingTooltip}
                             className={`text-xs px-3 py-1.5 rounded-md transition-colors cursor-pointer ${btnClass} hover:text-red-500 active:scale-95`}
                           >
                             {labels.notWorking}
