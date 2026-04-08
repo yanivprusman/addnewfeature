@@ -216,8 +216,9 @@ if (typeof window !== 'undefined') {
   // Orphan-bubble detection: in Chrome's "Duplicate tab" flow (React 19 +
   // Next.js 16), FeedbackChat was observed to SSR but never hydrate in the
   // duplicated tab — the bubble existed in the DOM with no React fiber
-  // attached (issue #122). Detect this and reload the page once, which
-  // restores proper hydration. A per-session counter prevents reload loops.
+  // attached (issue #122). Detect this and try to recover by navigating to
+  // the same URL via different mechanisms. A per-session counter prevents
+  // infinite loops.
   if (!w.__fcHydrationChecked) {
     w.__fcHydrationChecked = true;
     const RELOAD_KEY = '__fcReloadCount';
@@ -231,12 +232,18 @@ if (typeof window !== 'undefined') {
         return;
       }
       const count = parseInt(sessionStorage.getItem(RELOAD_KEY) || '0', 10);
-      if (count < 1) {
-        sessionStorage.setItem(RELOAD_KEY, String(count + 1));
+      if (count === 0) {
+        sessionStorage.setItem(RELOAD_KEY, '1');
+        // First attempt: standard reload
         window.location.reload();
+      } else if (count === 1) {
+        sessionStorage.setItem(RELOAD_KEY, '2');
+        // Second attempt: full navigation via location.replace — has
+        // different cache/history semantics than reload() and was observed
+        // to succeed in chains of tab duplications where reload() fails.
+        window.location.replace(window.location.href);
       } else {
-        // Give up silently after one attempt to avoid loops
-        console.warn('[feedback-lib] Bubble did not hydrate after reload');
+        console.warn('[feedback-lib] Bubble did not hydrate after 2 reload attempts');
       }
     }, 1500);
   }
