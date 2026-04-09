@@ -143,6 +143,11 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, f
     setLoading(false);
   }
 
+  function handleResendStale(staleIssues: { title: string; description: string }[]) {
+    setChatIssues(staleIssues);
+    setCheckedIssues(new Array(staleIssues.length).fill(true));
+  }
+
   async function handleSubmitIssues() {
     if (!chatIssues || submitting) return;
     const selected = chatIssues.filter((_, i) => checkedIssues[i]);
@@ -223,7 +228,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, f
           {!historyLoading && messages.length === 0 && (
             <p data-id="chat-modal-no-history" className={`text-sm text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>{labels.noSessionHistory}</p>
           )}
-          <ChatMessages messages={messages} isDark={isDark} selectIssuesLabel={labels.selectIssues} />
+          <ChatMessages messages={messages} isDark={isDark} selectIssuesLabel={labels.selectIssues} onResendStale={!chatIssues ? handleResendStale : undefined} resendLabel={labels.resend} />
           {chatIssues && chatIssues.length > 0 && (
             <ChatIssueChecklist
               issues={chatIssues}

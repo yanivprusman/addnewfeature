@@ -55,7 +55,7 @@ export interface ChatSubmitResult {
 }
 
 /** Grayed-out issue checklist for previously-proposed issues in chat history. */
-export function StaleIssueList({ issues, isDark, label }: { issues: ChatIssue[]; isDark: boolean; label: string }) {
+export function StaleIssueList({ issues, isDark, label, onResend, resendLabel }: { issues: ChatIssue[]; isDark: boolean; label: string; onResend?: (issues: ChatIssue[]) => void; resendLabel?: string }) {
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const mouseRef = useRef<{ x: number; y: number } | null>(null);
   return (
@@ -76,6 +76,14 @@ export function StaleIssueList({ issues, isDark, label }: { issues: ChatIssue[];
           </div>
         </div>
       ))}
+      {onResend && (
+        <button
+          onClick={() => onResend(issues)}
+          className={`w-full mt-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+        >
+          {resendLabel ?? "Re-send"}
+        </button>
+      )}
     </div>
   );
 }
@@ -87,11 +95,13 @@ export function autoResizeTextarea(el: HTMLTextAreaElement) {
 }
 
 /** Chat message list — renders user/assistant bubbles with inline stale issues. */
-export function ChatMessages({ messages, isDark, accentBg = 'bg-indigo-600', selectIssuesLabel }: {
+export function ChatMessages({ messages, isDark, accentBg = 'bg-indigo-600', selectIssuesLabel, onResendStale, resendLabel }: {
   messages: { role: string; text: string; staleIssues?: ChatIssue[] }[];
   isDark: boolean;
   accentBg?: string;
   selectIssuesLabel: string;
+  onResendStale?: (issues: ChatIssue[]) => void;
+  resendLabel?: string;
 }) {
   return (
     <>
@@ -109,7 +119,7 @@ export function ChatMessages({ messages, isDark, accentBg = 'bg-indigo-600', sel
             </div>
           )}
           {msg.staleIssues && (
-            <StaleIssueList issues={msg.staleIssues} isDark={isDark} label={selectIssuesLabel} />
+            <StaleIssueList issues={msg.staleIssues} isDark={isDark} label={selectIssuesLabel} onResend={onResendStale} resendLabel={resendLabel} />
           )}
         </Fragment>
       ))}

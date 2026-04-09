@@ -74,6 +74,7 @@ export interface FeedbackLabels {
   fullScreen: string;
   exitFullScreen: string;
   authExpired: string;
+  resend: string;
 }
 
 const defaultLabels: FeedbackLabels = {
@@ -107,6 +108,7 @@ const defaultLabels: FeedbackLabels = {
   fullScreen: "Full Screen",
   exitFullScreen: "Exit Full Screen",
   authExpired: "Claude authentication expired. Run /login in a Claude Code session to refresh.",
+  resend: "Re-send",
 };
 
 interface FeedbackChatProps {
@@ -611,6 +613,10 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     });
   }
 
+  function handleResendStale(staleIssues: ChatIssue[]) {
+    setIssues(staleIssues);
+    setCheckedIssues(new Array(staleIssues.length).fill(true));
+  }
 
   function handleGoToIssues() {
     if (!isOnIssuesPage) {
@@ -798,7 +804,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         <>
         {/* Messages */}
         <div data-id="messages-area" className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 ${fullScreen ? '' : 'min-h-[12rem] max-h-[20rem]'}`}>
-          <ChatMessages messages={messages} isDark={isDark} accentBg={accentBase} selectIssuesLabel={labels.selectIssues} />
+          <ChatMessages messages={messages} isDark={isDark} accentBg={accentBase} selectIssuesLabel={labels.selectIssues} onResendStale={!issues ? handleResendStale : undefined} resendLabel={labels.resend} />
 
           {issues && issues.length > 0 && (
             <ChatIssueChecklist

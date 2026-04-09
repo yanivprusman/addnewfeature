@@ -34,6 +34,7 @@ export const feedbackTranslations: Record<string, FeedbackLabels> = {
     fullScreen: "Full Screen",
     exitFullScreen: "Exit Full Screen",
     authExpired: "Claude authentication expired. Run /login in a Claude Code session to refresh.",
+    resend: "Re-send",
   },
   he: {
     greeting:
@@ -67,5 +68,6 @@ export const feedbackTranslations: Record<string, FeedbackLabels> = {
     fullScreen: "מסך מלא",
     exitFullScreen: "יציאה ממסך מלא",
     authExpired: "אימות Claude פג תוקף. הריצו /login בסשן Claude Code כדי לרענן.",
+    resend: "שליחה מחדש",
   },
 };

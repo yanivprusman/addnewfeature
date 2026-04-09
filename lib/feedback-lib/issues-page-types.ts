@@ -65,6 +65,7 @@ export interface IssuesPageLabels {
   fixInOriginalSession: string;
   newFixSession: string;
   authExpired: string;
+  resend: string;
 }
 
 export interface ReviewDialogState {
