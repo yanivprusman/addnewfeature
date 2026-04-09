@@ -125,7 +125,9 @@ interface FeedbackChatProps {
 }
 
 const STORAGE_KEY_BASE = "feedback-chat-session";
-const DEDUP_CHANNEL = 'feedback-chat-dedup';
+const HEARTBEAT_PREFIX = 'feedback-hb-';
+const HEARTBEAT_INTERVAL = 5_000;
+const HEARTBEAT_STALE = 10_000;
 
 interface PersistedSession {
   sessionId: string;
@@ -327,58 +329,23 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       : STORAGE_KEY_BASE
   );
 
-  // --- Tab dedup via BroadcastChannel ---
+  // --- Tab dedup via localStorage heartbeat ---
   // When a tab is duplicated, sessionStorage is copied — both tabs would share
-  // the same clarifier session. We use BroadcastChannel to detect this: the new
-  // tab broadcasts a 'claim' after restoring; the original tab responds 'taken'.
-  // On conflict, the tab with the lower tabId wins (deterministic tiebreaker).
-  const bcRef = useRef<BroadcastChannel | null>(null);
+  // the same clarifier session. The active tab writes a heartbeat to localStorage
+  // (shared across tabs). On restore, if a recent heartbeat from a different tab
+  // exists, we know another tab owns the session and skip restoration.
   const tabId = useRef(Math.random().toString(36).slice(2) + Date.now().toString(36)).current;
-  const greetingRef = useRef(labels.greeting);
-  greetingRef.current = labels.greeting;
+  const hbKey = `${HEARTBEAT_PREFIX}${storageKey}`;
 
+  // Write heartbeat while session is active
   useEffect(() => {
-    if (typeof BroadcastChannel === 'undefined') return;
-    const bc = new BroadcastChannel(DEDUP_CHANNEL);
-    bcRef.current = bc;
-
-    bc.onmessage = (e) => {
-      if (e.data.key !== storageKey || e.data.tabId === tabId) return;
-
-      if (e.data.type === 'claim') {
-        // Another tab is claiming our session — tell them it's taken
-        if (sessionStorage.getItem(storageKey)) {
-          bc.postMessage({ type: 'taken', key: storageKey, tabId });
-        }
-      }
-
-      if (e.data.type === 'taken') {
-        // Our session is owned by another tab — yield only if they win the tiebreak
-        if (e.data.tabId < tabId) {
-          sessionStorage.removeItem(storageKey);
-          setSessionId(null);
-          setTmuxSession(null);
-          setResumeId(null);
-          setHookWarning(null);
-          setMessages([{ role: 'assistant', text: greetingRef.current }]);
-          setIssues(null);
-          setCheckedIssues([]);
-          setSubmitResults(null);
-          setShowPostSubmitPrompt(false);
-        }
-      }
-    };
-
-    return () => { bc.close(); bcRef.current = null; };
-  }, [storageKey, tabId]);
-
-  // After session restore completes and a session exists, broadcast claim for dedup
-  useEffect(() => {
-    if (!restoredSession) return;
     const sid = sessionId || resumeId;
     if (!sid) return;
-    bcRef.current?.postMessage({ type: 'claim', key: storageKey, tabId });
-  }, [restoredSession, sessionId, resumeId, storageKey, tabId]);
+    const write = () => localStorage.setItem(hbKey, JSON.stringify({ t: tabId, ts: Date.now() }));
+    write();
+    const interval = setInterval(write, HEARTBEAT_INTERVAL);
+    return () => clearInterval(interval);
+  }, [sessionId, resumeId, hbKey, tabId]);
 
   // Persist session to sessionStorage whenever it changes
   useEffect(() => {
@@ -405,6 +372,16 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     try {
       const data: PersistedSession = JSON.parse(stored);
       if (!data.sessionId) return;
+
+      // Check heartbeat — if another tab recently wrote one, it owns this session
+      // (happens when sessionStorage is copied via tab duplication)
+      try {
+        const hb = JSON.parse(localStorage.getItem(hbKey) || '{}');
+        if (hb.t && hb.t !== tabId && Date.now() - hb.ts < HEARTBEAT_STALE) {
+          sessionStorage.removeItem(storageKey);
+          return;
+        }
+      } catch {}
 
       // Always restore messages and issues from sessionStorage
       if (data.messages?.length > 0) {
@@ -439,7 +416,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     } catch {
       sessionStorage.removeItem(storageKey);
     }
-  }, [restoredSession, storageKey]);
+  }, [restoredSession, storageKey, hbKey, tabId]);
 
   // Poll session status while active — detect when tmux dies (e.g. SessionEnd hook killed it)
   useEffect(() => {
@@ -461,17 +438,22 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     return () => clearInterval(interval);
   }, [hasSession, tmuxSession, sessionId]);
 
-  // Clean up tmux on page unload via sendBeacon (sessionStorage is NOT cleared — resume will restore the session on reload)
+  // Clean up tmux + heartbeat on page unload via sendBeacon (sessionStorage is NOT cleared — resume will restore the session on reload)
   useEffect(() => {
     function handleUnload() {
       if (tmuxSession) {
         const body = JSON.stringify({ tmuxSession });
         navigator.sendBeacon("/api/feedback/close", new Blob([body], { type: "application/json" }));
       }
+      // Clear heartbeat so a reload doesn't see its own stale entry as a foreign tab
+      try {
+        const hb = JSON.parse(localStorage.getItem(hbKey) || '{}');
+        if (hb.t === tabId) localStorage.removeItem(hbKey);
+      } catch {}
     }
     window.addEventListener("beforeunload", handleUnload);
     return () => window.removeEventListener("beforeunload", handleUnload);
-  }, [tmuxSession]);
+  }, [tmuxSession, hbKey, tabId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -508,11 +490,16 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       }).catch(() => {});
     }
     sessionStorage.removeItem(storageKey);
+    // Clear heartbeat if we own it
+    try {
+      const hb = JSON.parse(localStorage.getItem(hbKey) || '{}');
+      if (hb.t === tabId) localStorage.removeItem(hbKey);
+    } catch {}
     setSessionId(null);
     setTmuxSession(null);
     setResumeId(null);
     setHookWarning(null);
-  }, [tmuxSession, storageKey]);
+  }, [tmuxSession, storageKey, hbKey, tabId]);
 
   function handleNewChat() {
     closeSession();
