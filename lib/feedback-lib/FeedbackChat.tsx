@@ -125,6 +125,7 @@ interface FeedbackChatProps {
 }
 
 const STORAGE_KEY_BASE = "feedback-chat-session";
+const DEDUP_CHANNEL = 'feedback-chat-dedup';
 
 interface PersistedSession {
   sessionId: string;
@@ -318,13 +319,66 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const appOverride = isOnIssuesPage ? 'addnewfeature' : undefined;
 
   // Scope sessionStorage key by page context — issues page may target a different app,
-  // so it needs its own independent session. sessionStorage is per-tab, so each browser
-  // tab automatically gets an independent clarifier session.
+  // so it needs its own independent session. Note: sessionStorage is per-tab but is
+  // copied on tab duplication — the BroadcastChannel dedup above handles that case.
   const [storageKey] = useState(() =>
     typeof window !== 'undefined' && window.location.pathname === issuesPath
       ? `${STORAGE_KEY_BASE}-issues`
       : STORAGE_KEY_BASE
   );
+
+  // --- Tab dedup via BroadcastChannel ---
+  // When a tab is duplicated, sessionStorage is copied — both tabs would share
+  // the same clarifier session. We use BroadcastChannel to detect this: the new
+  // tab broadcasts a 'claim' after restoring; the original tab responds 'taken'.
+  // On conflict, the tab with the lower tabId wins (deterministic tiebreaker).
+  const bcRef = useRef<BroadcastChannel | null>(null);
+  const tabId = useRef(crypto.randomUUID()).current;
+  const greetingRef = useRef(labels.greeting);
+  greetingRef.current = labels.greeting;
+
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return;
+    const bc = new BroadcastChannel(DEDUP_CHANNEL);
+    bcRef.current = bc;
+
+    bc.onmessage = (e) => {
+      if (e.data.key !== storageKey || e.data.tabId === tabId) return;
+
+      if (e.data.type === 'claim') {
+        // Another tab is claiming our session — tell them it's taken
+        if (sessionStorage.getItem(storageKey)) {
+          bc.postMessage({ type: 'taken', key: storageKey, tabId });
+        }
+      }
+
+      if (e.data.type === 'taken') {
+        // Our session is owned by another tab — yield only if they win the tiebreak
+        if (e.data.tabId < tabId) {
+          sessionStorage.removeItem(storageKey);
+          setSessionId(null);
+          setTmuxSession(null);
+          setResumeId(null);
+          setHookWarning(null);
+          setMessages([{ role: 'assistant', text: greetingRef.current }]);
+          setIssues(null);
+          setCheckedIssues([]);
+          setSubmitResults(null);
+          setShowPostSubmitPrompt(false);
+        }
+      }
+    };
+
+    return () => { bc.close(); bcRef.current = null; };
+  }, [storageKey, tabId]);
+
+  // After session restore completes and a session exists, broadcast claim for dedup
+  useEffect(() => {
+    if (!restoredSession) return;
+    const sid = sessionId || resumeId;
+    if (!sid) return;
+    bcRef.current?.postMessage({ type: 'claim', key: storageKey, tabId });
+  }, [restoredSession, sessionId, resumeId, storageKey, tabId]);
 
   // Persist session to sessionStorage whenever it changes
   useEffect(() => {
