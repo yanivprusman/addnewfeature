@@ -1,9 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { execFile } from 'child_process';
+import net from 'net';
 import { readFileSync, existsSync } from 'fs';
 import { launchFeedback, resumeFeedback, sendMessage, killFeedback, isTmuxAlive, launchFix, launchFixResume, launchConclude, launchMaintenance } from './claude-launcher';
 import { waitForResponse, resolveResponse } from './pending-responses';
 import { startSessionCleanupInterval, touchSession, removeSession, getSessionIdMap, trackSessionId } from './session-tracking';
+
+const DAEMON_SOCKET = process.env.AUTOMATE_LINUX_SOCKET_PATH || '/run/automatelinux/automatelinux-daemon.sock';
+
+/** Send a command to the daemon via Unix domain socket. Args follow CLI format: ['send', 'cmd', '--key', 'val', ...] */
+function daemonSend(args: string[], timeoutMs = 10_000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const cmd: Record<string, string> = { command: args[1] };
+    for (let i = 2; i < args.length; i += 2) {
+      cmd[args[i].replace(/^--/, '')] = args[i + 1];
+    }
+    const client = net.createConnection(DAEMON_SOCKET);
+    let response = '';
+    let done = false;
+    const finish = (fn: (val: any) => void, val: any) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      client.destroy();
+      fn(val);
+    };
+    client.on('connect', () => { client.write(JSON.stringify(cmd) + '\n'); });
+    client.on('data', (data) => {
+      response += data.toString();
+      if (response.endsWith('\n')) finish(resolve, response.trim());
+    });
+    client.on('error', (err) => finish(reject, err));
+    client.on('close', () => finish(resolve, response.trim()));
+    const timer = setTimeout(() => finish(reject, new Error('Daemon connection timeout')), timeoutMs);
+  });
+}
 
 /** Strip base64 data URIs — they waste ~200K tokens and Claude can't interpret them as images. */
 function sanitizeMessage(text: string): string {
@@ -220,34 +250,21 @@ export function handleFeedbackSubmit(appName: string) {
       const results = await Promise.all(
         issues.map(async (issue: { title: string; description: string }) => {
           try {
-            const output = await new Promise<string>((resolve, reject) => {
-              const locationTag = buildLocationTag(pagePath, pageContext);
-              const description = locationTag
-                ? `${locationTag}\n\n${issue.description}`
-                : issue.description;
-              const args = [
-                  'send', 'createIssue',
-                  '--app', effectiveApp,
-                  '--title', issue.title,
-                  '--description', description,
-                  '--labels', '["user-reported"]',
-              ];
-              if (sessionId) {
-                args.push('--clarifierSessionId', sessionId);
-              }
-              execFile(
-                '/usr/local/bin/daemon',
-                args,
-                { timeout: 10_000, maxBuffer: 64 * 1024 },
-                (error, stdout, stderr) => {
-                  if (error) {
-                    reject(new Error(stderr || error.message));
-                    return;
-                  }
-                  resolve(stdout.trim());
-                },
-              );
-            });
+            const locationTag = buildLocationTag(pagePath, pageContext);
+            const description = locationTag
+              ? `${locationTag}\n\n${issue.description}`
+              : issue.description;
+            const args = [
+                'send', 'createIssue',
+                '--app', effectiveApp,
+                '--title', issue.title,
+                '--description', description,
+                '--labels', '["user-reported"]',
+            ];
+            if (sessionId) {
+              args.push('--clarifierSessionId', sessionId);
+            }
+            const output = await daemonSend(args);
 
             const data = JSON.parse(output);
             return {
@@ -377,25 +394,11 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
   const workDir = opts?.workDir;
   const dashboardPort = opts?.dashboardPort ?? 3007;
 
-  function daemonExec(args: string[]): Promise<string> {
-    return new Promise((resolve, reject) => {
-      execFile(
-        '/usr/local/bin/daemon',
-        args,
-        { timeout: 10_000, maxBuffer: 256 * 1024 },
-        (error, stdout, stderr) => {
-          if (error) { reject(new Error(stderr || error.message)); return; }
-          resolve(stdout.trim());
-        },
-      );
-    });
-  }
-
   async function GET(request: NextRequest) {
     try {
       const overrideApp = request.nextUrl.searchParams.get('app');
       const effectiveApp = overrideApp || appName;
-      const output = await daemonExec(['send', 'listIssues', '--app', effectiveApp]);
+      const output = await daemonSend(['send', 'listIssues', '--app', effectiveApp]);
       const issues = JSON.parse(output);
       return NextResponse.json({ issues, appName: effectiveApp });
     } catch (err) {
@@ -430,7 +433,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
           '--description', fullDesc,
           '--labels', '["user-reported"]',
         ];
-        const output = await daemonExec(args);
+        const output = await daemonSend(args);
         const data = JSON.parse(output);
         return NextResponse.json({ ok: true, issueNumber: data.issueNumber, effectiveApp });
       }
@@ -464,7 +467,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
 
         // Mark issues as in_progress (fire-and-forget)
         for (const issue of issues) {
-          daemonExec([
+          daemonSend([
             'send', 'updateIssue', '--app', fixApp,
             '--issueNumber', String(issue.number),
             '--status', 'in_progress',
@@ -491,7 +494,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
         let issueNumber: number | undefined;
         if (title) {
           try {
-            const createOutput = await daemonExec([
+            const createOutput = await daemonSend([
               'send', 'createIssue',
               '--app', effectiveApp,
               '--title', title,
@@ -519,7 +522,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
 
         // Mark issue as in_progress with claudeSessionId (fire-and-forget)
         if (issueNumber) {
-          daemonExec([
+          daemonSend([
             'send', 'updateIssue', '--app', effectiveApp,
             '--issueNumber', String(issueNumber),
             '--status', 'in_progress',
@@ -558,7 +561,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
         const results = await Promise.all(
           issueNumbers.map(async (num) => {
             try {
-              await daemonExec(['send', 'closeIssue', '--app', effectiveApp, '--issueNumber', String(num)]);
+              await daemonSend(['send', 'closeIssue', '--app', effectiveApp, '--issueNumber', String(num)]);
               return { issueNumber: num, ok: true };
             } catch (err) {
               return { issueNumber: num, ok: false, error: err instanceof Error ? err.message : 'Unknown error' };
@@ -576,7 +579,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
         if (!issueNumber) {
           return NextResponse.json({ error: 'issueNumber required for delete' }, { status: 400 });
         }
-        const output = await daemonExec(['send', 'deleteIssue', '--app', effectiveApp, '--issueNumber', String(issueNumber)]);
+        const output = await daemonSend(['send', 'deleteIssue', '--app', effectiveApp, '--issueNumber', String(issueNumber)]);
         return NextResponse.json({ ok: true, output });
       }
 
@@ -597,7 +600,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
         args = ['send', command, '--app', effectiveApp, '--issueNumber', String(issueNumber)];
       }
 
-      const output = await daemonExec(args);
+      const output = await daemonSend(args);
       return NextResponse.json({ ok: true, output });
     } catch (err) {
       console.error(`${appName} issue action error:`, err);
