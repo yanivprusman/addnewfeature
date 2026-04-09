@@ -333,7 +333,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   // tab broadcasts a 'claim' after restoring; the original tab responds 'taken'.
   // On conflict, the tab with the lower tabId wins (deterministic tiebreaker).
   const bcRef = useRef<BroadcastChannel | null>(null);
-  const tabId = useRef(crypto.randomUUID()).current;
+  const tabId = useRef(Math.random().toString(36).slice(2) + Date.now().toString(36)).current;
   const greetingRef = useRef(labels.greeting);
   greetingRef.current = labels.greeting;
 
