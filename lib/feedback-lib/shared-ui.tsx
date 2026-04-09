@@ -135,7 +135,7 @@ export function ChatIssueChecklist({ issues, checkedIssues, onToggle, onSubmit, 
   const mouseRef = useRef<{ x: number; y: number } | null>(null);
 
   return (
-    <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
+    <div data-id="chat-issue-checklist" className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
       <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{selectLabel}</p>
       {issues.map((issue, i) => (
         <label key={i} className={`flex items-start gap-2 cursor-pointer p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
