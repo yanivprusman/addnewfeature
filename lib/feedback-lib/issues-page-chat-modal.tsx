@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, Fragment } from "react";
-import { StaleIssueList } from "./FeedbackChat";
+import { useState, useEffect, useRef } from "react";
+import { ChatMessages, ChatIssueChecklist, ChatSubmitResults, ChatThinking, ChatInput } from "./shared-ui";
 import type { Issue, IssuesPageLabels } from './issues-page-types';
 
 interface RegressionChatModalProps {
@@ -27,11 +27,6 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, f
   const [maximized, setMaximized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  function autoResize(el: HTMLTextAreaElement) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-  }
 
   // Auto-scroll messages
   useEffect(() => {
@@ -228,107 +223,36 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, f
           {!historyLoading && messages.length === 0 && (
             <p data-id="chat-modal-no-history" className={`text-sm text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>{labels.noSessionHistory}</p>
           )}
-          {messages.map((msg, i) => (
-            <Fragment key={i}>
-              {msg.text && (
-                <div data-id={`chat-modal-msg-${i}`} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div data-id={`chat-modal-bubble-${i}`} className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap ${
-                    msg.role === "user"
-                      ? "bg-indigo-600 text-white"
-                      : (isDark ? "bg-slate-700 text-slate-200" : "bg-slate-100 text-slate-800")
-                  }`}>
-                    {msg.text}
-                  </div>
-                </div>
-              )}
-              {msg.staleIssues && (
-                <StaleIssueList issues={msg.staleIssues} isDark={isDark} label={labels.selectIssues} />
-              )}
-            </Fragment>
-          ))}
-          {/* Active issue checklist */}
+          <ChatMessages messages={messages} isDark={isDark} selectIssuesLabel={labels.selectIssues} />
           {chatIssues && chatIssues.length > 0 && (
-            <div data-id="chat-modal-issues" className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
-              <p data-id="chat-modal-issues-label" className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.selectIssues}</p>
-              {chatIssues.map((ci, i) => (
-                <label key={i} data-id={`chat-modal-issue-${i}`} className={`flex items-start gap-2 cursor-pointer p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
-                  <input
-                    data-id={`chat-modal-issue-check-${i}`}
-                    type="checkbox"
-                    checked={checkedIssues[i] ?? true}
-                    onChange={() => setCheckedIssues(prev => { const next = [...prev]; next[i] = !next[i]; return next; })}
-                    className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <div data-id={`chat-modal-issue-content-${i}`} className="flex-1 min-w-0">
-                    <p data-id={`chat-modal-issue-title-${i}`} className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{ci.title}</p>
-                    <p data-id={`chat-modal-issue-desc-${i}`} className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} whitespace-pre-wrap`}>
-                      {ci.description}
-                    </p>
-                  </div>
-                </label>
-              ))}
-              <button
-                data-id="chat-modal-submit-issues"
-                onClick={handleSubmitIssues}
-                disabled={submitting || !checkedIssues.some(Boolean)}
-                className={`w-full mt-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 ${isDark ? 'disabled:bg-slate-600' : 'disabled:bg-slate-300'} text-white text-sm font-medium rounded-lg transition-colors`}
-              >
-                {submitting ? labels.chatSubmitting : labels.chatSubmit}
-              </button>
-            </div>
+            <ChatIssueChecklist
+              issues={chatIssues}
+              checkedIssues={checkedIssues}
+              onToggle={i => setCheckedIssues(prev => { const next = [...prev]; next[i] = !next[i]; return next; })}
+              onSubmit={handleSubmitIssues}
+              submitting={submitting}
+              isDark={isDark}
+              selectLabel={labels.selectIssues}
+              submitLabel={labels.chatSubmit}
+              submittingLabel={labels.chatSubmitting}
+            />
           )}
-
-          {/* Submit results */}
-          {submitResults && (
-            <div data-id="chat-modal-results" className={`${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'} border rounded-xl p-3 space-y-1`}>
-              {submitResults.map((result, i) => (
-                <p key={i} data-id={`chat-modal-result-${i}`} className={`text-sm ${isDark ? 'text-green-300' : 'text-green-800'}`}>
-                  {result.success ? `Issue #${result.issueNumber ?? "?"} — ${result.title}` : `Failed: ${result.title}`}
-                </p>
-              ))}
-            </div>
-          )}
-
-          {loading && (
-            <div data-id="chat-modal-thinking" className="flex justify-start">
-              <div data-id="chat-modal-thinking-text" className={`${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'} px-3 py-2 rounded-xl text-sm`}>
-                {labels.chatThinking}
-              </div>
-            </div>
-          )}
+          {submitResults && <ChatSubmitResults results={submitResults} isDark={isDark} />}
+          {loading && <ChatThinking isDark={isDark} label={labels.chatThinking} />}
           <div data-id="chat-modal-scroll-anchor" ref={messagesEndRef} />
         </div>
 
-        {/* Input area */}
-        <div data-id="chat-modal-input-area" className={`border-t ${isDark ? 'border-slate-700' : 'border-slate-200'} px-3 py-2 flex gap-2`}>
-          <textarea
-            data-id="chat-modal-input"
-            value={input}
-            onChange={e => { setInput(e.target.value); autoResize(e.target); }}
-            onKeyDown={e => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            placeholder={labels.chatPlaceholder}
-            ref={inputRef}
-            rows={1}
-            autoFocus
-            disabled={loading}
-            className={`flex-1 resize-none rounded-lg border ${isDark ? 'border-slate-600 bg-slate-700 text-slate-200 placeholder-slate-500' : 'border-slate-300 bg-white text-slate-900 placeholder-slate-400'} px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50`}
-          />
-          <button
-            data-id="chat-modal-send"
-            onClick={handleSend}
-            disabled={loading || !input.trim()}
-            className={`px-3 py-2 bg-indigo-600 hover:bg-indigo-700 ${isDark ? 'disabled:bg-slate-600' : 'disabled:bg-slate-300'} text-white rounded-lg transition-colors`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-              <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
-            </svg>
-          </button>
-        </div>
+        <ChatInput
+          input={input}
+          onInputChange={setInput}
+          onSend={handleSend}
+          sendDisabled={loading}
+          inputDisabled={loading}
+          isDark={isDark}
+          placeholder={labels.chatPlaceholder}
+          inputRef={inputRef}
+          autoFocus
+        />
       </div>
     </div>
   );
