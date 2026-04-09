@@ -26,6 +26,12 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, f
   const [submitResults, setSubmitResults] = useState<{ title: string; issueNumber?: number; success: boolean }[] | null>(null);
   const [maximized, setMaximized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  function autoResize(el: HTMLTextAreaElement) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
 
   // Auto-scroll messages
   useEffect(() => {
@@ -70,6 +76,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, f
     if (!text || loading) return;
 
     setInput("");
+    if (inputRef.current) inputRef.current.style.height = 'auto';
     // Move current active issues to stale before sending new message
     if (chatIssues && chatIssues.length > 0) {
       setMessages(prev => [...prev, { role: "assistant", text: "", staleIssues: chatIssues }, { role: "user", text }]);
@@ -297,7 +304,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, f
           <textarea
             data-id="chat-modal-input"
             value={input}
-            onChange={e => setInput(e.target.value)}
+            onChange={e => { setInput(e.target.value); autoResize(e.target); }}
             onKeyDown={e => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -305,6 +312,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, f
               }
             }}
             placeholder={labels.chatPlaceholder}
+            ref={inputRef}
             rows={1}
             autoFocus
             disabled={loading}
