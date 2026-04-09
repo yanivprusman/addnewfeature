@@ -9,14 +9,11 @@ interface RegressionChatModalProps {
   appName: string | null;
   labels: IssuesPageLabels;
   isDark: boolean;
-  /** All issues from the parent list — used to look up claudeLaunchDir for fix operations */
-  parentIssues: Issue[];
-  onClose: (pendingFix?: { issueNumbers: Set<number>; resumeSessionId: string } | null) => void;
-  onFixIssues: (successIssues: { number: number; title: string; claudeLaunchDir?: string }[], resumeSessionId?: string) => Promise<boolean>;
+  onClose: () => void;
   fetchIssues: () => void;
 }
 
-export function RegressionChatModal({ issue, appName, labels, isDark, parentIssues, onClose, onFixIssues, fetchIssues }: RegressionChatModalProps) {
+export function RegressionChatModal({ issue, appName, labels, isDark, onClose, fetchIssues }: RegressionChatModalProps) {
   const [messages, setMessages] = useState<{ role: string; text: string; staleIssues?: { title: string; description: string }[] }[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,7 +25,6 @@ export function RegressionChatModal({ issue, appName, labels, isDark, parentIssu
   const [submitting, setSubmitting] = useState(false);
   const [submitResults, setSubmitResults] = useState<{ title: string; issueNumber?: number; success: boolean }[] | null>(null);
   const [maximized, setMaximized] = useState(false);
-  const [fixLoading, setFixLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll messages
@@ -58,19 +54,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, parentIssu
     };
   }, []);
 
-  function closeModal(skipPreserve = false) {
-    // Preserve same-session fix option for issues submitted from the chat
-    let pendingFix: { issueNumbers: Set<number>; resumeSessionId: string } | null = null;
-    if (!skipPreserve && submitResults) {
-      const successNumbers = submitResults.filter(r => r.success && r.issueNumber).map(r => r.issueNumber!);
-      if (successNumbers.length > 0) {
-        let resumeId: string | null = null;
-        const match = parentIssues.find(i => successNumbers.includes(i.issueNumber) && i.claudeSessionIds?.length);
-        if (match) resumeId = match.claudeSessionIds![match.claudeSessionIds!.length - 1];
-        else if (issue.claudeSessionIds?.length) resumeId = issue.claudeSessionIds[issue.claudeSessionIds.length - 1];
-        if (resumeId) pendingFix = { issueNumbers: new Set(successNumbers), resumeSessionId: resumeId };
-      }
-    }
+  function closeModal() {
     if (tmuxSession) {
       fetch("/api/feedback/close", {
         method: "POST",
@@ -78,7 +62,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, parentIssu
         body: JSON.stringify({ tmuxSession }),
       }).catch(() => {});
     }
-    onClose(pendingFix);
+    onClose();
   }
 
   async function handleSend() {
@@ -180,36 +164,6 @@ export function RegressionChatModal({ issue, appName, labels, isDark, parentIssu
     }
     setSubmitting(false);
   }
-
-  async function handleFixIssues(resumeSessionId?: string) {
-    if (!submitResults) return;
-    const successIssues = submitResults
-      .filter(r => r.success && r.issueNumber)
-      .map(r => {
-        const full = parentIssues.find(i => i.issueNumber === r.issueNumber);
-        return { number: r.issueNumber!, title: r.title, claudeLaunchDir: full?.claudeLaunchDir };
-      });
-    if (successIssues.length === 0) return;
-
-    setFixLoading(true);
-    const success = await onFixIssues(successIssues, resumeSessionId);
-    if (success) {
-      closeModal(true);
-    }
-    setFixLoading(false);
-  }
-
-  // Compute resume session ID for fix buttons
-  const fixResumeSessionId = (() => {
-    if (submitResults) {
-      const successNumbers = submitResults.filter(r => r.success && r.issueNumber).map(r => r.issueNumber!);
-      const match = parentIssues.find(i => successNumbers.includes(i.issueNumber) && i.claudeSessionIds?.length);
-      if (match) return match.claudeSessionIds![match.claudeSessionIds!.length - 1];
-    }
-    return issue.claudeSessionIds?.length
-      ? issue.claudeSessionIds[issue.claudeSessionIds.length - 1]
-      : null;
-  })();
 
   const dialogBgClass = isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-slate-200";
 
@@ -325,36 +279,6 @@ export function RegressionChatModal({ issue, appName, labels, isDark, parentIssu
                   {result.success ? `Issue #${result.issueNumber ?? "?"} — ${result.title}` : `Failed: ${result.title}`}
                 </p>
               ))}
-            </div>
-          )}
-
-          {/* Fix action buttons after successful submit */}
-          {submitResults && submitResults.some(r => r.success) && (
-            <div data-id="chat-modal-fix-actions" className="flex gap-2 flex-wrap">
-              {fixResumeSessionId ? (
-                <button
-                  data-id="chat-fix-original-session"
-                  onClick={() => handleFixIssues(fixResumeSessionId)}
-                  disabled={fixLoading}
-                  className={`flex-1 text-xs px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
-                    isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
-                  } disabled:opacity-50`}
-                >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" /></svg>
-                  {fixLoading ? labels.launching : labels.fixInOriginalSession}
-                </button>
-              ) : null}
-              <button
-                data-id="chat-fix-new-session"
-                onClick={() => handleFixIssues()}
-                disabled={fixLoading}
-                className={`flex-1 text-xs px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
-                  isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
-                } disabled:opacity-50`}
-              >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" /></svg>
-                {fixLoading ? labels.launching : labels.newFixSession}
-              </button>
             </div>
           )}
 

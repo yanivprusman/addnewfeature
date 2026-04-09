@@ -45,8 +45,6 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
 
   // Regression chat modal
   const [chatTarget, setChatTarget] = useState<Issue | null>(null);
-  // Pending same-session fix option preserved when chat modal is closed with submitted issues
-  const [pendingSameSessionFix, setPendingSameSessionFix] = useState<{ issueNumbers: Set<number>; resumeSessionId: string } | null>(null);
   const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
 
   // Tabs: "issues" or "maintenance"
@@ -328,13 +326,6 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           i.issueNumber === issue.issueNumber ? { ...i, status: "in_progress" } : i
         ));
         setFixSessionTarget(null);
-        // Clear from pending same-session fix if applicable
-        setPendingSameSessionFix(prev => {
-          if (!prev) return null;
-          const next = new Set(prev.issueNumbers);
-          next.delete(issue.issueNumber);
-          return next.size > 0 ? { ...prev, issueNumbers: next } : null;
-        });
       } else {
         const data = await res.json().catch(() => ({}));
         if (res.status === 401 || data.error === 'auth_expired') {
@@ -421,33 +412,6 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       }
     } catch { /* ignore */ }
     setActionLoading(null);
-  }
-
-  async function handleChatFixIssues(successIssues: { number: number; title: string; claudeLaunchDir?: string }[], resumeSessionId?: string): Promise<boolean> {
-    try {
-      const res = await fetch("/api/feedback/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "fix",
-          ...(appName && { app: appName }),
-          issues: successIssues,
-          ...(resumeSessionId && { resumeSessionId }),
-        }),
-      });
-      if (res.ok) {
-        setChatTarget(null);
-        setPendingSameSessionFix(null);
-        fetchIssues();
-        return true;
-      } else {
-        const data = await res.json().catch(() => ({}));
-        if (res.status === 401 || data.error === 'auth_expired') {
-          alert(labels.authExpired);
-        }
-      }
-    } catch { /* ignore */ }
-    return false;
   }
 
   async function handleCloseIssue(issueNumber: number) {
@@ -835,20 +799,6 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           {labels.clearRegression}
                         </button>
                       )}
-                      {/* Fix in original session button (preserved from chat modal) */}
-                      {(issue.status === "open" || issue.status === "in_progress") && pendingSameSessionFix?.issueNumbers.has(issue.issueNumber) && (
-                        <button
-                          data-id={`fix-same-session-${issue.issueNumber}`}
-                          onClick={() => handleFixSingleIssue(issue, pendingSameSessionFix.resumeSessionId)}
-                          disabled={fixSessionLoading}
-                          className={`text-xs px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95 ${
-                            isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
-                          } disabled:opacity-50`}
-                        >
-                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" /></svg>
-                          {fixSessionLoading ? labels.launching : labels.fixInOriginalSession}
-                        </button>
-                      )}
                       {/* Fix with Claude button for open/in_progress issues */}
                       {(issue.status === "open" || issue.status === "in_progress") && (
                         <button
@@ -1007,12 +957,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           appName={appName}
           labels={labels}
           isDark={isDark}
-          parentIssues={issues}
-          onClose={(pendingFix) => {
-            setChatTarget(null);
-            if (pendingFix) setPendingSameSessionFix(pendingFix);
-          }}
-          onFixIssues={handleChatFixIssues}
+          onClose={() => setChatTarget(null)}
           fetchIssues={fetchIssues}
         />
       )}
