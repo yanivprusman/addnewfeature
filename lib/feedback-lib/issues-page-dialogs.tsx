@@ -13,13 +13,14 @@ interface ReviewDialogProps {
   isDark: boolean;
   dialogBgClass: string;
   btnClass: string;
+  siblingInProgress?: boolean;
   onClose: () => void;
   onConfirm: (selectedNumbers: Set<number>, conclude: boolean) => Promise<void>;
 }
 
-export function ReviewDialog({ trigger, relatedIssues, labels, isDark, dialogBgClass, btnClass, onClose, onConfirm }: ReviewDialogProps) {
+export function ReviewDialog({ trigger, relatedIssues, labels, isDark, dialogBgClass, btnClass, siblingInProgress, onClose, onConfirm }: ReviewDialogProps) {
   const [selectedNumbers, setSelectedNumbers] = useState<Set<number>>(() => new Set([trigger.issueNumber, ...relatedIssues.map(i => i.issueNumber)]));
-  const [conclude, setConclude] = useState(true);
+  const [conclude, setConclude] = useState(!siblingInProgress);
   const [loading, setLoading] = useState(false);
 
   function toggleIssue(issueNumber: number) {

@@ -37,7 +37,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const [fixLoading, setFixLoading] = useState(false);
 
   // Review dialog
-  const [reviewTrigger, setReviewTrigger] = useState<{ trigger: Issue; relatedIssues: Issue[] } | null>(null);
+  const [reviewTrigger, setReviewTrigger] = useState<{ trigger: Issue; relatedIssues: Issue[]; siblingInProgress: boolean } | null>(null);
 
   // Fix session choice dialog (for regression issues with previous sessions)
   const [fixSessionTarget, setFixSessionTarget] = useState<Issue | null>(null);
@@ -345,12 +345,22 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           i.claudeSessionId === issue.claudeSessionId
         )
       : [];
-    setReviewTrigger({ trigger: issue, relatedIssues: related });
+    setReviewTrigger({ trigger: issue, relatedIssues: related, siblingInProgress: hasSiblingInProgress(issue) });
+  }
+
+  function hasSiblingInProgress(issue: Issue): boolean {
+    if (!issue.claudeSessionId) return false;
+    return issues.some(i =>
+      i.issueNumber !== issue.issueNumber &&
+      i.status === "in_progress" &&
+      i.claudeSessionId === issue.claudeSessionId
+    );
   }
 
   async function handleDirectReview(issue: Issue) {
     setActionLoading(issue.issueNumber);
     try {
+      const shouldConclude = !hasSiblingInProgress(issue);
       const res = await fetch("/api/feedback/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -358,7 +368,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           action: "reviewed",
           ...(appName && { app: appName }),
           issueNumbers: [issue.issueNumber],
-          conclude: true,
+          conclude: shouldConclude,
           claudeSessionId: issue.claudeSessionId,
           claudeLaunchDir: issue.claudeLaunchDir,
         }),
@@ -931,6 +941,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           isDark={isDark}
           dialogBgClass={dialogBgClass}
           btnClass={btnClass}
+          siblingInProgress={reviewTrigger.siblingInProgress}
           onClose={() => setReviewTrigger(null)}
           onConfirm={handleConfirmReview}
         />
