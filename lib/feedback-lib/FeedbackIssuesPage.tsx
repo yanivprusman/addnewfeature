@@ -757,20 +757,32 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                     </div>
 
                     <div data-id={`issue-actions-${issue.issueNumber}`} className="flex-shrink-0 flex items-center gap-2">
-                      {/* Mark as Reviewed button for review-status issues */}
+                      {/* Review response buttons: Fixed / Not Fixed */}
                       {isReview && (
-                        <button
-                          data-id={`mark-reviewed-${issue.issueNumber}`}
-                          onClick={() => handleDirectReview(issue)}
-                          onContextMenu={(e) => { e.preventDefault(); openReviewDialog(issue); }}
-                          disabled={actionLoading === issue.issueNumber}
-                          className={`text-xs px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95 ${
-                            isDark ? "bg-purple-800 hover:bg-purple-700 text-purple-200" : "bg-purple-100 hover:bg-purple-200 text-purple-700"
-                          } disabled:opacity-50`}
-                        >
-                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
-                          {actionLoading === issue.issueNumber ? labels.reviewing : labels.markReviewed}
-                        </button>
+                        <>
+                          <button
+                            data-id={`review-fixed-${issue.issueNumber}`}
+                            onClick={() => handleDirectReview(issue)}
+                            onContextMenu={(e) => { e.preventDefault(); openReviewDialog(issue); }}
+                            disabled={actionLoading === issue.issueNumber}
+                            className={`text-xs px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                              isDark ? "bg-green-900 hover:bg-green-800 text-green-200" : "bg-green-100 hover:bg-green-200 text-green-700"
+                            } disabled:opacity-50`}
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
+                            {actionLoading === issue.issueNumber ? labels.reviewing : labels.fixed}
+                          </button>
+                          <button
+                            data-id={`review-not-fixed-${issue.issueNumber}`}
+                            onClick={() => setChatTarget(issue)}
+                            className={`text-xs px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                              isDark ? "bg-red-900 hover:bg-red-800 text-red-200" : "bg-red-100 hover:bg-red-200 text-red-700"
+                            }`}
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            {labels.notFixed}
+                          </button>
+                        </>
                       )}
                       {/* Closed issues — reopen the clarifier chat to report it's still broken */}
                       {isClosed && (
@@ -932,10 +944,10 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                       onClick={() => handleMaintenanceReview(activeIssue)}
                       disabled={actionLoading === activeIssue.issueNumber}
                       className={`text-xs px-3 py-1.5 rounded-md transition-colors cursor-pointer whitespace-nowrap ${
-                        isDark ? "bg-purple-800 hover:bg-purple-700 text-purple-200" : "bg-purple-100 hover:bg-purple-200 text-purple-700"
+                        isDark ? "bg-green-900 hover:bg-green-800 text-green-200" : "bg-green-100 hover:bg-green-200 text-green-700"
                       } active:scale-95 disabled:opacity-50`}
                     >
-                      {actionLoading === activeIssue.issueNumber ? labels.closing : labels.markReviewed}
+                      {actionLoading === activeIssue.issueNumber ? labels.closing : labels.fixed}
                     </button>
                   ) : (
                     <button

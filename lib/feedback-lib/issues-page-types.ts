@@ -29,6 +29,8 @@ export interface IssuesPageLabels {
   cancel: string;
   fixWithClaude: string;
   markReviewed: string;
+  fixed: string;
+  notFixed: string;
   notWorking: string;
   resumeClarifierSession: string;
   markRegression: string;
