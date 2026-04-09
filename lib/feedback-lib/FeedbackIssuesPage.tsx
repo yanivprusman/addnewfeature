@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { Issue, IssuesPageLabels, MaintenancePrompt } from './issues-page-types';
 import { issuesTranslations } from './issues-page-i18n';
 import { MAINTENANCE_PROMPTS } from './maintenance-prompts';
@@ -175,6 +175,38 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     window.addEventListener('feedback-issues-refresh', onRefresh);
     return () => { clearInterval(interval); window.removeEventListener('feedback-issues-refresh', onRefresh); };
   }, [fetchIssues]);
+
+  // Map: clarifierSessionId → { sessionIds, launchDir } from sibling issues that have fix sessions
+  const siblingFixMap = useMemo(() => {
+    const map = new Map<string, { sessionIds: string[]; launchDir?: string }>();
+    for (const issue of issues) {
+      if (issue.clarifierSessionId && issue.claudeSessionIds?.length) {
+        const existing = map.get(issue.clarifierSessionId);
+        const ids = existing?.sessionIds ?? [];
+        for (const sid of issue.claudeSessionIds) {
+          if (!ids.includes(sid)) ids.push(sid);
+        }
+        map.set(issue.clarifierSessionId, {
+          sessionIds: ids,
+          launchDir: existing?.launchDir || issue.claudeLaunchDir,
+        });
+      }
+    }
+    return map;
+  }, [issues]);
+
+  function getSiblingFixSessions(issue: Issue): string[] {
+    if (!issue.clarifierSessionId) return [];
+    const sibling = siblingFixMap.get(issue.clarifierSessionId);
+    if (!sibling) return [];
+    const own = new Set(issue.claudeSessionIds ?? []);
+    return sibling.sessionIds.filter(sid => !own.has(sid));
+  }
+
+  function getSiblingLaunchDir(issue: Issue): string | undefined {
+    if (!issue.clarifierSessionId) return undefined;
+    return siblingFixMap.get(issue.clarifierSessionId)?.launchDir;
+  }
 
   function toggleSelect(issueNumber: number) {
     setSelectedIds(prev => {
@@ -756,8 +788,14 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                         <button
                           data-id={`fix-regression-${issue.issueNumber}`}
                           onClick={() => {
-                            if (issue.claudeSessionIds?.length) {
-                              setFixSessionTarget(issue);
+                            const siblingIds = getSiblingFixSessions(issue);
+                            const allSessionIds = [...(issue.claudeSessionIds || []), ...siblingIds];
+                            if (allSessionIds.length > 0) {
+                              setFixSessionTarget({
+                                ...issue,
+                                claudeSessionIds: allSessionIds,
+                                claudeLaunchDir: issue.claudeLaunchDir || getSiblingLaunchDir(issue),
+                              });
                             } else {
                               handleFixSingleIssue(issue);
                             }
@@ -804,8 +842,14 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                         <button
                           data-id={`fix-issue-${issue.issueNumber}`}
                           onClick={() => {
-                            if (issue.claudeSessionIds?.length) {
-                              setFixSessionTarget(issue);
+                            const siblingIds = getSiblingFixSessions(issue);
+                            const allSessionIds = [...(issue.claudeSessionIds || []), ...siblingIds];
+                            if (allSessionIds.length > 0) {
+                              setFixSessionTarget({
+                                ...issue,
+                                claudeSessionIds: allSessionIds,
+                                claudeLaunchDir: issue.claudeLaunchDir || getSiblingLaunchDir(issue),
+                              });
                             } else {
                               handleFixSingleIssue(issue);
                             }
