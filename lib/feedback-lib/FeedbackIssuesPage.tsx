@@ -728,6 +728,20 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                       <p data-id={`issue-date-${issue.issueNumber}`} className={`text-xs mt-2 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                         {formatDate(issue.createdAt)}
                       </p>
+                      {(issue.clarifierSessionId || (issue.claudeSessionIds && issue.claudeSessionIds.length > 0)) && (
+                        <div data-id={`issue-sessions-${issue.issueNumber}`} className={`text-xs font-mono mt-1 flex flex-wrap gap-x-3 gap-y-0.5 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                          {issue.clarifierSessionId && (
+                            <span data-id={`issue-clarifier-session-${issue.issueNumber}`} title={issue.clarifierSessionId}>
+                              clarifier: {issue.clarifierSessionId.slice(0, 8)}
+                            </span>
+                          )}
+                          {issue.claudeSessionIds && issue.claudeSessionIds.length > 0 && (
+                            <span data-id={`issue-fix-sessions-${issue.issueNumber}`} title={issue.claudeSessionIds.join('\n')}>
+                              fix: {issue.claudeSessionIds.map(id => id.slice(0, 8)).join(' · ')}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div data-id={`issue-actions-${issue.issueNumber}`} className="flex-shrink-0 flex items-center gap-2">
