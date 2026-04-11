@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { feedbackTranslations } from "./i18n";
 import { ProdToggle, useProdPreview } from "./prod-preview";
-import { useSystemDark, ChatIssue, ChatSubmitResult, ChatMessages, ChatIssueChecklist, ChatSubmitResults, ChatThinking, ChatInput } from "./shared-ui";
+import { useSystemDark, ChatIssue, ChatSubmitResult, ChatMessages, ChatIssueChecklist, ChatSubmitResults, ChatThinking, ChatInput, submitChatIssues } from "./shared-ui";
 
 const PAGE_CONTEXT_KEY = '__feedbackPageContext';
 
@@ -620,24 +620,17 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/feedback/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issues: selected, pagePath: getFullPagePath(), pageContext: getPageContext(), sessionId: sessionId || resumeId, ...(appOverride && { app: appOverride }) }),
+      const results = await submitChatIssues(selected, {
+        pagePath: getFullPagePath(),
+        pageContext: getPageContext(),
+        sessionId: sessionId || resumeId,
+        ...(appOverride && { app: appOverride }),
       });
-
-      if (!res.ok) throw new Error("Submit failed");
-
-      const data = await res.json();
-      if (data.results?.every((r: ChatSubmitResult) => r.success)) {
-        setSubmitResults(data.results);
-        setIssues(null);
-        setCheckedIssues([]);
+      setSubmitResults(results);
+      setIssues(null);
+      setCheckedIssues([]);
+      if (results.every(r => r.success)) {
         setShowPostSubmitPrompt(true);
-      } else {
-        setSubmitResults(data.results);
-        setIssues(null);
-        setCheckedIssues([]);
       }
     } catch {
       setMessages((prev) => [...prev, { role: "assistant", text: labels.error }]);
@@ -833,8 +826,8 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           {/* Post-submit navigation prompt */}
           {showPostSubmitPrompt && (
             <div data-id="post-submit-prompt" className={`${isDark ? 'border-slate-600' : 'border-slate-200'} border rounded-xl p-3 space-y-2`}>
-              <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.goToIssuesPrompt}</p>
-              <div className="flex gap-2">
+              <p data-id="post-submit-prompt-text" className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.goToIssuesPrompt}</p>
+              <div data-id="post-submit-prompt-actions" className="flex gap-2">
                 <button data-id="go-to-issues" onClick={handleGoToIssues} className={`flex-1 px-3 py-2 ${accent} text-white text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesYes}</button>
                 <button data-id="dismiss-prompt" onClick={handlePostSubmitCleanup} className={`flex-1 px-3 py-2 ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'} text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesNo}</button>
               </div>
@@ -868,8 +861,8 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           {/* Post-submit navigation prompt */}
           {showPostSubmitPrompt && (
             <div data-id="chat-post-submit-prompt" className={`${isDark ? 'border-slate-600' : 'border-slate-200'} border rounded-xl p-3 space-y-2`}>
-              <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.goToIssuesPrompt}</p>
-              <div className="flex gap-2">
+              <p data-id="chat-post-submit-prompt-text" className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.goToIssuesPrompt}</p>
+              <div data-id="chat-post-submit-prompt-actions" className="flex gap-2">
                 <button data-id="chat-go-to-issues" onClick={handleGoToIssues} className={`flex-1 px-3 py-2 ${accent} text-white text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesYes}</button>
                 <button data-id="chat-dismiss-prompt" onClick={handlePostSubmitCleanup} className={`flex-1 px-3 py-2 ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'} text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesNo}</button>
               </div>
@@ -877,7 +870,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           )}
 
           {loading && <ChatThinking isDark={isDark} label={labels.thinking} />}
-          <div ref={messagesEndRef} />
+          <div data-id="chat-messages-scroll-anchor" ref={messagesEndRef} />
         </div>
 
         <ChatInput

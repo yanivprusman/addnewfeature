@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ChatMessages, ChatIssueChecklist, ChatSubmitResults, ChatThinking, ChatInput } from "./shared-ui";
+import { ChatMessages, ChatIssueChecklist, ChatSubmitResults, ChatThinking, ChatInput, submitChatIssues } from "./shared-ui";
 import type { Issue, IssuesPageLabels } from './issues-page-types';
 
 interface RegressionChatModalProps {
@@ -155,21 +155,24 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, f
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/feedback/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issues: selected, ...(appName && { app: appName }), pagePath: "/issues", pageContext: "Issues", sessionId: sessionId || issue.clarifierSessionId }),
+      const results = await submitChatIssues(selected, {
+        ...(appName && { app: appName }),
+        pagePath: "/issues",
+        pageContext: "Issues",
+        sessionId: sessionId || issue.clarifierSessionId,
       });
-      if (!res.ok) throw new Error("Submit failed");
-      const data = await res.json();
-      setSubmitResults(data.results);
+      setSubmitResults(results);
       setChatIssues(null);
       setCheckedIssues([]);
       fetchIssues();
+      if (results.every(r => r.success)) {
+        closeModal();
+      }
     } catch {
       setMessages(prev => [...prev, { role: "assistant", text: "Something went wrong. Please try again." }]);
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   }
 
   const dialogBgClass = isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-slate-200";
@@ -187,7 +190,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, f
           <div data-id="chat-modal-header-text" className="flex-1 min-w-0">
             <span data-id="chat-modal-title" className="font-semibold text-sm">{labels.resumeChat}</span>
             <p data-id="chat-modal-subtitle" className="text-xs truncate text-indigo-200">
-              <span className="font-mono">#{issue.issueNumber}</span>{" "}{issue.title}
+              <span data-id="chat-modal-issue-number" className="font-mono">#{issue.issueNumber}</span>{" "}{issue.title}
             </p>
           </div>
           <div data-id="chat-modal-header-actions" className="flex items-center gap-1">

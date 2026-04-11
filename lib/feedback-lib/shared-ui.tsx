@@ -59,14 +59,15 @@ export function StaleIssueList({ issues, isDark, label, onResend, resendLabel }:
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const mouseRef = useRef<{ x: number; y: number } | null>(null);
   return (
-    <div className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2 opacity-50`}>
-      <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{label}</p>
+    <div data-id="stale-issue-list" className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2 opacity-50`}>
+      <p data-id="stale-issue-list-label" className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{label}</p>
       {issues.map((issue, j) => (
-        <div key={j} className="flex items-start gap-2 p-2">
-          <input type="checkbox" checked disabled className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600" />
-          <div className="flex-1 min-w-0">
-            <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
+        <div data-id={`stale-issue-item-${j}`} key={j} className="flex items-start gap-2 p-2">
+          <input data-id={`stale-issue-checkbox-${j}`} type="checkbox" checked disabled className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600" />
+          <div data-id={`stale-issue-content-${j}`} className="flex-1 min-w-0">
+            <p data-id={`stale-issue-title-${j}`} className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
             <p
+              data-id={`stale-issue-description-${j}`}
               className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} ${expanded[j] ? '' : 'line-clamp-2'} cursor-pointer whitespace-pre-wrap`}
               onMouseDown={(e) => { mouseRef.current = { x: e.clientX, y: e.clientY }; }}
               onClick={(e) => { const s = mouseRef.current; if (s && (Math.abs(e.clientX - s.x) > 3 || Math.abs(e.clientY - s.y) > 3)) return; if (window.getSelection()?.toString()) return; setExpanded(prev => ({ ...prev, [j]: !prev[j] })); }}
@@ -78,6 +79,7 @@ export function StaleIssueList({ issues, isDark, label, onResend, resendLabel }:
       ))}
       {onResend && (
         <button
+          data-id="stale-issue-resend"
           onClick={() => onResend(issues)}
           className={`w-full mt-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
         >
@@ -108,8 +110,8 @@ export function ChatMessages({ messages, isDark, accentBg = 'bg-indigo-600', sel
       {messages.map((msg, i) => (
         <Fragment key={i}>
           {msg.text && (
-            <div className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap ${
+            <div data-id={`chat-msg-row-${i}`} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div data-id={`chat-msg-bubble-${i}`} className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap ${
                 msg.role === "user"
                   ? `${accentBg} text-white`
                   : (isDark ? "bg-slate-700 text-slate-200" : "bg-slate-100 text-slate-800")
@@ -146,18 +148,20 @@ export function ChatIssueChecklist({ issues, checkedIssues, onToggle, onSubmit, 
 
   return (
     <div data-id="chat-issue-checklist" className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
-      <p className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{selectLabel}</p>
+      <p data-id="chat-issue-checklist-label" className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{selectLabel}</p>
       {issues.map((issue, i) => (
-        <label key={i} className={`flex items-start gap-2 cursor-pointer p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
+        <label data-id={`chat-issue-label-${i}`} key={i} className={`flex items-start gap-2 cursor-pointer p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
           <input
+            data-id={`chat-issue-checkbox-${i}`}
             type="checkbox"
             checked={checkedIssues[i] ?? true}
             onChange={() => onToggle(i)}
             className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
           />
-          <div className="flex-1 min-w-0">
-            <p className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
+          <div data-id={`chat-issue-content-${i}`} className="flex-1 min-w-0">
+            <p data-id={`chat-issue-title-${i}`} className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
             <p
+              data-id={`chat-issue-description-${i}`}
               className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} ${expandable ? 'cursor-pointer' : ''} ${expandable && !expanded[i] ? 'line-clamp-2' : ''} whitespace-pre-wrap`}
               {...(expandable ? {
                 onMouseDown: (e: React.MouseEvent) => { mouseRef.current = { x: e.clientX, y: e.clientY }; },
@@ -170,6 +174,7 @@ export function ChatIssueChecklist({ issues, checkedIssues, onToggle, onSubmit, 
         </label>
       ))}
       <button
+        data-id="chat-issue-submit"
         onClick={onSubmit}
         disabled={submitting || !checkedIssues.some(Boolean)}
         className={`w-full mt-1 px-3 py-2 ${accentClass} ${isDark ? 'disabled:bg-slate-600' : 'disabled:bg-slate-300'} text-white text-sm font-medium rounded-lg transition-colors`}
@@ -180,6 +185,22 @@ export function ChatIssueChecklist({ issues, checkedIssues, onToggle, onSubmit, 
   );
 }
 
+/** Submit selected chat issues to the feedback API. Caller filters by
+ *  checkedIssues and guards non-empty. Throws on non-OK response. */
+export async function submitChatIssues(
+  selected: ChatIssue[],
+  extraBody: Record<string, unknown>
+): Promise<ChatSubmitResult[]> {
+  const res = await fetch("/api/feedback/submit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ issues: selected, ...extraBody }),
+  });
+  if (!res.ok) throw new Error("Submit failed");
+  const data = await res.json();
+  return data.results as ChatSubmitResult[];
+}
+
 /** Submit results display (green box). */
 export function ChatSubmitResults({ results, isDark, issuePrefix = 'Issue #' }: {
   results: ChatSubmitResult[];
@@ -187,9 +208,9 @@ export function ChatSubmitResults({ results, isDark, issuePrefix = 'Issue #' }: 
   issuePrefix?: string;
 }) {
   return (
-    <div className={`${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'} border rounded-xl p-3 space-y-1`}>
+    <div data-id="chat-submit-results" className={`${isDark ? 'bg-green-900/30 border-green-800' : 'bg-green-50 border-green-200'} border rounded-xl p-3 space-y-1`}>
       {results.map((result, i) => (
-        <p key={i} className={`text-sm ${isDark ? 'text-green-300' : 'text-green-800'}`}>
+        <p data-id={`chat-submit-result-${i}`} key={i} className={`text-sm ${isDark ? 'text-green-300' : 'text-green-800'}`}>
           {result.success ? `${issuePrefix}${result.issueNumber ?? "?"} — ${result.title}` : `Failed: ${result.title}`}
         </p>
       ))}
@@ -200,8 +221,8 @@ export function ChatSubmitResults({ results, isDark, issuePrefix = 'Issue #' }: 
 /** Thinking indicator bubble. */
 export function ChatThinking({ isDark, label }: { isDark: boolean; label: string }) {
   return (
-    <div className="flex justify-start">
-      <div className={`${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'} px-3 py-2 rounded-xl text-sm`}>{label}</div>
+    <div data-id="chat-thinking" className="flex justify-start">
+      <div data-id="chat-thinking-bubble" className={`${isDark ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'} px-3 py-2 rounded-xl text-sm`}>{label}</div>
     </div>
   );
 }
@@ -223,8 +244,9 @@ export function ChatInput({ input, onInputChange, onSend, sendDisabled, inputDis
   const ref = externalRef || fallbackRef;
 
   return (
-    <div className={`border-t ${isDark ? 'border-slate-700' : 'border-slate-200'} px-3 py-2 flex gap-2`}>
+    <div data-id="chat-input-area" className={`border-t ${isDark ? 'border-slate-700' : 'border-slate-200'} px-3 py-2 flex gap-2`}>
       <textarea
+        data-id="chat-input-textarea"
         ref={ref}
         value={input}
         onChange={e => { onInputChange(e.target.value); autoResizeTextarea(e.target); }}
@@ -241,6 +263,7 @@ export function ChatInput({ input, onInputChange, onSend, sendDisabled, inputDis
         className={`flex-1 resize-none rounded-lg border ${isDark ? 'border-slate-600 bg-slate-700 text-slate-200 placeholder-slate-500' : 'border-slate-300 bg-white text-slate-900 placeholder-slate-400'} px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50`}
       />
       <button
+        data-id="chat-input-send"
         onClick={onSend}
         disabled={sendDisabled || !input.trim()}
         className={`px-3 py-2 ${accentClass} ${isDark ? 'disabled:bg-slate-600' : 'disabled:bg-slate-300'} text-white rounded-lg transition-colors`}
