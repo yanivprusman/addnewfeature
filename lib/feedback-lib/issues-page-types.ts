@@ -30,7 +30,6 @@ export interface IssuesPageLabels {
   fixWithClaude: string;
   markReviewed: string;
   fixed: string;
-  notFixed: string;
   notWorking: string;
   resumeClarifierSession: string;
   markRegression: string;

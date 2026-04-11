@@ -745,7 +745,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                     </div>
 
                     <div data-id={`issue-actions-${issue.issueNumber}`} className="flex-shrink-0 flex items-center gap-2">
-                      {/* Review response buttons: Fixed / Not Fixed */}
+                      {/* Review response buttons: Fixed / Resume Clarifier Session */}
                       {isReview && (
                         <>
                           <button
@@ -761,14 +761,14 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                             {actionLoading === issue.issueNumber ? labels.reviewing : labels.fixed}
                           </button>
                           <button
-                            data-id={`review-not-fixed-${issue.issueNumber}`}
+                            data-id={`review-resume-clarifier-${issue.issueNumber}`}
                             onClick={() => setChatTarget(issue)}
                             className={`text-xs px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95 ${
                               isDark ? "bg-red-900 hover:bg-red-800 text-red-200" : "bg-red-100 hover:bg-red-200 text-red-700"
                             }`}
                           >
                             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                            {labels.notFixed}
+                            {labels.resumeClarifierSession}
                           </button>
                         </>
                       )}
