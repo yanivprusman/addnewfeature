@@ -37,7 +37,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const [fixLoading, setFixLoading] = useState(false);
 
   // Review dialog
-  const [reviewTrigger, setReviewTrigger] = useState<{ trigger: Issue; relatedIssues: Issue[]; siblingInProgress: boolean } | null>(null);
+  const [reviewTrigger, setReviewTrigger] = useState<{ trigger: Issue; relatedIssues: Issue[]; hasNonClosedSibling: boolean } | null>(null);
 
   // Fix session choice dialog (for regression issues with previous sessions)
   const [fixSessionTarget, setFixSessionTarget] = useState<Issue | null>(null);
@@ -345,14 +345,14 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           i.claudeSessionId === issue.claudeSessionId
         )
       : [];
-    setReviewTrigger({ trigger: issue, relatedIssues: related, siblingInProgress: hasSiblingInProgress(issue) });
+    setReviewTrigger({ trigger: issue, relatedIssues: related, hasNonClosedSibling: hasNonClosedSibling(issue) });
   }
 
-  function hasSiblingInProgress(issue: Issue): boolean {
+  function hasNonClosedSibling(issue: Issue): boolean {
     if (!issue.claudeSessionId) return false;
     return issues.some(i =>
       i.issueNumber !== issue.issueNumber &&
-      i.status === "in_progress" &&
+      i.status !== "closed" &&
       i.claudeSessionId === issue.claudeSessionId
     );
   }
@@ -360,7 +360,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   async function handleDirectReview(issue: Issue) {
     setActionLoading(issue.issueNumber);
     try {
-      const shouldConclude = !hasSiblingInProgress(issue);
+      const shouldConclude = !hasNonClosedSibling(issue);
       const res = await fetch("/api/feedback/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -955,7 +955,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           isDark={isDark}
           dialogBgClass={dialogBgClass}
           btnClass={btnClass}
-          siblingInProgress={reviewTrigger.siblingInProgress}
+          hasNonClosedSibling={reviewTrigger.hasNonClosedSibling}
           onClose={() => setReviewTrigger(null)}
           onConfirm={handleConfirmReview}
         />

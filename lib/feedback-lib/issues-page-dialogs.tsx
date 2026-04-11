@@ -13,14 +13,14 @@ interface ReviewDialogProps {
   isDark: boolean;
   dialogBgClass: string;
   btnClass: string;
-  siblingInProgress?: boolean;
+  hasNonClosedSibling?: boolean;
   onClose: () => void;
   onConfirm: (selectedNumbers: Set<number>, conclude: boolean) => Promise<void>;
 }
 
-export function ReviewDialog({ trigger, relatedIssues, labels, isDark, dialogBgClass, btnClass, siblingInProgress, onClose, onConfirm }: ReviewDialogProps) {
+export function ReviewDialog({ trigger, relatedIssues, labels, isDark, dialogBgClass, btnClass, hasNonClosedSibling, onClose, onConfirm }: ReviewDialogProps) {
   const [selectedNumbers, setSelectedNumbers] = useState<Set<number>>(() => new Set([trigger.issueNumber, ...relatedIssues.map(i => i.issueNumber)]));
-  const [conclude, setConclude] = useState(!siblingInProgress);
+  const [conclude, setConclude] = useState(!hasNonClosedSibling);
   const [loading, setLoading] = useState(false);
 
   function toggleIssue(issueNumber: number) {
@@ -53,7 +53,7 @@ export function ReviewDialog({ trigger, relatedIssues, labels, isDark, dialogBgC
         <label data-id="review-trigger-label" className="flex items-center gap-3 py-2">
           <input data-id="review-trigger-issue" type="checkbox" checked disabled className="w-4 h-4 accent-purple-500" />
           <span data-id="review-trigger-text" className="text-sm">
-            <span className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{trigger.issueNumber}</span>
+            <span data-id="review-trigger-number" className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{trigger.issueNumber}</span>
             {" "}{trigger.title}
           </span>
         </label>
@@ -74,7 +74,7 @@ export function ReviewDialog({ trigger, relatedIssues, labels, isDark, dialogBgC
                   className="w-4 h-4 accent-purple-500 cursor-pointer"
                 />
                 <span data-id={`review-related-text-${ri.issueNumber}`} className="text-sm">
-                  <span className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{ri.issueNumber}</span>
+                  <span data-id={`review-related-number-${ri.issueNumber}`} className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{ri.issueNumber}</span>
                   {" "}{ri.title}
                 </span>
               </label>
@@ -159,7 +159,7 @@ export function RegressionDialog({ issue, labels, isDark, dialogBgClass, btnClas
       >
         <h2 data-id="regression-dialog-title" className="text-lg font-bold mb-2">{labels.markRegression}</h2>
         <p data-id="regression-issue-info" className={`text-sm mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-          <span className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{issue.issueNumber}</span>
+          <span data-id="regression-issue-number" className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{issue.issueNumber}</span>
           {" "}{issue.title}
         </p>
         {issue.description && (
@@ -235,7 +235,7 @@ export function FixSessionDialog({ issue, labels, isDark, dialogBgClass, btnClas
       >
         <h2 data-id="fix-session-title" className="text-lg font-bold mb-2">{labels.fixWithClaude}</h2>
         <p data-id="fix-session-info" className={`text-sm mb-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-          <span className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{issue.issueNumber}</span>
+          <span data-id="fix-session-issue-number" className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{issue.issueNumber}</span>
           {" "}{issue.title}
         </p>
         {issue.description && (
