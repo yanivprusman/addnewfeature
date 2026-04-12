@@ -10,15 +10,18 @@ interface RegressionChatModalProps {
   labels: IssuesPageLabels;
   isDark: boolean;
   onClose: () => void;
+  onDismiss?: (data: { sessionId: string; tmuxSession: string }) => void;
   fetchIssues: () => void;
+  initialSessionId?: string | null;
+  initialTmuxSession?: string | null;
 }
 
-export function RegressionChatModal({ issue, appName, labels, isDark, onClose, fetchIssues }: RegressionChatModalProps) {
+export function RegressionChatModal({ issue, appName, labels, isDark, onClose, onDismiss, fetchIssues, initialSessionId, initialTmuxSession }: RegressionChatModalProps) {
   const [messages, setMessages] = useState<{ role: string; text: string; staleIssues?: { title: string; description: string }[] }[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [tmuxSession, setTmuxSession] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(initialSessionId ?? null);
+  const [tmuxSession, setTmuxSession] = useState<string | null>(initialTmuxSession ?? null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [chatIssues, setChatIssues] = useState<{ title: string; description: string }[] | null>(null);
   const [checkedIssues, setCheckedIssues] = useState<boolean[]>([]);
@@ -54,6 +57,14 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, f
       // tmuxSession is captured by the cleanup closure at the time the effect re-runs
     };
   }, []);
+
+  function dismissModal() {
+    if (sessionId && tmuxSession && onDismiss) {
+      onDismiss({ sessionId, tmuxSession });
+    } else {
+      onClose();
+    }
+  }
 
   function closeModal() {
     if (tmuxSession) {
@@ -178,7 +189,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, f
   const dialogBgClass = isDark ? "bg-slate-800 border border-slate-700" : "bg-white border border-slate-200";
 
   return (
-    <div data-id="regression-chat-modal" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !loading && closeModal()}>
+    <div data-id="regression-chat-modal" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !loading && dismissModal()}>
       <div data-id="chat-modal-backdrop" className="absolute inset-0 bg-black/50" />
       <div
         data-id="chat-modal-dialog"
@@ -212,7 +223,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, f
             </button>
             <button
               data-id="chat-modal-close"
-              onClick={() => closeModal()}
+              onClick={() => dismissModal()}
               disabled={loading}
               className="text-indigo-200 hover:text-white transition-colors"
             >

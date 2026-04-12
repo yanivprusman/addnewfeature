@@ -45,6 +45,8 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
 
   // Regression chat modal
   const [chatTarget, setChatTarget] = useState<Issue | null>(null);
+  // Preserved (dismissed but not ended) chat sessions: clarifierSessionId → session data
+  const [preservedSessions, setPreservedSessions] = useState<Map<string, { sessionId: string; tmuxSession: string }>>(new Map());
   const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
 
   // Tabs: "issues" or "maintenance"
@@ -204,6 +206,32 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   function getSiblingLaunchDir(issue: Issue): string | undefined {
     if (!issue.clarifierSessionId) return undefined;
     return siblingFixMap.get(issue.clarifierSessionId)?.launchDir;
+  }
+
+  function handleChatModalClose() {
+    if (chatTarget?.clarifierSessionId) {
+      setPreservedSessions(prev => {
+        const next = new Map(prev);
+        next.delete(chatTarget.clarifierSessionId!);
+        return next;
+      });
+    }
+    setChatTarget(null);
+  }
+
+  function handleChatModalDismiss(data: { sessionId: string; tmuxSession: string }) {
+    if (chatTarget?.clarifierSessionId) {
+      setPreservedSessions(prev => {
+        const next = new Map(prev);
+        next.set(chatTarget.clarifierSessionId!, data);
+        return next;
+      });
+    }
+    setChatTarget(null);
+  }
+
+  function hasPreservedSession(issue: Issue): boolean {
+    return !!issue.clarifierSessionId && preservedSessions.has(issue.clarifierSessionId);
   }
 
   function toggleSelect(issueNumber: number) {
@@ -783,6 +811,19 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           {labels.notWorking}
                         </button>
                       )}
+                      {/* Resume Chat button for preserved sessions (non-review, non-closed statuses) */}
+                      {!isReview && !isClosed && hasPreservedSession(issue) && (
+                        <button
+                          data-id={`resume-chat-${issue.issueNumber}`}
+                          onClick={() => setChatTarget(issue)}
+                          className={`text-xs px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                            isDark ? "bg-indigo-700 hover:bg-indigo-600 text-white" : "bg-indigo-500 hover:bg-indigo-600 text-white"
+                          }`}
+                        >
+                          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
+                          {labels.resumeChat}
+                        </button>
+                      )}
                       {/* Fix with Claude button for regression issues */}
                       {isRegression && (
                         <button
@@ -982,8 +1023,11 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
           appName={appName}
           labels={labels}
           isDark={isDark}
-          onClose={() => setChatTarget(null)}
+          onClose={handleChatModalClose}
+          onDismiss={handleChatModalDismiss}
           fetchIssues={fetchIssues}
+          initialSessionId={chatTarget.clarifierSessionId ? preservedSessions.get(chatTarget.clarifierSessionId)?.sessionId : undefined}
+          initialTmuxSession={chatTarget.clarifierSessionId ? preservedSessions.get(chatTarget.clarifierSessionId)?.tmuxSession : undefined}
         />
       )}
     </div>
