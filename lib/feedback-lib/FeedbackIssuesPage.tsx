@@ -410,6 +410,27 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     setActionLoading(null);
   }
 
+  async function handleCloseForNow(issue: Issue) {
+    setActionLoading(issue.issueNumber);
+    try {
+      const res = await fetch("/api/feedback/issues", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "close",
+          ...(appName && { app: appName }),
+          issueNumber: issue.issueNumber,
+        }),
+      });
+      if (res.ok) {
+        setIssues(prev => prev.map(i =>
+          i.issueNumber === issue.issueNumber ? { ...i, status: "closed" } : i
+        ));
+      }
+    } catch { /* ignore */ }
+    setActionLoading(null);
+  }
+
   async function handleConfirmReview(selectedNumbers: Set<number>, conclude: boolean) {
     if (!reviewTrigger) return;
     try {
@@ -787,6 +808,17 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           >
                             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
                             {actionLoading === issue.issueNumber ? labels.reviewing : labels.fixed}
+                          </button>
+                          <button
+                            data-id={`review-close-for-now-${issue.issueNumber}`}
+                            onClick={() => handleCloseForNow(issue)}
+                            disabled={actionLoading === issue.issueNumber}
+                            className={`text-xs px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                              isDark ? "bg-zinc-700 hover:bg-zinc-600 text-zinc-200" : "bg-zinc-200 hover:bg-zinc-300 text-zinc-700"
+                            } disabled:opacity-50`}
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            {actionLoading === issue.issueNumber ? labels.closing : labels.closeForNow}
                           </button>
                           <button
                             data-id={`review-resume-clarifier-${issue.issueNumber}`}
