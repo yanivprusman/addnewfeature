@@ -89,7 +89,7 @@ export default function AppsPage() {
           <button
             data-id="create-android-app"
             onClick={() => { setAppType('android'); setShowCreate(true); }}
-            className="rounded bg-green-600 px-4 py-2 text-sm font-medium hover:bg-green-700"
+            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700"
           >
             Create Android App
           </button>
