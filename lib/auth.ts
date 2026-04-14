@@ -37,6 +37,28 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         };
       },
     }),
+    Credentials({
+      id: 'dev-auto',
+      name: 'Dev Auto',
+      credentials: {},
+      async authorize() {
+        if (process.env.NEXT_PUBLIC_IS_PROD === 'true') return null;
+
+        let user = await prisma.user.findFirst({ orderBy: { createdAt: 'asc' } });
+        if (!user) {
+          const hashedPassword = await bcrypt.hash('dev', 10);
+          user = await prisma.user.create({
+            data: {
+              email: 'dev@localhost',
+              password: hashedPassword,
+              name: 'Dev User',
+            },
+          });
+        }
+
+        return { id: user.id, name: user.name, email: user.email };
+      },
+    }),
   ],
   callbacks: {
     ...authConfig.callbacks,

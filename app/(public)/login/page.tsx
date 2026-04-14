@@ -1,16 +1,32 @@
 'use client';
 
 import { signIn } from 'next-auth/react';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+
+const isDev = process.env.NEXT_PUBLIC_IS_PROD !== 'true';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [devAutoLogin, setDevAutoLogin] = useState(isDev);
+  const attempted = useRef(false);
   const router = useRouter();
+
+  useEffect(() => {
+    if (!isDev || attempted.current) return;
+    attempted.current = true;
+    signIn('dev-auto', { redirect: false }).then((result) => {
+      if (result?.error) {
+        setDevAutoLogin(false);
+      } else {
+        router.push('/apps');
+      }
+    });
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,6 +46,14 @@ export default function LoginPage() {
     } else {
       router.push('/apps');
     }
+  }
+
+  if (devAutoLogin) {
+    return (
+      <div data-id="dev-auto-login" className="flex min-h-screen items-center justify-center">
+        <p className="text-sm text-gray-400">Signing in automatically (dev mode)...</p>
+      </div>
+    );
   }
 
   return (

@@ -1,6 +1,11 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 export default function HomePage() {
+  if (process.env.NEXT_PUBLIC_IS_PROD !== 'true') {
+    redirect('/apps');
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <nav data-id="landing-nav" className="border-b border-gray-800 bg-gray-900/50">
