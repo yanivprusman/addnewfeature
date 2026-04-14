@@ -27,7 +27,7 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev",
+    "dev": "prisma generate && next dev",
     "lint": "eslint",
     "start": "next start"
   },
