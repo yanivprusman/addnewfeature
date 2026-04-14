@@ -78,39 +78,27 @@ export default function AppsPage() {
     <div data-id="apps-page" className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 data-id="apps-title" className="text-2xl font-bold">Your Apps</h1>
-        <button
-          data-id="create-app"
-          onClick={() => setShowCreate(true)}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700"
-        >
-          Create App
-        </button>
+        <div className="flex gap-2">
+          <button
+            data-id="create-app"
+            onClick={() => { setAppType('web'); setShowCreate(true); }}
+            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700"
+          >
+            Create App
+          </button>
+          <button
+            data-id="create-android-app"
+            onClick={() => { setAppType('android'); setShowCreate(true); }}
+            className="rounded bg-green-600 px-4 py-2 text-sm font-medium hover:bg-green-700"
+          >
+            Create Android App
+          </button>
+        </div>
       </div>
 
       {showCreate && (
         <form data-id="create-app-form" onSubmit={handleCreate} className="space-y-3 rounded border border-gray-700 bg-gray-900 p-4">
           {error && <div data-id="create-app-error" className="text-sm text-red-400">{error}</div>}
-          <div>
-            <label className="block text-sm text-gray-300 mb-1">App Type</label>
-            <div className="flex gap-2">
-              <button
-                data-id="type-web"
-                type="button"
-                onClick={() => setAppType('web')}
-                className={`rounded px-3 py-1.5 text-sm font-medium ${appType === 'web' ? 'bg-blue-600 text-white' : 'border border-gray-700 text-gray-400 hover:bg-gray-800'}`}
-              >
-                Web
-              </button>
-              <button
-                data-id="type-android"
-                type="button"
-                onClick={() => setAppType('android')}
-                className={`rounded px-3 py-1.5 text-sm font-medium ${appType === 'android' ? 'bg-green-600 text-white' : 'border border-gray-700 text-gray-400 hover:bg-gray-800'}`}
-              >
-                Android
-              </button>
-            </div>
-          </div>
           <div>
             <label className="block text-sm text-gray-300">App Name</label>
             <input
