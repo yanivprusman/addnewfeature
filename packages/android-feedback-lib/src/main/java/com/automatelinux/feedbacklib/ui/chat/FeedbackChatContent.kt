@@ -71,7 +71,10 @@ fun FeedbackChatScreen(
     viewModel: FeedbackChatViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToIssues: (() -> Unit)? = null,
+    isProd: Boolean = false,
 ) {
+    if (isProd) return
+
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
 

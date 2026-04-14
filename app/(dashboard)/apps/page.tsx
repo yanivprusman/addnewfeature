@@ -8,6 +8,7 @@ type TenantApp = {
   name: string;
   appSlug: string;
   description: string | null;
+  appType: string;
   devPort: number | null;
   prodPort: number | null;
   status: string;
@@ -18,6 +19,7 @@ export default function AppsPage() {
   const [apps, setApps] = useState<TenantApp[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [appType, setAppType] = useState<'web' | 'android'>('web');
   const [newName, setNewName] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [creating, setCreating] = useState(false);
@@ -39,7 +41,8 @@ export default function AppsPage() {
     setCreating(true);
     setError('');
 
-    const res = await fetch('/api/apps/create', {
+    const endpoint = appType === 'android' ? '/api/apps/create-android' : '/api/apps/create';
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newName, description: newDescription }),
@@ -54,6 +57,7 @@ export default function AppsPage() {
 
     setNewName('');
     setNewDescription('');
+    setAppType('web');
     setShowCreate(false);
     setCreating(false);
     fetchApps();
@@ -87,6 +91,27 @@ export default function AppsPage() {
         <form data-id="create-app-form" onSubmit={handleCreate} className="space-y-3 rounded border border-gray-700 bg-gray-900 p-4">
           {error && <div data-id="create-app-error" className="text-sm text-red-400">{error}</div>}
           <div>
+            <label className="block text-sm text-gray-300 mb-1">App Type</label>
+            <div className="flex gap-2">
+              <button
+                data-id="type-web"
+                type="button"
+                onClick={() => setAppType('web')}
+                className={`rounded px-3 py-1.5 text-sm font-medium ${appType === 'web' ? 'bg-blue-600 text-white' : 'border border-gray-700 text-gray-400 hover:bg-gray-800'}`}
+              >
+                Web
+              </button>
+              <button
+                data-id="type-android"
+                type="button"
+                onClick={() => setAppType('android')}
+                className={`rounded px-3 py-1.5 text-sm font-medium ${appType === 'android' ? 'bg-green-600 text-white' : 'border border-gray-700 text-gray-400 hover:bg-gray-800'}`}
+              >
+                Android
+              </button>
+            </div>
+          </div>
+          <div>
             <label className="block text-sm text-gray-300">App Name</label>
             <input
               data-id="app-name-input"
@@ -116,7 +141,7 @@ export default function AppsPage() {
               disabled={creating}
               className="rounded bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
             >
-              {creating ? 'Creating...' : 'Create'}
+              {creating ? 'Creating...' : (appType === 'android' ? 'Create Android App' : 'Create')}
             </button>
             <button
               data-id="create-app-cancel"
@@ -151,6 +176,9 @@ export default function AppsPage() {
                   )}
                   <div className="mt-2 flex gap-3 text-xs text-gray-500">
                     <span>slug: {app.appSlug}</span>
+                    {app.appType === 'android' && (
+                      <span className="rounded bg-green-900/50 px-1.5 py-0.5 text-green-300">Android</span>
+                    )}
                     {app.devPort && <span>dev: {app.devPort}</span>}
                     {app.prodPort && <span>prod: {app.prodPort}</span>}
                   </div>

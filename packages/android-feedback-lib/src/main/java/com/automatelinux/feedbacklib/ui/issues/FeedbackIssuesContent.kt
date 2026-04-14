@@ -60,7 +60,10 @@ import com.automatelinux.feedbacklib.data.model.Issue
 fun FeedbackIssuesScreen(
     viewModel: FeedbackIssuesViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
+    isProd: Boolean = false,
 ) {
+    if (isProd) return
+
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf<Issue?>(null) }
     var fixSessionTarget by remember { mutableStateOf<Issue?>(null) }

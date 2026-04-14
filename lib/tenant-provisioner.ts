@@ -63,6 +63,50 @@ export async function createTenantApp(
   }
 }
 
+export async function createAndroidApp(
+  userId: string,
+  name: string,
+  slug: string,
+  description?: string,
+): Promise<{ id: string; devPort: number; prodPort: number }> {
+  const app = await prisma.tenantApp.create({
+    data: {
+      userId,
+      name,
+      appSlug: slug,
+      description,
+      appType: 'android',
+      status: 'creating',
+    },
+  });
+
+  try {
+    const result = await daemonCommand([
+      'createAndroidApp',
+      '--app', slug,
+      '--description', description || name,
+      '--icon', 'Smartphone',
+    ]);
+
+    const parsed = JSON.parse(result);
+    const devPort = parsed.devPort;
+    const prodPort = parsed.prodPort;
+
+    await prisma.tenantApp.update({
+      where: { id: app.id },
+      data: { devPort, prodPort, status: 'running' },
+    });
+
+    return { id: app.id, devPort, prodPort };
+  } catch (error) {
+    await prisma.tenantApp.update({
+      where: { id: app.id },
+      data: { status: 'error' },
+    });
+    throw error;
+  }
+}
+
 export async function getAppStatus(slug: string): Promise<string> {
   try {
     const result = await daemonCommand(['appStatus', '--app', slug]);

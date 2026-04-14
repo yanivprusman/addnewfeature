@@ -29,6 +29,7 @@ model TenantApp {
   peerId      String   @default("leader") @db.VarChar(50)
   devPort     Int?
   prodPort    Int?
+  appType     String   @default("web") @db.VarChar(20)
   status      String   @default("creating") @db.VarChar(20)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
