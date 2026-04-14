@@ -120,6 +120,14 @@ export async function deployApp(slug: string): Promise<string> {
   return daemonCommand(['deployToProd', '--app', slug]);
 }
 
+export async function buildApk(slug: string): Promise<void> {
+  await daemonCommand(['buildApp', '--app', slug, '--component', 'native-client']);
+}
+
+export function getApkPath(slug: string): string {
+  return `/opt/dev/${slug}/android/app/build/outputs/apk/debug/app-debug.apk`;
+}
+
 export async function deleteApp(slug: string, appId: string): Promise<void> {
   await daemonCommand(['removeApp', '--app', slug]);
   await prisma.tenantApp.delete({ where: { id: appId } });

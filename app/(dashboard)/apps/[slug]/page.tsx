@@ -7,6 +7,7 @@ type AppDetail = {
   name: string;
   appSlug: string;
   description: string | null;
+  appType: string;
   devPort: number | null;
   prodPort: number | null;
   status: string;
@@ -20,6 +21,8 @@ export default function AppDetailPage({ params }: { params: Promise<{ slug: stri
   const [loading, setLoading] = useState(true);
   const [deploying, setDeploying] = useState(false);
   const [deployMsg, setDeployMsg] = useState('');
+  const [buildingApk, setBuildingApk] = useState(false);
+  const [apkMsg, setApkMsg] = useState('');
 
   useEffect(() => {
     fetchApp();
@@ -32,6 +35,15 @@ export default function AppDetailPage({ params }: { params: Promise<{ slug: stri
       setApp(data);
     }
     setLoading(false);
+  }
+
+  async function handleBuildApk() {
+    setBuildingApk(true);
+    setApkMsg('');
+    const res = await fetch(`/api/apps/${slug}/build-apk`, { method: 'POST' });
+    const data = await res.json();
+    setApkMsg(res.ok ? 'APK built successfully' : data.error || 'Build failed');
+    setBuildingApk(false);
   }
 
   async function handleDeploy() {
@@ -54,19 +66,58 @@ export default function AppDetailPage({ params }: { params: Promise<{ slug: stri
   return (
     <div data-id="app-detail-page" className="space-y-6">
       <div>
-        <h1 data-id="app-title" className="text-2xl font-bold">{app.name}</h1>
+        <div className="flex items-center gap-2">
+          <h1 data-id="app-title" className="text-2xl font-bold">{app.name}</h1>
+          {app.appType === 'android' && (
+            <span className="rounded bg-green-900/50 px-2 py-0.5 text-sm text-green-300">Android</span>
+          )}
+        </div>
         {app.description && <p data-id="app-description" className="mt-1 text-gray-400">{app.description}</p>}
       </div>
 
+      {app.appType === 'android' && (
+        <div data-id="install-section" className="rounded border border-green-800/50 bg-green-950/30 p-4 space-y-3">
+          <h3 className="text-sm font-medium text-green-300">Install on Phone</h3>
+          <p className="text-sm text-gray-400">
+            Build the APK and download it to your phone, or transfer it via USB.
+          </p>
+          <div className="flex items-center gap-3">
+            <button
+              data-id="build-apk"
+              onClick={handleBuildApk}
+              disabled={buildingApk}
+              className="rounded bg-green-700 px-4 py-2 text-sm font-medium hover:bg-green-600 disabled:opacity-50"
+            >
+              {buildingApk ? 'Building...' : 'Build APK'}
+            </button>
+            <a
+              data-id="download-apk"
+              href={`/api/apps/${slug}/apk`}
+              className="rounded border border-green-700 px-4 py-2 text-sm font-medium text-green-300 hover:bg-green-900/50"
+            >
+              Download APK
+            </a>
+          </div>
+          {apkMsg && (
+            <div className={`rounded px-3 py-2 text-sm ${apkMsg.includes('success') ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>
+              {apkMsg}
+            </div>
+          )}
+          <p className="text-xs text-gray-500">
+            Enable &quot;Install from unknown sources&quot; on your device to sideload the APK.
+          </p>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div data-id="env-dev" className="rounded border border-gray-800 bg-gray-900/50 p-4">
-          <h3 className="text-sm font-medium text-gray-400">Dev</h3>
+          <h3 className="text-sm font-medium text-gray-400">{app.appType === 'android' ? 'Dev Backend' : 'Dev'}</h3>
           <a data-id="dev-url" href={`https://${devUrl}`} target="_blank" rel="noreferrer"
             className="mt-1 block text-blue-400 hover:underline">{devUrl}</a>
           <p className="mt-1 text-xs text-gray-500">Port {app.devPort}</p>
         </div>
         <div data-id="env-prod" className="rounded border border-gray-800 bg-gray-900/50 p-4">
-          <h3 className="text-sm font-medium text-gray-400">Prod</h3>
+          <h3 className="text-sm font-medium text-gray-400">{app.appType === 'android' ? 'Prod Backend' : 'Prod'}</h3>
           <a data-id="prod-url" href={`https://${prodUrl}`} target="_blank" rel="noreferrer"
             className="mt-1 block text-blue-400 hover:underline">{prodUrl}</a>
           <p className="mt-1 text-xs text-gray-500">Port {app.prodPort}</p>
