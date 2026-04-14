@@ -1,0 +1,47 @@
+package com.automatelinux.feedbacklib.data.api
+
+import com.automatelinux.feedbacklib.data.model.*
+import retrofit2.Response
+import retrofit2.http.*
+
+interface FeedbackApi {
+
+    // ── Chat ─────────────────────────────────────────────────────────────
+
+    @POST("api/feedback")
+    suspend fun sendFeedbackMessage(
+        @Body request: FeedbackMessageRequest,
+    ): Response<FeedbackMessageResponse>
+
+    @POST("api/feedback/submit")
+    suspend fun submitFeedbackIssues(
+        @Body request: FeedbackSubmitRequest,
+    ): Response<FeedbackSubmitResponse>
+
+    @POST("api/feedback/close")
+    suspend fun closeFeedbackSession(
+        @Body request: FeedbackCloseRequest,
+    ): Response<OkResponse>
+
+    @GET("api/feedback/status")
+    suspend fun getFeedbackStatus(
+        @Query("tmuxSession") tmuxSession: String,
+    ): Response<FeedbackStatusResponse>
+
+    // ── Issues ───────────────────────────────────────────────────────────
+
+    @GET("api/feedback/issues")
+    suspend fun listIssues(
+        @Query("app") app: String,
+    ): Response<IssuesListResponse>
+
+    @POST("api/feedback/issues")
+    suspend fun issueAction(
+        @Body request: IssueActionRequest,
+    ): Response<OkResponse>
+
+    @POST("api/feedback/issues")
+    suspend fun fixIssues(
+        @Body request: FixIssuesRequest,
+    ): Response<FixIssuesResponse>
+}

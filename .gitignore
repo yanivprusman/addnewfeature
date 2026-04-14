@@ -45,3 +45,6 @@ yarn-error.log*
 next-env.d.ts
 
 /lib/generated/prisma
+
+# Android feedback-lib Gradle build output
+packages/android-feedback-lib/build/
