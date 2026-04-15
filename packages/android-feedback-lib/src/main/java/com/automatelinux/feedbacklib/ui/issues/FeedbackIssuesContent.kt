@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
@@ -29,6 +30,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -60,6 +62,7 @@ import com.automatelinux.feedbacklib.data.model.Issue
 fun FeedbackIssuesScreen(
     viewModel: FeedbackIssuesViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
+    onNavigateToChat: (() -> Unit)? = null,
     isProd: Boolean = false,
 ) {
     if (isProd) return
@@ -112,6 +115,20 @@ fun FeedbackIssuesScreen(
                     }
                 },
             )
+        },
+        floatingActionButton = {
+            if (onNavigateToChat != null) {
+                FloatingActionButton(
+                    onClick = onNavigateToChat,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                ) {
+                    Icon(
+                        Icons.Filled.BugReport,
+                        contentDescription = "Report Issue",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                    )
+                }
+            }
         },
     ) { innerPadding ->
         Box(
