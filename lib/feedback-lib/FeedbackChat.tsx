@@ -71,8 +71,6 @@ export interface FeedbackLabels {
   goToIssuesPrompt: string;
   goToIssuesYes: string;
   goToIssuesNo: string;
-  fullScreen: string;
-  exitFullScreen: string;
   authExpired: string;
   resend: string;
 }
@@ -105,8 +103,6 @@ const defaultLabels: FeedbackLabels = {
   goToIssuesPrompt: "Issues submitted! Would you like to view them on the Issues page?",
   goToIssuesYes: "View Issues Page",
   goToIssuesNo: "Close",
-  fullScreen: "Full Screen",
-  exitFullScreen: "Exit Full Screen",
   authExpired: "Claude authentication expired. Run /login in a Claude Code session to refresh.",
   resend: "Re-send",
 };
@@ -305,7 +301,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const [directDesc, setDirectDesc] = useState("");
   const [directLoading, setDirectLoading] = useState(false);
   const [showPostSubmitPrompt, setShowPostSubmitPrompt] = useState(false);
-  const [fullScreen, setFullScreen] = useState(false);
+
   const [resumeId, setResumeId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -731,7 +727,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   }
 
   return (
-    <div data-id="feedback-chat" className={`fixed z-[10001] ${fullScreen ? 'inset-0' : 'bottom-6 end-6 w-96 max-h-[min(40rem,calc(100dvh-3rem))] rounded-2xl'} ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-2xl border flex flex-col overflow-hidden`}>
+    <div data-id="feedback-chat" className={`fixed z-[10001] inset-0 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-2xl border flex flex-col overflow-hidden`}>
       {/* Header */}
       <div data-id="chat-header" className={`flex items-center justify-between px-4 py-3 ${accentBase} text-white`}>
         <div data-id="chat-header-left" className="flex items-center gap-2">
@@ -764,17 +760,6 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
               {labels.viewIssues}
             </button>
           )}
-          <button data-id="fullscreen-toggle" onClick={() => setFullScreen(f => !f)} className="text-indigo-200 hover:text-white transition-colors" title={fullScreen ? labels.exitFullScreen : labels.fullScreen}>
-            {fullScreen ? (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
-              </svg>
-            ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-              </svg>
-            )}
-          </button>
           <button data-id="close-chat" onClick={handleClose} className="text-indigo-200 hover:text-white transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-5 h-5">
               <path d="M18 6L6 18M6 6l12 12" />
@@ -837,7 +822,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       ) : (
         <>
         {/* Messages */}
-        <div data-id="messages-area" className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 ${fullScreen ? '' : 'min-h-[12rem] max-h-[28rem]'}`}>
+        <div data-id="messages-area" className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           <ChatMessages messages={messages} isDark={isDark} accentBg={accentBase} selectIssuesLabel={labels.selectIssues} onResendStale={!issues ? handleResendStale : undefined} resendLabel={labels.resend} />
 
           {issues && issues.length > 0 && (
