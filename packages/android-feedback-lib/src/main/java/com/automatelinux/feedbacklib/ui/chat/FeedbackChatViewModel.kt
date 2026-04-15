@@ -117,6 +117,7 @@ class FeedbackChatViewModel @Inject constructor(
                             isSubmitting = false,
                         )
                     }
+                    concludeAfterSubmit()
                 }
                 .onFailure { e ->
                     _uiState.update {
@@ -141,6 +142,15 @@ class FeedbackChatViewModel @Inject constructor(
 
     fun dismissError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    fun concludeAfterSubmit() {
+        val results = _uiState.value.submitResults
+        closeSession()
+        _uiState.value = FeedbackChatUiState(
+            serverFound = true,
+            submitResults = results,
+        )
     }
 
     fun dismissSubmitResults() {

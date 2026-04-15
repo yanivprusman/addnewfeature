@@ -175,7 +175,13 @@ fun FeedbackChatScreen(
                 item {
                     SubmitResultsSection(
                         results = state.submitResults!!,
-                        onDismiss = viewModel::dismissSubmitResults,
+                        onViewIssues = onNavigateToIssues?.let { nav ->
+                            {
+                                nav()
+                                viewModel.dismissSubmitResults()
+                            }
+                        },
+                        onDone = viewModel::dismissSubmitResults,
                     )
                 }
             }
@@ -375,7 +381,8 @@ fun IssueCardsSection(
 @Composable
 fun SubmitResultsSection(
     results: List<FeedbackSubmitResult>,
-    onDismiss: () -> Unit,
+    onViewIssues: (() -> Unit)?,
+    onDone: () -> Unit,
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -406,8 +413,20 @@ fun SubmitResultsSection(
                 }
             }
 
-            TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
-                Text("Dismiss")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (onViewIssues != null) {
+                    TextButton(onClick = onViewIssues) {
+                        Text("View Issues")
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+                TextButton(onClick = onDone) {
+                    Text("Done")
+                }
             }
         }
     }
