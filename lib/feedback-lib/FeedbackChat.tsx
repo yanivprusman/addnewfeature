@@ -655,13 +655,17 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   function handleGoToIssues() {
     if (!isOnIssuesPage) {
       openIssuesTab(issuesPath || '/issues');
-    } else if (!appOverride || new URLSearchParams(window.location.search).get('app') === appOverride) {
-      // Already viewing the target app's issues — just refresh data
-      window.dispatchEvent(new Event('feedback-issues-refresh'));
     } else {
-      // On another app's issues page — open target app's issues in a separate tab
-      const w = window.open(`/issues?app=${appOverride}`, `${appOverride}-issues`);
-      w?.focus();
+      // The issues page defaults to addnewfeature (feedback-lib's owner) when no ?app= is present.
+      const viewedApp = new URLSearchParams(window.location.search).get('app') || 'addnewfeature';
+      if (!appOverride || viewedApp === appOverride) {
+        // Already viewing the target app's issues — just refresh data
+        window.dispatchEvent(new Event('feedback-issues-refresh'));
+      } else {
+        // On another app's issues page — open target app's issues in a separate tab
+        const w = window.open(`/issues?app=${appOverride}`, `${appOverride}-issues`);
+        w?.focus();
+      }
     }
     handlePostSubmitCleanup();
   }
