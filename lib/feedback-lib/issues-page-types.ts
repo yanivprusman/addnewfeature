@@ -79,5 +79,8 @@ export interface MaintenancePrompt {
   id: string;
   title: string;
   description: string;
-  prompt: string;
+  /** Skill slug — must match a directory under ~/.claude/skills/.
+   *  The launcher invokes this as `/<skill>` so the same prompt is callable
+   *  from the terminal via `claude /<skill>`. */
+  skill: string;
 }

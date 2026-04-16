@@ -263,7 +263,8 @@ export function launchFix(config: FixConfig): LaunchResult {
 export interface MaintenanceConfig {
   appName: string;
   workDir: string;
-  prompt: string;
+  /** Skill slug (directory name under ~/.claude/skills/). Launched as `/<skill>`. */
+  skill: string;
   issueNumber?: number;
   title?: string;
   user?: string;
@@ -271,15 +272,19 @@ export interface MaintenanceConfig {
 }
 
 /**
- * Launch a Claude session to run a maintenance prompt against the app.
+ * Launch a Claude session that invokes a maintenance skill against the app.
+ * The skill is passed as `/<skill>` so the same prompt is reusable from the
+ * terminal (`claude /<skill>`). Issue-tracking footer is appended when an
+ * issueNumber is supplied.
  */
 export function launchMaintenance(config: MaintenanceConfig): LaunchResult {
-  const { appName, workDir, prompt, issueNumber, title, user, dashboardPort } = config;
+  const { appName, workDir, skill, issueNumber, title, user, dashboardPort } = config;
 
   const claudeSessionId = crypto.randomUUID();
 
-  // Append issue review instructions if tracking an issue
-  let fullPrompt = prompt;
+  // Invoke the skill by slash command. Append issue-review instructions when
+  // a tracking issue exists so the agent closes the loop automatically.
+  let fullPrompt = `/${skill}`;
   if (issueNumber) {
     fullPrompt += `\n\nAfter completing the work and pushing, mark the maintenance issue as reviewed:\nd updateIssue --app ${appName} --issueNumber ${issueNumber} --status review --insights "describe what was done" --claudeSessionId "$CLAUDE_SESSION_ID" --claudeLaunchDir "$CLAUDE_LAUNCH_DIR"`;
   }

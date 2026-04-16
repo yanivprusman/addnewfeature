@@ -484,9 +484,9 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
         if (!workDir) {
           return NextResponse.json({ error: 'Maintenance not configured — workDir not set' }, { status: 400 });
         }
-        const { prompt, title } = body;
-        if (!prompt || typeof prompt !== 'string') {
-          return NextResponse.json({ error: 'prompt string required' }, { status: 400 });
+        const { skill, title } = body;
+        if (!skill || typeof skill !== 'string') {
+          return NextResponse.json({ error: 'skill string required' }, { status: 400 });
         }
         const maintWorkDir = effectiveWorkDir || `/opt/dev/${effectiveApp}`;
 
@@ -509,7 +509,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
 
         let result;
         try {
-          result = launchMaintenance({ appName: effectiveApp, workDir: maintWorkDir, prompt, issueNumber, title, dashboardPort });
+          result = launchMaintenance({ appName: effectiveApp, workDir: maintWorkDir, skill, issueNumber, title, dashboardPort });
         } catch (err) {
           if (err instanceof Error && err.message === 'auth_expired') {
             return NextResponse.json(

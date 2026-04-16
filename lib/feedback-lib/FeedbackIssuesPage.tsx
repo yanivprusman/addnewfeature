@@ -512,7 +512,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       const res = await fetch("/api/feedback/issues", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "maintenance", prompt: mp.prompt, title: mp.title, ...(appName && { app: appName }) }),
+        body: JSON.stringify({ action: "maintenance", skill: mp.skill, title: mp.title, ...(appName && { app: appName }) }),
       });
       if (res.ok) {
         const data = await res.json();
