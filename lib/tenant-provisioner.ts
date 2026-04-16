@@ -128,6 +128,19 @@ export function getApkPath(slug: string): string {
   return `/opt/dev/${slug}/android/app/build/outputs/apk/debug/app-debug.apk`;
 }
 
+export async function installApk(slug: string): Promise<string> {
+  const apkPath = getApkPath(slug);
+  return new Promise((resolve, reject) => {
+    execFile('/usr/bin/adb', ['install', '-r', apkPath], { timeout: 120000 }, (error, stdout, stderr) => {
+      if (error) {
+        reject(new Error(stderr || error.message));
+        return;
+      }
+      resolve(stdout);
+    });
+  });
+}
+
 export async function deleteApp(slug: string, appId: string): Promise<void> {
   await daemonCommand(['removeApp', '--app', slug]);
   await prisma.tenantApp.delete({ where: { id: appId } });

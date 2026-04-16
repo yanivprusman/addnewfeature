@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 type TenantApp = {
@@ -15,7 +16,31 @@ type TenantApp = {
   createdAt: string;
 };
 
+type StepStatus = 'pending' | 'active' | 'done' | 'error';
+
+function ProgressStep({ label, status }: { label: string; status: StepStatus }) {
+  return (
+    <div className="flex items-center gap-3">
+      {status === 'pending' && <span className="h-5 w-5 rounded-full border border-gray-600" />}
+      {status === 'active' && (
+        <span className="h-5 w-5 rounded-full border-2 border-green-400 border-t-transparent animate-spin" />
+      )}
+      {status === 'done' && (
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-green-600 text-xs text-white">✓</span>
+      )}
+      {status === 'error' && (
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs text-white">✗</span>
+      )}
+      <span className={status === 'active' ? 'text-green-300' : status === 'done' ? 'text-gray-300' : status === 'error' ? 'text-red-300' : 'text-gray-500'}>
+        {label}
+        {status === 'active' && '...'}
+      </span>
+    </div>
+  );
+}
+
 export default function AppsPage() {
+  const router = useRouter();
   const [apps, setApps] = useState<TenantApp[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -24,6 +49,11 @@ export default function AppsPage() {
   const [newDescription, setNewDescription] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const [androidProgress, setAndroidProgress] = useState<{
+    step: 'creating' | 'installing' | 'done' | 'error';
+    slug: string;
+    error?: string;
+  } | null>(null);
 
   useEffect(() => {
     fetchApps();
@@ -55,12 +85,36 @@ export default function AppsPage() {
       return;
     }
 
-    setNewName('');
-    setNewDescription('');
-    setAppType('web');
+    const result = await res.json();
+
+    if (appType !== 'android') {
+      setNewName('');
+      setNewDescription('');
+      setAppType('web');
+      setShowCreate(false);
+      setCreating(false);
+      fetchApps();
+      return;
+    }
+
+    // Android: chain create → build → install
+    const slug = result.slug;
     setShowCreate(false);
     setCreating(false);
-    fetchApps();
+    setNewName('');
+    setNewDescription('');
+    setAndroidProgress({ step: 'installing', slug });
+    const installRes = await fetch(`/api/apps/${slug}/install-apk`, { method: 'POST' });
+    if (!installRes.ok) {
+      const data = await installRes.json();
+      setAndroidProgress({ step: 'error', slug, error: `Install failed: ${data.error}` });
+      return;
+    }
+
+    setAndroidProgress({ step: 'done', slug });
+    setTimeout(() => {
+      router.push(`/apps/${slug}`);
+    }, 1500);
   }
 
   const statusColors: Record<string, string> = {
@@ -148,6 +202,42 @@ export default function AppsPage() {
             </button>
           </div>
         </form>
+      )}
+
+      {androidProgress && (
+        <div data-id="android-progress" className="rounded border border-green-800/50 bg-green-950/30 p-6 space-y-4">
+          <h3 className="text-lg font-semibold text-green-300">Setting up Android App</h3>
+          <div className="space-y-3">
+            <ProgressStep
+              label="Creating app"
+              status="done"
+            />
+            <ProgressStep
+              label="Installing on phone"
+              status={androidProgress.step === 'installing' ? 'active' :
+                      androidProgress.step === 'done' ? 'done' :
+                      androidProgress.step === 'error' ? 'error' : 'pending'}
+            />
+          </div>
+          {androidProgress.step === 'error' && (
+            <div className="space-y-2">
+              <div className="rounded bg-red-900/50 px-3 py-2 text-sm text-red-300">
+                {androidProgress.error}
+              </div>
+              <button
+                onClick={() => { setAndroidProgress(null); router.push(`/apps/${androidProgress.slug}`); }}
+                className="rounded bg-gray-700 px-4 py-2 text-sm hover:bg-gray-600"
+              >
+                Go to App Details
+              </button>
+            </div>
+          )}
+          {androidProgress.step === 'done' && (
+            <div className="rounded bg-green-900/50 px-3 py-2 text-sm text-green-300">
+              All done! Redirecting to app details...
+            </div>
+          )}
+        </div>
       )}
 
       {apps.length === 0 ? (

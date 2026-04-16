@@ -21,8 +21,8 @@ export default function AppDetailPage({ params }: { params: Promise<{ slug: stri
   const [loading, setLoading] = useState(true);
   const [deploying, setDeploying] = useState(false);
   const [deployMsg, setDeployMsg] = useState('');
-  const [buildingApk, setBuildingApk] = useState(false);
-  const [apkMsg, setApkMsg] = useState('');
+  const [installingApk, setInstallingApk] = useState(false);
+  const [installMsg, setInstallMsg] = useState('');
 
   useEffect(() => {
     fetchApp();
@@ -37,13 +37,13 @@ export default function AppDetailPage({ params }: { params: Promise<{ slug: stri
     setLoading(false);
   }
 
-  async function handleBuildApk() {
-    setBuildingApk(true);
-    setApkMsg('');
-    const res = await fetch(`/api/apps/${slug}/build-apk`, { method: 'POST' });
+  async function handleInstallOnPhone() {
+    setInstallingApk(true);
+    setInstallMsg('Building & installing...');
+    const res = await fetch(`/api/apps/${slug}/install-apk`, { method: 'POST' });
     const data = await res.json();
-    setApkMsg(res.ok ? 'APK built successfully' : data.error || 'Build failed');
-    setBuildingApk(false);
+    setInstallMsg(res.ok ? 'Installed on phone successfully!' : data.error || 'Install failed');
+    setInstallingApk(false);
   }
 
   async function handleDeploy() {
@@ -79,33 +79,21 @@ export default function AppDetailPage({ params }: { params: Promise<{ slug: stri
         <div data-id="install-section" className="rounded border border-green-800/50 bg-green-950/30 p-4 space-y-3">
           <h3 className="text-sm font-medium text-green-300">Install on Phone</h3>
           <p className="text-sm text-gray-400">
-            Build the APK and download it to your phone, or transfer it via USB.
+            Build the APK and install it directly on your phone.
           </p>
-          <div className="flex items-center gap-3">
-            <button
-              data-id="build-apk"
-              onClick={handleBuildApk}
-              disabled={buildingApk}
-              className="rounded bg-green-700 px-4 py-2 text-sm font-medium hover:bg-green-600 disabled:opacity-50"
-            >
-              {buildingApk ? 'Building...' : 'Build APK'}
-            </button>
-            <a
-              data-id="download-apk"
-              href={`/api/apps/${slug}/apk`}
-              className="rounded border border-green-700 px-4 py-2 text-sm font-medium text-green-300 hover:bg-green-900/50"
-            >
-              Download APK
-            </a>
-          </div>
-          {apkMsg && (
-            <div className={`rounded px-3 py-2 text-sm ${apkMsg.includes('success') ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>
-              {apkMsg}
+          <button
+            data-id="install-on-phone"
+            onClick={handleInstallOnPhone}
+            disabled={installingApk}
+            className="rounded bg-green-600 px-4 py-2 text-sm font-medium hover:bg-green-500 disabled:opacity-50"
+          >
+            {installingApk ? 'Installing...' : 'Install on Phone'}
+          </button>
+          {installMsg && (
+            <div className={`rounded px-3 py-2 text-sm ${installMsg.includes('successfully') ? 'bg-green-900/50 text-green-300' : installMsg.includes('failed') ? 'bg-red-900/50 text-red-300' : 'bg-blue-900/50 text-blue-300'}`}>
+              {installMsg}
             </div>
           )}
-          <p className="text-xs text-gray-500">
-            Enable &quot;Install from unknown sources&quot; on your device to sideload the APK.
-          </p>
         </div>
       )}
 

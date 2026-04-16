@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await createAndroidApp(session.user.id, name, slug, description);
-    return NextResponse.json(result, { status: 201 });
+    return NextResponse.json({ ...result, slug }, { status: 201 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create app';
     return NextResponse.json({ error: message }, { status: 500 });
