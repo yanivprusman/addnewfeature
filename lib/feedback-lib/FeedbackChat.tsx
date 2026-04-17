@@ -756,16 +756,32 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           <button
             data-id="toggle-direct-mode"
             onClick={() => { setDirectMode(v => !v); setSubmitResults(null); setShowPostSubmitPrompt(false); }}
-            className="text-xs text-indigo-200 hover:text-white transition-colors"
+            className="text-indigo-200 hover:text-white transition-colors"
+            title={directMode ? labels.useClarifier : labels.writeDirectly}
           >
-            {directMode ? labels.useClarifier : labels.writeDirectly}
+            {directMode ? (
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+              </svg>
+            )}
           </button>
-          <button data-id="new-chat" onClick={handleNewChat} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.newChat}>
-            {labels.newChat}
+          <button data-id="new-chat" onClick={handleNewChat} className="text-indigo-200 hover:text-white transition-colors" title={labels.newChat}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+              <path d="M12 8v6M9 11h6" />
+            </svg>
           </button>
           {issuesPath && (
-            <button data-id="view-issues" onClick={handleGoToIssues} className="text-xs text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
-              {labels.viewIssues}
+            <button data-id="view-issues" onClick={handleGoToIssues} className="text-indigo-200 hover:text-white transition-colors" title={labels.viewIssues}>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <rect x="4" y="3" width="16" height="18" rx="2" />
+                <path d="M8 8h8M8 12h8M8 16h5" />
+              </svg>
             </button>
           )}
           <button data-id="fullscreen-toggle" onClick={() => setFullScreen(f => !f)} className="text-indigo-200 hover:text-white transition-colors" title={fullScreen ? labels.exitFullScreen : labels.fullScreen}>
