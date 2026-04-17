@@ -69,15 +69,13 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   useEffect(() => {
     originalTitleRef.current = document.title;
 
-    // Remove all existing favicon links — just changing href doesn't force Chrome to re-fetch
-    const existingLinks = document.querySelectorAll("link[rel='icon'], link[rel='shortcut icon']");
-    const savedLinks: { rel: string; href: string; type: string; sizes: string }[] = [];
-    existingLinks.forEach(el => {
-      const l = el as HTMLLinkElement;
-      savedLinks.push({ rel: l.rel, href: l.href, type: l.type, sizes: l.sizes?.toString() || '' });
-      l.remove();
-    });
-
+    // Append our favicon last in <head>. Don't remove framework-inserted
+    // favicons (Next.js metadata, etc.) — those nodes are tracked by React's
+    // fiber tree, and removing them causes "Cannot read properties of null
+    // (reading 'removeChild')" on the next reconciliation when React tries
+    // to unmount a node whose parent is already null. Browsers pick the last
+    // size-ambiguous `rel="icon"` link, so placing ours last is enough for it
+    // to win visually without mutating any node React manages.
     const link = document.createElement('link');
     link.rel = 'icon';
     link.type = 'image/svg+xml';
@@ -86,15 +84,17 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     );
     document.head.appendChild(link);
 
-    // Watch for frameworks (e.g. Next.js metadata) re-inserting favicon links
-    // after hydration, and remove them so ours stays active.
+    // Keep our link last when the framework re-inserts its own favicon.
+    // We re-append (which just moves it — no duplicates) rather than removing
+    // the newcomer, which would desync React's fiber tree.
     const observer = new MutationObserver((mutations) => {
       for (const m of mutations) {
         for (const node of m.addedNodes) {
           if (node instanceof HTMLLinkElement && node !== link && (node.rel === 'icon' || node.rel === 'shortcut icon')) {
-            // Defer removal so React finishes its DOM reconciliation first —
-            // removing synchronously causes "Cannot read properties of null (reading 'removeChild')"
-            queueMicrotask(() => { if (node.parentNode) node.remove(); });
+            if (link.parentNode === document.head && document.head.lastElementChild !== link) {
+              document.head.appendChild(link);
+            }
+            return;
           }
         }
       }
@@ -105,14 +105,6 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       observer.disconnect();
       document.title = originalTitleRef.current;
       link.remove();
-      savedLinks.forEach(s => {
-        const restored = document.createElement('link');
-        restored.rel = s.rel;
-        restored.href = s.href;
-        if (s.type) restored.type = s.type;
-        if (s.sizes) restored.sizes = s.sizes;
-        document.head.appendChild(restored);
-      });
     };
   }, []);
 
