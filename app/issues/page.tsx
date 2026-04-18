@@ -1,5 +1,5 @@
 import { FeedbackIssuesPage } from '@automate/feedback-lib/FeedbackIssuesPage';
-export { feedbackIssuesMetadata as metadata } from '@automate/feedback-lib/feedback-issues-metadata';
+export { generateFeedbackIssuesMetadata as generateMetadata } from '@automate/feedback-lib/feedback-issues-metadata';
 
 export default async function IssuesPage({
   searchParams,

@@ -1,11 +1,17 @@
 import type { Metadata } from 'next';
 
-// Route-level metadata consumer apps re-export from their /issues/page.tsx so
-// the initial <title> is "Issues" rather than the host app's root-layout title
-// (e.g. cad's "CAD Shed Generator"). The client-side useEffect in
-// FeedbackIssuesPage later refines document.title to "{appName} — Issues"
-// once the viewed app is known.
-//
-// Kept in its own server-safe module (no "use client") so Next.js treats it
-// as route metadata — metadata exported from a client module is ignored.
+// Static fallback kept for backwards-compat re-exports. New consumers should
+// re-export `generateFeedbackIssuesMetadata` so the initial <title> reflects
+// ?app=... from the URL (e.g. "addnewfeature — Issues") instead of the
+// generic "Issues", avoiding a tab-title flicker before the client-side
+// useEffect in FeedbackIssuesPage takes over.
 export const feedbackIssuesMetadata: Metadata = { title: 'Issues' };
+
+export async function generateFeedbackIssuesMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ app?: string }>;
+}): Promise<Metadata> {
+  const { app } = await searchParams;
+  return { title: app ? `${app} — Issues` : 'Issues' };
+}
