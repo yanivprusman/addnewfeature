@@ -773,7 +773,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                         <div data-id={`issue-sessions-${issue.issueNumber}`} className={`text-xs font-mono mt-1 flex flex-col gap-y-0.5 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                           {issue.clarifierSessionId && (
                             <span data-id={`issue-clarifier-session-${issue.issueNumber}`} title={issue.clarifierSessionId}>
-                              <span className={isDark ? "text-purple-400" : "text-purple-600"}>clarifier:</span> {issue.clarifierSessionId.slice(0, 8)}
+                              <span className="text-emerald-500/70">clarifier:</span> {issue.clarifierSessionId.slice(0, 8)}
                             </span>
                           )}
                           {issue.claudeSessionIds && issue.claudeSessionIds.length > 0 && (
