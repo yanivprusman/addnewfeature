@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import type { Metadata } from 'next';
 import type { Issue, IssuesPageLabels, MaintenancePrompt } from './issues-page-types';
 import { issuesTranslations } from './issues-page-i18n';
 import { MAINTENANCE_PROMPTS } from './maintenance-prompts';
@@ -10,12 +9,6 @@ import { RegressionChatModal } from './issues-page-chat-modal';
 import { ReviewDialog, FixSessionDialog } from './issues-page-dialogs';
 
 export type { Issue, IssuesPageLabels } from './issues-page-types';
-
-// Route-level metadata consumer apps re-export so that the initial <title>
-// is "Issues" instead of the host app's root-layout title (e.g. cad's
-// "CAD Shed Generator"). The client-side useEffect below then refines it to
-// "{appName} — Issues" once the viewed app is known.
-export const feedbackIssuesMetadata: Metadata = { title: 'Issues' };
 
 interface FeedbackIssuesPageProps {
   lang?: string;
