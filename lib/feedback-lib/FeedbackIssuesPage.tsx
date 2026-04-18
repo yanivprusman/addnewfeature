@@ -14,21 +14,19 @@ interface FeedbackIssuesPageProps {
   lang?: string;
   labels?: Partial<IssuesPageLabels>;
   colorScheme?: "system" | "light" | "dark";
+  initialAppName?: string | null;
 }
 
-export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme = "system" }: FeedbackIssuesPageProps) {
+export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme = "system", initialAppName = null }: FeedbackIssuesPageProps) {
   const langLabels = lang ? (issuesTranslations[lang] ?? issuesTranslations.en) : issuesTranslations.en;
   const labels = { ...langLabels, ...labelOverrides };
   const systemDark = useSystemDark();
   const isDark = colorScheme === "dark" || (colorScheme !== "light" && systemDark);
 
-  // Seed appName from ?app= so the tab title is correct synchronously on
-  // mount, avoiding both the host-app root-metadata flash and the generic
-  // "Issues"-only intermediate state before the API responds.
-  const [appName, setAppName] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null;
-    return new URLSearchParams(window.location.search).get('app');
-  });
+  // Seeded from the server-resolved ?app= query param so SSR and client
+  // hydration render the same title, avoiding both the root-metadata flash
+  // and the generic "Issues"-only intermediate state before the API responds.
+  const [appName, setAppName] = useState<string | null>(initialAppName ?? null);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -126,10 +124,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     return () => { delete w.__feedbackIssuesAppName; };
   }, [appName]);
 
-  const [overrideApp] = useState(() => {
-    if (typeof window === 'undefined') return null;
-    return new URLSearchParams(window.location.search).get('app');
-  });
+  const [overrideApp] = useState<string | null>(initialAppName ?? null);
 
   const fetchIssues = useCallback(async () => {
     try {
