@@ -770,10 +770,10 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                         {formatDate(issue.createdAt)}
                       </p>
                       {(issue.clarifierSessionId || (issue.claudeSessionIds && issue.claudeSessionIds.length > 0)) && (
-                        <div data-id={`issue-sessions-${issue.issueNumber}`} className={`text-xs font-mono mt-1 flex flex-wrap gap-x-3 gap-y-0.5 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                        <div data-id={`issue-sessions-${issue.issueNumber}`} className={`text-xs font-mono mt-1 flex flex-col gap-y-0.5 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                           {issue.clarifierSessionId && (
                             <span data-id={`issue-clarifier-session-${issue.issueNumber}`} title={issue.clarifierSessionId}>
-                              clarifier: {issue.clarifierSessionId.slice(0, 8)}
+                              <span className={isDark ? "text-purple-400" : "text-purple-600"}>clarifier:</span> {issue.clarifierSessionId.slice(0, 8)}
                             </span>
                           )}
                           {issue.claudeSessionIds && issue.claudeSessionIds.length > 0 && (
