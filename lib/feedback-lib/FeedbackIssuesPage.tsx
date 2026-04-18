@@ -782,12 +782,12 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                         <div data-id={`issue-sessions-${issue.issueNumber}`} className={`text-xs font-mono mt-1 flex flex-col gap-y-0.5 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                           {issue.clarifierSessionId && (
                             <span data-id={`issue-clarifier-session-${issue.issueNumber}`} title={issue.clarifierSessionId}>
-                              <span className="text-emerald-500/70 inline-block w-20">clarifier:</span>{issue.clarifierSessionId.slice(0, 8)}
+                              <span className="inline-block w-20">clarifier:</span><span className="text-emerald-500/70">{issue.clarifierSessionId.slice(0, 8)}</span>
                             </span>
                           )}
                           {issue.claudeSessionIds && issue.claudeSessionIds.length > 0 && (
                             <span data-id={`issue-fix-sessions-${issue.issueNumber}`} title={issue.claudeSessionIds.join('\n')}>
-                              <span className="text-sky-500/70 inline-block w-20">fix:</span>{issue.claudeSessionIds.map(id => id.slice(0, 8)).join(' · ')}
+                              <span className="inline-block w-20">fix:</span><span className="text-sky-500/70">{issue.claudeSessionIds.map(id => id.slice(0, 8)).join(' · ')}</span>
                             </span>
                           )}
                         </div>
