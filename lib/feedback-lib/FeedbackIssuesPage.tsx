@@ -778,7 +778,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           )}
                           {issue.claudeSessionIds && issue.claudeSessionIds.length > 0 && (
                             <span data-id={`issue-fix-sessions-${issue.issueNumber}`} title={issue.claudeSessionIds.join('\n')}>
-                              fix: {issue.claudeSessionIds.map(id => id.slice(0, 8)).join(' · ')}
+                              <span className="text-sky-500/70">fix:</span> {issue.claudeSessionIds.map(id => id.slice(0, 8)).join(' · ')}
                             </span>
                           )}
                         </div>
