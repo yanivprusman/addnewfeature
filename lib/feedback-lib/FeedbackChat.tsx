@@ -656,15 +656,17 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     if (!isOnIssuesPage) {
       openIssuesTab(issuesPath || '/issues');
     } else {
-      // The issues page defaults to addnewfeature (feedback-lib's owner) when no ?app= is present.
-      const viewedApp = new URLSearchParams(window.location.search).get('app') || 'addnewfeature';
-      if (!appOverride || viewedApp === appOverride) {
-        // Already viewing the target app's issues — just refresh data
+      // The /issues page shows the host app's issues by default (no ?app= ⇒
+      // API falls back to the current app, not addnewfeature). Read the actually
+      // viewed app from FeedbackIssuesPage's window export.
+      const viewedApp = new URLSearchParams(window.location.search).get('app')
+        || (window as Window & { __feedbackIssuesAppName?: string }).__feedbackIssuesAppName;
+      if (viewedApp === 'addnewfeature') {
+        // Already viewing addnewfeature's issues — just refresh data
         window.dispatchEvent(new Event('feedback-issues-refresh'));
       } else {
-        // On another app's issues page — open target app's issues in a separate tab
-        const w = window.open(`/issues?app=${appOverride}`, `${appOverride}-issues`);
-        w?.focus();
+        // On another app's /issues page — open addnewfeature's issues in a named tab
+        openIssuesTab('/issues?app=addnewfeature', 'addnewfeature-issues');
       }
     }
     handlePostSubmitCleanup();

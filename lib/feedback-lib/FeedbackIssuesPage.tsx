@@ -112,6 +112,14 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     document.title = appName ? `${appName} — ${labels.pageTitle}` : labels.pageTitle;
   }, [appName, labels.pageTitle]);
 
+  // Expose the currently-viewed app so FeedbackChat can tell whether it's
+  // already showing addnewfeature's issues (refresh) or another app's (new tab).
+  useEffect(() => {
+    const w = window as Window & { __feedbackIssuesAppName?: string };
+    if (appName) w.__feedbackIssuesAppName = appName;
+    return () => { delete w.__feedbackIssuesAppName; };
+  }, [appName]);
+
   const [overrideApp] = useState(() => {
     if (typeof window === 'undefined') return null;
     return new URLSearchParams(window.location.search).get('app');
