@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import type { Metadata } from 'next';
 import type { Issue, IssuesPageLabels, MaintenancePrompt } from './issues-page-types';
 import { issuesTranslations } from './issues-page-i18n';
 import { MAINTENANCE_PROMPTS } from './maintenance-prompts';
@@ -9,6 +10,12 @@ import { RegressionChatModal } from './issues-page-chat-modal';
 import { ReviewDialog, FixSessionDialog } from './issues-page-dialogs';
 
 export type { Issue, IssuesPageLabels } from './issues-page-types';
+
+// Route-level metadata consumer apps re-export so that the initial <title>
+// is "Issues" instead of the host app's root-layout title (e.g. cad's
+// "CAD Shed Generator"). The client-side useEffect below then refines it to
+// "{appName} — Issues" once the viewed app is known.
+export const feedbackIssuesMetadata: Metadata = { title: 'Issues' };
 
 interface FeedbackIssuesPageProps {
   lang?: string;
@@ -22,7 +29,13 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const systemDark = useSystemDark();
   const isDark = colorScheme === "dark" || (colorScheme !== "light" && systemDark);
 
-  const [appName, setAppName] = useState<string | null>(null);
+  // Seed appName from ?app= so the tab title is correct synchronously on
+  // mount, avoiding both the host-app root-metadata flash and the generic
+  // "Issues"-only intermediate state before the API responds.
+  const [appName, setAppName] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return new URLSearchParams(window.location.search).get('app');
+  });
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
