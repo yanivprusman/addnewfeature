@@ -483,7 +483,12 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const handleResizeStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     const startY = e.clientY;
-    const startHeight = customHeight ?? Math.min(DEFAULT_HEIGHT_PX, window.innerHeight - 48);
+    // Measure the widget's actual rendered height — otherwise the first drag
+    // jumps from content-sized to DEFAULT_HEIGHT_PX because no inline height
+    // is set until the user has dragged at least once.
+    const widgetEl = e.currentTarget.parentElement as HTMLElement | null;
+    const measured = widgetEl?.getBoundingClientRect().height;
+    const startHeight = customHeight ?? (measured && measured > 0 ? measured : Math.min(DEFAULT_HEIGHT_PX, window.innerHeight - 48));
     setIsResizing(true);
     let finalHeight = startHeight;
 
