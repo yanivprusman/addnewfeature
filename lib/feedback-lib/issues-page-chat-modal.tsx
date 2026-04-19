@@ -168,7 +168,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, o
     try {
       const results = await submitChatIssues(selected, {
         ...(appName && { app: appName }),
-        pagePath: "/issues",
+        pagePath: "/feedback-lib-issues",
         pageContext: "Issues",
         sessionId: sessionId || issue.clarifierSessionId,
       });
