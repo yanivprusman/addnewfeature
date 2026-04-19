@@ -73,5 +73,7 @@ export const feedbackTranslations: Record<string, FeedbackLabels> = {
     authExpired: "אימות Claude פג תוקף. הריצו /login בסשן Claude Code כדי לרענן.",
     resend: "שליחה מחדש",
     restoreSize: "שחזור לגודל ברירת מחדל",
+    copy: "העתקה",
+    copied: "הועתק",
   },
 };

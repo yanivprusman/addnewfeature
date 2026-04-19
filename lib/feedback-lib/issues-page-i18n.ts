@@ -52,6 +52,8 @@ const defaultLabels: IssuesPageLabels = {
   newFixSession: "New fix session",
   authExpired: "Claude authentication expired. Run /login in a Claude Code session to refresh.",
   resend: "Re-send",
+  copy: "Copy",
+  copied: "Copied",
 };
 
 const heLabels: IssuesPageLabels = {
@@ -106,6 +108,8 @@ const heLabels: IssuesPageLabels = {
   newFixSession: "סשן תיקון חדש",
   authExpired: "אימות Claude פג תוקף. הריצו /login בסשן Claude Code כדי לרענן.",
   resend: "שליחה מחדש",
+  copy: "העתקה",
+  copied: "הועתק",
 };
 
 export const issuesTranslations: Record<string, IssuesPageLabels> = {

@@ -242,7 +242,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, o
           {!historyLoading && messages.length === 0 && (
             <p data-id="chat-modal-no-history" className={`text-sm text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>{labels.noSessionHistory}</p>
           )}
-          <ChatMessages messages={messages} isDark={isDark} selectIssuesLabel={labels.selectIssues} onResendStale={!chatIssues ? handleResendStale : undefined} resendLabel={labels.resend} />
+          <ChatMessages messages={messages} isDark={isDark} selectIssuesLabel={labels.selectIssues} onResendStale={!chatIssues ? handleResendStale : undefined} resendLabel={labels.resend} copyLabel={labels.copy} copiedLabel={labels.copied} />
           {chatIssues && chatIssues.length > 0 && (
             <ChatIssueChecklist
               issues={chatIssues}
