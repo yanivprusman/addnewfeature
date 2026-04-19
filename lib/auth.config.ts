@@ -9,7 +9,7 @@ export const authConfig = {
       const isLoggedIn = !!auth?.user;
       const pathname = nextUrl.pathname;
 
-      const publicRoutes = ['/login', '/register', '/', '/issues'];
+      const publicRoutes = ['/login', '/register', '/', '/feedback-lib-issues'];
       const isPublicRoute =
         publicRoutes.includes(pathname) ||
         pathname.startsWith('/api/auth') ||

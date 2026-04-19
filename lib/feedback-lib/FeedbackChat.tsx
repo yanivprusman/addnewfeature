@@ -120,7 +120,7 @@ interface FeedbackChatProps {
   accentClass?: string;
   /** Color scheme: 'system' follows OS preference, 'light' or 'dark' forces a mode */
   colorScheme?: 'system' | 'light' | 'dark';
-  /** Path to the issues page (e.g. "/issues"). If set, shows a link in the header. */
+  /** Path to the issues page (e.g. "/feedback-lib-issues"). If set, shows a link in the header. */
   issuesPath?: string;
 }
 
@@ -279,7 +279,7 @@ function FeedbackChatDev(props: FeedbackChatProps) {
   );
 }
 
-function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorScheme = 'system', issuesPath = '/issues' }: FeedbackChatProps) {
+function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorScheme = 'system', issuesPath = '/feedback-lib-issues' }: FeedbackChatProps) {
   const langLabels = lang ? (feedbackTranslations[lang] ?? defaultLabels) : defaultLabels;
   const labels = { ...langLabels, ...labelOverrides };
   const accent = accentClass ?? "bg-indigo-600 hover:bg-indigo-700";
@@ -654,7 +654,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
   function handleGoToIssues() {
     if (!isOnIssuesPage) {
-      openIssuesTab(issuesPath || '/issues');
+      openIssuesTab(issuesPath || '/feedback-lib-issues');
     } else {
       // The /issues page shows the host app's issues by default (no ?app= ⇒
       // API falls back to the current app, not addnewfeature). Read the actually
@@ -666,7 +666,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         window.dispatchEvent(new Event('feedback-issues-refresh'));
       } else {
         // On another app's /issues page — open addnewfeature's issues in a named tab
-        openIssuesTab('/issues?app=addnewfeature', 'addnewfeature-issues');
+        openIssuesTab('/feedback-lib-issues?app=addnewfeature', 'addnewfeature-issues');
       }
     }
     handlePostSubmitCleanup();

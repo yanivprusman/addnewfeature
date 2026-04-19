@@ -113,7 +113,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, o
                 },
               }),
           ...(appName && { app: appName }),
-          pagePath: "/issues",
+          pagePath: "/feedback-lib-issues",
           pageContext: "Issues",
         }),
       });
