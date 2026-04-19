@@ -113,7 +113,20 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   }, []);
 
   useEffect(() => {
-    document.title = appName ? `${appName} — ${labels.pageTitle}` : labels.pageTitle;
+    const expectedTitle = appName ? `${appName} — ${labels.pageTitle}` : labels.pageTitle;
+    document.title = expectedTitle;
+
+    // Guard against external code (Next.js metadata re-sync, hot-reload, etc.)
+    // overwriting document.title after our effect ran. Without this, the tab
+    // title briefly shows "[app] — Issues" then regresses to the generic
+    // "Issues" once the framework re-applies the route-level metadata.
+    const titleEl = document.querySelector('title');
+    if (!titleEl) return;
+    const titleObserver = new MutationObserver(() => {
+      if (document.title !== expectedTitle) document.title = expectedTitle;
+    });
+    titleObserver.observe(titleEl, { childList: true, characterData: true, subtree: true });
+    return () => titleObserver.disconnect();
   }, [appName, labels.pageTitle]);
 
   // Expose the currently-viewed app so FeedbackChat can tell whether it's
