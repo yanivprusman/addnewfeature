@@ -128,6 +128,9 @@ const STORAGE_KEY_BASE = "feedback-chat-session";
 const HEARTBEAT_PREFIX = 'feedback-hb-';
 const HEARTBEAT_INTERVAL = 5_000;
 const HEARTBEAT_STALE = 10_000;
+const HEIGHT_STORAGE_KEY = 'feedback-chat-height';
+const DEFAULT_HEIGHT_PX = 512; // matches 32rem max
+const MIN_HEIGHT_PX = 260;
 
 interface PersistedSession {
   sessionId: string;
@@ -307,6 +310,8 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const [showPostSubmitPrompt, setShowPostSubmitPrompt] = useState(false);
   const [fullScreen, setFullScreen] = useState(false);
   const [resumeId, setResumeId] = useState<string | null>(null);
+  const [customHeight, setCustomHeight] = useState<number | null>(null);
+  const [isResizing, setIsResizing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -464,6 +469,42 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       inputRef.current.focus();
     }
   }, [open]);
+
+  // Restore user-preferred widget height from localStorage (shared across tabs / sessions)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(HEIGHT_STORAGE_KEY);
+      if (!stored) return;
+      const h = parseInt(stored, 10);
+      if (!isNaN(h) && h >= MIN_HEIGHT_PX) setCustomHeight(h);
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleResizeStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = customHeight ?? Math.min(DEFAULT_HEIGHT_PX, window.innerHeight - 48);
+    setIsResizing(true);
+    let finalHeight = startHeight;
+
+    const onMove = (ev: PointerEvent) => {
+      // Widget is anchored bottom-right — dragging the top edge UP grows it.
+      const deltaY = startY - ev.clientY;
+      const maxH = window.innerHeight - 48;
+      finalHeight = Math.max(MIN_HEIGHT_PX, Math.min(maxH, startHeight + deltaY));
+      setCustomHeight(finalHeight);
+    };
+
+    const onUp = () => {
+      setIsResizing(false);
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      try { localStorage.setItem(HEIGHT_STORAGE_KEY, String(finalHeight)); } catch { /* ignore */ }
+    };
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  }, [customHeight]);
 
   const handleOpen = useCallback(() => {
     setOpen(true);
@@ -736,8 +777,25 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     );
   }
 
+  const sizedCompact = !fullScreen && customHeight != null;
+
   return (
-    <div data-id="feedback-chat" className={`fixed z-[10001] ${fullScreen ? 'inset-0' : 'bottom-6 end-6 w-96 max-h-[min(32rem,calc(100dvh-3rem))] rounded-2xl'} ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-2xl border flex flex-col overflow-hidden`}>
+    <div
+      data-id="feedback-chat"
+      className={`fixed z-[10001] ${fullScreen ? 'inset-0' : `bottom-6 end-6 w-96 ${sizedCompact ? '' : 'max-h-[min(32rem,calc(100dvh-3rem))]'} rounded-2xl`} ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-2xl border flex flex-col overflow-hidden ${isResizing ? 'select-none' : ''}`}
+      style={sizedCompact ? { height: `${customHeight}px`, maxHeight: 'calc(100dvh - 3rem)' } : undefined}
+    >
+      {!fullScreen && (
+        <div
+          data-id="chat-resize-handle"
+          onPointerDown={handleResizeStart}
+          title="Drag to resize height"
+          style={{ touchAction: 'none' }}
+          className={`absolute top-0 left-0 right-0 h-2 cursor-ns-resize z-20 flex items-start justify-center pt-0.5 group ${isResizing ? 'bg-indigo-400/40' : 'hover:bg-indigo-400/30'}`}
+        >
+          <span data-id="chat-resize-handle-grip" className={`block w-8 h-0.5 rounded-full ${isResizing ? 'bg-white/80' : 'bg-white/40 group-hover:bg-white/70'}`} />
+        </div>
+      )}
       {/* Header */}
       <div data-id="chat-header" className={`flex items-center justify-between px-4 py-3 ${accentBase} text-white`}>
         <div data-id="chat-header-left" className="flex items-center gap-2">
@@ -859,7 +917,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       ) : (
         <>
         {/* Messages */}
-        <div data-id="messages-area" className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 ${fullScreen ? '' : 'min-h-[12rem] max-h-[20rem]'}`}>
+        <div data-id="messages-area" className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 ${fullScreen || sizedCompact ? '' : 'min-h-[12rem] max-h-[20rem]'}`}>
           <ChatMessages messages={messages} isDark={isDark} accentBg={accentBase} selectIssuesLabel={labels.selectIssues} onResendStale={!issues ? handleResendStale : undefined} resendLabel={labels.resend} />
 
           {issues && issues.length > 0 && (
