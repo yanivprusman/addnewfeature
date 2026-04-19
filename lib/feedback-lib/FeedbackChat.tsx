@@ -130,6 +130,7 @@ const STORAGE_KEY_BASE = "feedback-chat-session";
 const HEARTBEAT_PREFIX = 'feedback-hb-';
 const HEARTBEAT_INTERVAL = 5_000;
 const HEARTBEAT_STALE = 10_000;
+const HEIGHT_STORAGE_KEY = 'feedback-chat-height';
 const DEFAULT_HEIGHT_PX = 512; // matches 32rem max
 const MIN_HEIGHT_PX = 260;
 
@@ -471,6 +472,17 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     }
   }, [open]);
 
+  // Restore user-preferred widget height from localStorage — the dragged size
+  // persists across page loads and tabs (cleared by the restore-size button).
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(HEIGHT_STORAGE_KEY);
+      if (!stored) return;
+      const h = parseInt(stored, 10);
+      if (!isNaN(h) && h >= MIN_HEIGHT_PX) setCustomHeight(h);
+    } catch { /* ignore */ }
+  }, []);
+
   const handleResizeStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     const startY = e.clientY;
@@ -481,18 +493,21 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     const measured = widgetEl?.getBoundingClientRect().height;
     const startHeight = customHeight ?? (measured && measured > 0 ? measured : Math.min(DEFAULT_HEIGHT_PX, window.innerHeight - 48));
     setIsResizing(true);
+    let finalHeight = startHeight;
 
     const onMove = (ev: PointerEvent) => {
       // Widget is anchored bottom-right — dragging the top edge UP grows it.
       const deltaY = startY - ev.clientY;
       const maxH = window.innerHeight - 48;
-      setCustomHeight(Math.max(MIN_HEIGHT_PX, Math.min(maxH, startHeight + deltaY)));
+      finalHeight = Math.max(MIN_HEIGHT_PX, Math.min(maxH, startHeight + deltaY));
+      setCustomHeight(finalHeight);
     };
 
     const onUp = () => {
       setIsResizing(false);
       document.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerup', onUp);
+      try { localStorage.setItem(HEIGHT_STORAGE_KEY, String(finalHeight)); } catch { /* ignore */ }
     };
 
     document.addEventListener('pointermove', onMove);
@@ -838,7 +853,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
             </button>
           )}
           {sizedCompact && (
-            <button data-id="restore-size" onClick={() => setCustomHeight(null)} className="text-indigo-200 hover:text-white transition-colors" title={labels.restoreSize}>
+            <button data-id="restore-size" onClick={() => { setCustomHeight(null); try { localStorage.removeItem(HEIGHT_STORAGE_KEY); } catch { /* ignore */ } }} className="text-indigo-200 hover:text-white transition-colors" title={labels.restoreSize}>
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                 <path d="M3 12a9 9 0 1 0 3-6.7" />
                 <path d="M3 4v5h5" />
