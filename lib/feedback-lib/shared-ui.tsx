@@ -96,14 +96,61 @@ export function autoResizeTextarea(el: HTMLTextAreaElement) {
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
 }
 
+/** Copy-to-clipboard icon button for a chat message bubble. */
+function CopyMessageButton({ text, isUser, isDark, label, copiedLabel }: {
+  text: string;
+  isUser: boolean;
+  isDark: boolean;
+  label: string;
+  copiedLabel: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard API unavailable — silently ignore
+    }
+  };
+  const tone = isUser
+    ? 'text-white/70 hover:text-white hover:bg-white/10'
+    : (isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-600' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200');
+  return (
+    <button
+      type="button"
+      data-id="chat-msg-copy"
+      onClick={handleCopy}
+      aria-label={label}
+      title={copied ? copiedLabel : label}
+      className={`shrink-0 self-end -mb-0.5 -mr-1 p-1 rounded-md transition-colors ${tone}`}
+    >
+      {copied ? (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+          <path fillRule="evenodd" d="M16.704 5.29a.75.75 0 010 1.06l-8.25 8.25a.75.75 0 01-1.06 0l-3.75-3.75a.75.75 0 111.06-1.06L7.96 13.04l7.72-7.75a.75.75 0 011.024 0z" clipRule="evenodd" />
+        </svg>
+      ) : (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+          <path d="M7 3.5A1.5 1.5 0 018.5 2h5A1.5 1.5 0 0115 3.5v9a1.5 1.5 0 01-1.5 1.5h-5A1.5 1.5 0 017 12.5v-9z" />
+          <path d="M5 6.5A1.5 1.5 0 016.5 5H7v7.5A2.5 2.5 0 009.5 15H13v.5A1.5 1.5 0 0111.5 17h-5A1.5 1.5 0 015 15.5v-9z" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 /** Chat message list — renders user/assistant bubbles with inline stale issues. */
-export function ChatMessages({ messages, isDark, accentBg = 'bg-indigo-600', selectIssuesLabel, onResendStale, resendLabel }: {
+export function ChatMessages({ messages, isDark, accentBg = 'bg-indigo-600', selectIssuesLabel, onResendStale, resendLabel, copyLabel = 'Copy', copiedLabel = 'Copied' }: {
   messages: { role: string; text: string; staleIssues?: ChatIssue[] }[];
   isDark: boolean;
   accentBg?: string;
   selectIssuesLabel: string;
   onResendStale?: (issues: ChatIssue[]) => void;
   resendLabel?: string;
+  copyLabel?: string;
+  copiedLabel?: string;
 }) {
   return (
     <>
@@ -111,12 +158,13 @@ export function ChatMessages({ messages, isDark, accentBg = 'bg-indigo-600', sel
         <Fragment key={i}>
           {msg.text && (
             <div data-id={`chat-msg-row-${i}`} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div data-id={`chat-msg-bubble-${i}`} className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap ${
+              <div data-id={`chat-msg-bubble-${i}`} className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap flex items-start gap-2 ${
                 msg.role === "user"
                   ? `${accentBg} text-white`
                   : (isDark ? "bg-slate-700 text-slate-200" : "bg-slate-100 text-slate-800")
               }`}>
-                {msg.text}
+                <span data-id={`chat-msg-text-${i}`} className="min-w-0 flex-1">{msg.text}</span>
+                <CopyMessageButton text={msg.text} isUser={msg.role === "user"} isDark={isDark} label={copyLabel} copiedLabel={copiedLabel} />
               </div>
             </div>
           )}

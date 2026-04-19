@@ -36,6 +36,8 @@ export const feedbackTranslations: Record<string, FeedbackLabels> = {
     authExpired: "Claude authentication expired. Run /login in a Claude Code session to refresh.",
     resend: "Re-send",
     restoreSize: "Restore default size",
+    copy: "Copy",
+    copied: "Copied",
   },
   he: {
     greeting:

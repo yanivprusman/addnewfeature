@@ -76,6 +76,8 @@ export interface FeedbackLabels {
   authExpired: string;
   resend: string;
   restoreSize: string;
+  copy: string;
+  copied: string;
 }
 
 const defaultLabels: FeedbackLabels = {
@@ -111,6 +113,8 @@ const defaultLabels: FeedbackLabels = {
   authExpired: "Claude authentication expired. Run /login in a Claude Code session to refresh.",
   resend: "Re-send",
   restoreSize: "Restore default size",
+  copy: "Copy",
+  copied: "Copied",
 };
 
 interface FeedbackChatProps {
@@ -289,6 +293,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
   const labels = { ...langLabels, ...labelOverrides };
   const accent = accentClass ?? "bg-indigo-600 hover:bg-indigo-700";
   const accentBase = accent.split(" ")[0]; // e.g. "bg-indigo-600"
+  const headerBg = (accent.split(" ").find(c => c.startsWith("hover:bg-"))?.replace("hover:", "")) ?? accentBase;
   const systemDark = useSystemDark();
   const isDark = colorScheme === 'dark' || (colorScheme !== 'light' && systemDark);
 
@@ -805,7 +810,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         </div>
       )}
       {/* Header */}
-      <div data-id="chat-header" className={`flex items-center justify-between px-4 py-3 ${accentBase} text-white`}>
+      <div data-id="chat-header" className={`flex items-center justify-between px-4 py-3 ${headerBg} text-white`}>
         <div data-id="chat-header-left" className="flex items-center gap-2">
           <span data-id="chat-title-text" className="font-semibold text-sm">{labels.title}</span>
           {hasSession && (
@@ -934,7 +939,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         <>
         {/* Messages */}
         <div data-id="messages-area" className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 ${fullScreen || sizedCompact ? '' : 'min-h-[12rem] max-h-[20rem]'}`}>
-          <ChatMessages messages={messages} isDark={isDark} accentBg={accentBase} selectIssuesLabel={labels.selectIssues} onResendStale={!issues ? handleResendStale : undefined} resendLabel={labels.resend} />
+          <ChatMessages messages={messages} isDark={isDark} accentBg={accentBase} selectIssuesLabel={labels.selectIssues} onResendStale={!issues ? handleResendStale : undefined} resendLabel={labels.resend} copyLabel={labels.copy} copiedLabel={labels.copied} />
 
           {issues && issues.length > 0 && (
             <ChatIssueChecklist
