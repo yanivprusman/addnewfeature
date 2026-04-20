@@ -25,5 +25,11 @@ export { ProdToggle, useProdPreview, useIsProd } from './prod-preview';
 // Lower-level server utilities (for custom integrations)
 export { launchFeedback, launchFix, launchConclude, sendMessage, killFeedback, isTmuxAlive } from './claude-launcher';
 export type { LaunchConfig, LaunchResult, FixConfig, ConcludeConfig } from './claude-launcher';
+
+// Pluggable launcher: returns direct (tmux) or bridge (user-device) based on
+// FEEDBACK_LIB_LAUNCHER env var. Default = direct. Additive — existing
+// consumers that import launchFeedback/etc. directly keep working unchanged.
+export { getClaudeLauncher, getLauncherMode, BridgeDispatchNotReady } from './launcher-selector';
+export type { ClaudeLauncher, LauncherMode } from './launcher-selector';
 export { waitForResponse, resolveResponse } from './pending-responses';
 export { getSessionEnv } from './session-env';
