@@ -933,7 +933,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                           } disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
                           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" /></svg>
-                          {fixSessionLoading ? labels.launching : (issue.status === "in_progress" ? labels.inProgress : labels.fixWithClaude)}
+                          {fixSessionLoading ? labels.launching : labels.fixWithClaude}
                         </button>
                       )}
                       {/* Close button for open/in_progress issues */}
