@@ -927,13 +927,13 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
                               handleFixSingleIssue(issue);
                             }
                           }}
-                          disabled={fixSessionLoading}
+                          disabled={fixSessionLoading || issue.status === "in_progress"}
                           className={`text-xs px-3 py-1.5 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer active:scale-95 ${
                             isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
-                          } disabled:opacity-50`}
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
                           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" /></svg>
-                          {fixSessionLoading ? labels.launching : labels.fixWithClaude}
+                          {fixSessionLoading ? labels.launching : (issue.status === "in_progress" ? labels.inProgress : labels.fixWithClaude)}
                         </button>
                       )}
                       {/* Close button for open/in_progress issues */}
