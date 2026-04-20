@@ -118,6 +118,9 @@ function CopyMessageButton({ text, isUser, isDark, label, copiedLabel }: {
   const tone = isUser
     ? 'text-white/70 hover:text-white hover:bg-white/10'
     : (isDark ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-600' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200');
+  const visibility = copied
+    ? 'opacity-100'
+    : 'opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100';
   return (
     <button
       type="button"
@@ -125,7 +128,7 @@ function CopyMessageButton({ text, isUser, isDark, label, copiedLabel }: {
       onClick={handleCopy}
       aria-label={label}
       title={copied ? copiedLabel : label}
-      className={`shrink-0 self-end -mb-0.5 -mr-1 p-1 rounded-md transition-colors ${tone}`}
+      className={`shrink-0 self-end -mb-0.5 -mr-1 p-1 rounded-md transition-opacity transition-colors ${visibility} ${tone}`}
     >
       {copied ? (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
@@ -158,7 +161,7 @@ export function ChatMessages({ messages, isDark, accentBg = 'bg-indigo-600', sel
         <Fragment key={i}>
           {msg.text && (
             <div data-id={`chat-msg-row-${i}`} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div data-id={`chat-msg-bubble-${i}`} className={`max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap flex items-start gap-2 ${
+              <div data-id={`chat-msg-bubble-${i}`} className={`group max-w-[80%] px-3 py-2 rounded-xl text-sm whitespace-pre-wrap flex items-start gap-2 ${
                 msg.role === "user"
                   ? `${accentBg} text-white`
                   : (isDark ? "bg-slate-700 text-slate-200" : "bg-slate-100 text-slate-800")
