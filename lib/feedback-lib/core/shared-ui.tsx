@@ -236,21 +236,9 @@ export function ChatIssueChecklist({ issues, checkedIssues, onToggle, onSubmit, 
   );
 }
 
-/** Submit selected chat issues to the feedback API. Caller filters by
- *  checkedIssues and guards non-empty. Throws on non-OK response. */
-export async function submitChatIssues(
-  selected: ChatIssue[],
-  extraBody: Record<string, unknown>
-): Promise<ChatSubmitResult[]> {
-  const res = await fetch("/api/feedback/submit", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ issues: selected, ...extraBody }),
-  });
-  if (!res.ok) throw new Error("Submit failed");
-  const data = await res.json();
-  return data.results as ChatSubmitResult[];
-}
+// Issue submission moved into FeedbackBackend.submitChatIssues — callers
+// now invoke `backend.submitChatIssues(selected, { ... })` directly instead
+// of importing a helper here.
 
 /** Submit results display (green box). */
 export function ChatSubmitResults({ results, isDark, issuePrefix = 'Issue #' }: {

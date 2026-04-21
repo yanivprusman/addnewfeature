@@ -9,7 +9,7 @@
  * Both modules export the same named functions with the same signatures,
  * so consumers can write code once against this common surface:
  *
- *   import { getClaudeLauncher } from '@automate/feedback-lib';
+ *   import { getClaudeLauncher } from '@automate/feedback-lib/launcher';
  *   const launcher = getClaudeLauncher();
  *   const { claudeSessionId } = launcher.launchFeedback({...});
  */

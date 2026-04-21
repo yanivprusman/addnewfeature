@@ -1,4 +1,4 @@
-import type { MaintenancePrompt } from './issues-page-types';
+import type { MaintenancePrompt } from '../core/issues-page-types';
 
 // Each entry points to a Claude Code skill under ~/.claude/skills/<skill>/SKILL.md.
 // The launcher invokes it as `/<skill>`, so these prompts are also callable from

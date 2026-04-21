@@ -3,7 +3,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { feedbackTranslations } from "./i18n";
 import { ProdToggle, useProdPreview } from "./prod-preview";
-import { useSystemDark, ChatIssue, ChatSubmitResult, ChatMessages, ChatIssueChecklist, ChatSubmitResults, ChatThinking, ChatInput, submitChatIssues } from "./shared-ui";
+import { useSystemDark, ChatIssue, ChatSubmitResult, ChatMessages, ChatIssueChecklist, ChatSubmitResults, ChatThinking, ChatInput } from "./shared-ui";
+import type { FeedbackBackend } from "./api-contract";
+import { BackendAuthExpiredError, BackendSessionExpiredError } from "./api-contract";
 
 const PAGE_CONTEXT_KEY = '__feedbackPageContext';
 
@@ -118,6 +120,8 @@ const defaultLabels: FeedbackLabels = {
 };
 
 interface FeedbackChatProps {
+  /** Backend implementation — wires this widget to the host app's clarifier routes. */
+  backend: FeedbackBackend;
   /** Language code for built-in translations (e.g. "en", "he"). Defaults to "en". */
   lang?: string;
   /** Override individual labels (merged on top of lang translations) */
@@ -269,7 +273,7 @@ if (typeof window !== 'undefined') {
   }
 }
 
-export function FeedbackChat(props: FeedbackChatProps = {}) {
+export function FeedbackChat(props: FeedbackChatProps) {
   if (process.env.NEXT_PUBLIC_IS_PROD === 'true') return null;
   return <FeedbackChatDev {...props} />;
 }
@@ -288,7 +292,7 @@ function FeedbackChatDev(props: FeedbackChatProps) {
   );
 }
 
-function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorScheme = 'system', issuesPath = '/feedback-lib-issues' }: FeedbackChatProps) {
+function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass, colorScheme = 'system', issuesPath = '/feedback-lib-issues' }: FeedbackChatProps) {
   const langLabels = lang ? (feedbackTranslations[lang] ?? defaultLabels) : defaultLabels;
   const labels = { ...langLabels, ...labelOverrides };
   const accent = accentClass ?? "bg-indigo-600 hover:bg-indigo-700";
@@ -410,8 +414,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
       }
 
       // Verify the tmux session is still alive
-      fetch(`/api/feedback/status?tmuxSession=${encodeURIComponent(data.tmuxSession)}`)
-        .then(res => res.json())
+      backend.getSessionStatus(data.tmuxSession)
         .then(result => {
           if (result.alive) {
             setSessionId(data.sessionId);
@@ -435,8 +438,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     if (!hasSession || !tmuxSession) return;
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/feedback/status?tmuxSession=${encodeURIComponent(tmuxSession)}`);
-        const data = await res.json();
+        const data = await backend.getSessionStatus(tmuxSession);
         if (!data.alive) {
           // Tmux died — preserve sessionId for resume silently; next user
           // message will resume the prior session without any UI noise.
@@ -445,17 +447,16 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           setTmuxSession(null);
           setHookWarning(null);
         }
-      } catch { /* ignore fetch errors */ }
+      } catch { /* ignore backend errors */ }
     }, 15_000);
     return () => clearInterval(interval);
-  }, [hasSession, tmuxSession, sessionId]);
+  }, [backend, hasSession, tmuxSession, sessionId]);
 
-  // Clean up tmux + heartbeat on page unload via sendBeacon (sessionStorage is NOT cleared — resume will restore the session on reload)
+  // Clean up tmux + heartbeat on page unload (sessionStorage is NOT cleared — resume will restore the session on reload)
   useEffect(() => {
     function handleUnload() {
       if (tmuxSession) {
-        const body = JSON.stringify({ tmuxSession });
-        navigator.sendBeacon("/api/feedback/close", new Blob([body], { type: "application/json" }));
+        backend.closeSessionOnUnload(tmuxSession);
       }
       // Clear heartbeat so a reload doesn't see its own stale entry as a foreign tab
       try {
@@ -465,7 +466,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     }
     window.addEventListener("beforeunload", handleUnload);
     return () => window.removeEventListener("beforeunload", handleUnload);
-  }, [tmuxSession, hbKey, tabId]);
+  }, [backend, tmuxSession, hbKey, tabId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -537,11 +538,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
   const closeSession = useCallback(() => {
     if (tmuxSession) {
-      fetch("/api/feedback/close", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tmuxSession }),
-      }).catch(() => {});
+      backend.closeSession(tmuxSession).catch(() => {});
     }
     sessionStorage.removeItem(storageKey);
     // Clear heartbeat if we own it
@@ -553,7 +550,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setTmuxSession(null);
     setResumeId(null);
     setHookWarning(null);
-  }, [tmuxSession, storageKey, hbKey, tabId]);
+  }, [backend, tmuxSession, storageKey, hbKey, tabId]);
 
   function handleNewChat() {
     closeSession();
@@ -597,10 +594,9 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     setShowPostSubmitPrompt(false);
 
     try {
-      const res = await fetch("/api/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      let data;
+      try {
+        data = await backend.sendChatMessage({
           message: text,
           sessionId,
           tmuxSession,
@@ -608,36 +604,29 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
           pagePath: getFullPagePath(),
           pageContext: getPageContext(),
           ...(appOverride && { app: appOverride }),
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        if (data.error === 'auth_expired') {
+        });
+      } catch (err) {
+        if (err instanceof BackendAuthExpiredError) {
           setMessages((prev) => [...prev, { role: "assistant", text: labels.authExpired }]);
           return;
         }
-        if (data.error === 'session_expired') {
-          // Session file gone — notify user and reset to fresh state
+        if (err instanceof BackendSessionExpiredError) {
           setMessages((prev) => [...prev, { role: "assistant", text: labels.sessionExpired }]);
           setResumeId(null);
           setIssues(null);
           setCheckedIssues([]);
-
           sessionStorage.removeItem(storageKey);
           return;
         }
-        throw new Error(data.message || "Request failed");
+        throw err;
       }
 
-      const data = await res.json();
       setSessionId(data.sessionId);
       setTmuxSession(data.tmuxSession);
       setResumeId(null);
       if (data.hookWarning) setHookWarning(data.hookWarning);
 
       let displayText = data.response;
-      console.log('[FeedbackChat] API response:', { response: data.response?.slice(0, 200), issues: !!data.issues, sessionId: data.sessionId });
       if (data.issues) {
         // Strip fenced JSON blocks (```json or plain ```)
         displayText = displayText.replace(/```(?:json)?\s*\n[\s\S]*?\n```\s*/gi, "").trim();
@@ -649,7 +638,6 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
         }
       }
 
-      console.log('[FeedbackChat] displayText:', displayText?.slice(0, 200), 'truthy:', !!displayText);
       if (displayText) {
         setMessages((prev) => [...prev, { role: "assistant", text: displayText }]);
       }
@@ -674,7 +662,7 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
 
     setSubmitting(true);
     try {
-      const results = await submitChatIssues(selected, {
+      const results = await backend.submitChatIssues(selected, {
         pagePath: getFullPagePath(),
         pageContext: getPageContext(),
         sessionId: sessionId || resumeId,
@@ -743,14 +731,16 @@ function FeedbackChatInner({ lang, labels: labelOverrides, accentClass, colorSch
     if (!directTitle.trim() || directLoading) return;
     setDirectLoading(true);
     try {
-      const res = await fetch("/api/feedback/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create", title: directTitle, description: directDesc, pagePath: getFullPagePath(), pageContext: getPageContext(), ...(appOverride && { app: appOverride }) }),
+      const data = await backend.issueAction({
+        action: 'create',
+        title: directTitle,
+        description: directDesc,
+        pagePath: getFullPagePath(),
+        pageContext: getPageContext(),
+        ...(appOverride && { app: appOverride }),
       });
-      if (!res.ok) throw new Error("Create failed");
-      const data = await res.json();
-      setSubmitResults([{ title: directTitle, issueNumber: data.issueNumber, success: true }]);
+      const issueNumber = 'issueNumber' in data ? data.issueNumber : undefined;
+      setSubmitResults([{ title: directTitle, issueNumber, success: true }]);
       setDirectTitle("");
       setDirectDesc("");
       setShowPostSubmitPrompt(true);

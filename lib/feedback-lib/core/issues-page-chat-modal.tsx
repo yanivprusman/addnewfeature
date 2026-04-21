@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ChatMessages, ChatIssueChecklist, ChatSubmitResults, ChatThinking, ChatInput, submitChatIssues } from "./shared-ui";
+import { ChatMessages, ChatIssueChecklist, ChatSubmitResults, ChatThinking, ChatInput } from "./shared-ui";
 import type { Issue, IssuesPageLabels } from './issues-page-types';
+import type { FeedbackBackend } from './api-contract';
+import { BackendSessionExpiredError } from './api-contract';
 
 interface RegressionChatModalProps {
+  backend: FeedbackBackend;
   issue: Issue;
   appName: string | null;
   labels: IssuesPageLabels;
@@ -16,7 +19,7 @@ interface RegressionChatModalProps {
   initialTmuxSession?: string | null;
 }
 
-export function RegressionChatModal({ issue, appName, labels, isDark, onClose, onDismiss, fetchIssues, initialSessionId, initialTmuxSession }: RegressionChatModalProps) {
+export function RegressionChatModal({ backend, issue, appName, labels, isDark, onClose, onDismiss, fetchIssues, initialSessionId, initialTmuxSession }: RegressionChatModalProps) {
   const [messages, setMessages] = useState<{ role: string; text: string; staleIssues?: { title: string; description: string }[] }[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -40,8 +43,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, o
   useEffect(() => {
     if (!issue.clarifierSessionId) return;
     setHistoryLoading(true);
-    fetch(`/api/feedback/session-history?sessionId=${encodeURIComponent(issue.clarifierSessionId)}${appName ? `&app=${appName}` : ''}`)
-      .then(res => res.json())
+    backend.getSessionHistory(issue.clarifierSessionId, appName)
       .then(data => {
         if (data.found && data.messages.length > 0) {
           setMessages(data.messages);
@@ -49,7 +51,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, o
       })
       .catch(() => {})
       .finally(() => setHistoryLoading(false));
-  }, [issue.clarifierSessionId, appName]);
+  }, [backend, issue.clarifierSessionId, appName]);
 
   // Cleanup tmux session on unmount
   useEffect(() => {
@@ -68,11 +70,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, o
 
   function closeModal() {
     if (tmuxSession) {
-      fetch("/api/feedback/close", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tmuxSession }),
-      }).catch(() => {});
+      backend.closeSession(tmuxSession).catch(() => {});
     }
     onClose();
   }
@@ -95,10 +93,9 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, o
     setSubmitResults(null);
 
     try {
-      const res = await fetch("/api/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      let data;
+      try {
+        data = await backend.sendChatMessage({
           message: text,
           ...(sessionId && tmuxSession
             ? { sessionId, tmuxSession }
@@ -115,20 +112,16 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, o
           ...(appName && { app: appName }),
           pagePath: "/feedback-lib-issues",
           pageContext: "Issues",
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        if (data.error === 'session_expired') {
+        });
+      } catch (err) {
+        if (err instanceof BackendSessionExpiredError) {
           setMessages(prev => [...prev, { role: "assistant", text: labels.noSessionHistory }]);
           setLoading(false);
           return;
         }
-        throw new Error(data.message || "Request failed");
+        throw err;
       }
 
-      const data = await res.json();
       setSessionId(data.sessionId);
       setTmuxSession(data.tmuxSession);
 
@@ -166,7 +159,7 @@ export function RegressionChatModal({ issue, appName, labels, isDark, onClose, o
 
     setSubmitting(true);
     try {
-      const results = await submitChatIssues(selected, {
+      const results = await backend.submitChatIssues(selected, {
         ...(appName && { app: appName }),
         pagePath: "/feedback-lib-issues",
         pageContext: "Issues",

@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { Issue, IssuesPageLabels, MaintenancePrompt } from './issues-page-types';
+import type { FeedbackBackend } from './api-contract';
+import { BackendAuthExpiredError } from './api-contract';
 import { issuesTranslations } from './issues-page-i18n';
-import { MAINTENANCE_PROMPTS } from './maintenance-prompts';
 import { useSystemDark, statusBadge, formatDate } from './shared-ui';
 import { RegressionChatModal } from './issues-page-chat-modal';
 import { ReviewDialog, FixSessionDialog } from './issues-page-dialogs';
@@ -11,13 +12,18 @@ import { ReviewDialog, FixSessionDialog } from './issues-page-dialogs';
 export type { Issue, IssuesPageLabels } from './issues-page-types';
 
 interface FeedbackIssuesPageProps {
+  /** Backend implementation — wires this page to the host app's feedback routes. */
+  backend: FeedbackBackend;
+  /** Maintenance prompts shown in the "Maintenance" tab. Consumer apps supply
+   *  this list because skill names are launcher-specific. */
+  maintenancePrompts?: MaintenancePrompt[];
   lang?: string;
   labels?: Partial<IssuesPageLabels>;
   colorScheme?: "system" | "light" | "dark";
   initialAppName?: string | null;
 }
 
-export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme = "system", initialAppName = null }: FeedbackIssuesPageProps) {
+export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, labels: labelOverrides, colorScheme = "system", initialAppName = null }: FeedbackIssuesPageProps) {
   const langLabels = lang ? (issuesTranslations[lang] ?? issuesTranslations.en) : issuesTranslations.en;
   const labels = { ...langLabels, ...labelOverrides };
   const systemDark = useSystemDark();
@@ -142,10 +148,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   const fetchIssues = useCallback(async () => {
     try {
       setError(null);
-      const qs = overrideApp ? `?app=${overrideApp}` : '';
-      const res = await fetch(`/api/feedback/issues${qs}`);
-      if (!res.ok) throw new Error("fetch failed");
-      const data = await res.json();
+      const data = await backend.listIssues(overrideApp);
       if (data.appName) setAppName(data.appName);
       const all: Issue[] = Array.isArray(data.issues) ? data.issues : [];
       // Only show user-reported issues, sorted: open by createdAt newest-first, closed by updatedAt newest-first
@@ -179,7 +182,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     } finally {
       setLoading(false);
     }
-  }, [labels.error]);
+  }, [backend, overrideApp, labels.error]);
 
   useEffect(() => {
     fetchIssues();
@@ -267,17 +270,17 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   async function handleSaveEdit(issueNumber: number) {
     setActionLoading(issueNumber);
     try {
-      const res = await fetch("/api/feedback/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "update", issueNumber, title: editTitle, description: editDesc, ...(appName && { app: appName }) }),
+      await backend.issueAction({
+        action: 'update',
+        issueNumber,
+        title: editTitle,
+        description: editDesc,
+        ...(appName && { app: appName }),
       });
-      if (res.ok) {
-        setIssues(prev => prev.map(issue =>
-          issue.issueNumber === issueNumber ? { ...issue, title: editTitle, description: editDesc } : issue
-        ));
-        setEditingId(null);
-      }
+      setIssues(prev => prev.map(issue =>
+        issue.issueNumber === issueNumber ? { ...issue, title: editTitle, description: editDesc } : issue
+      ));
+      setEditingId(null);
     } catch { /* ignore */ }
     setActionLoading(null);
   }
@@ -292,18 +295,14 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       i.issueNumber === issue.issueNumber ? { ...i, labels: newLabels } : i
     ));
     try {
-      const res = await fetch("/api/feedback/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "update", issueNumber: issue.issueNumber, labels: newLabels, ...(appName && { app: appName }) }),
+      await backend.issueAction({
+        action: 'update',
+        issueNumber: issue.issueNumber,
+        labels: newLabels,
+        ...(appName && { app: appName }),
       });
-      if (!res.ok) {
-        // Revert on failure
-        setIssues(prev => prev.map(i =>
-          i.issueNumber === issue.issueNumber ? { ...i, labels: issue.labels } : i
-        ));
-      }
     } catch {
+      // Revert on failure
       setIssues(prev => prev.map(i =>
         i.issueNumber === issue.issueNumber ? { ...i, labels: issue.labels } : i
       ));
@@ -315,30 +314,24 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     if (selected.length === 0) return;
     setFixLoading(true);
     try {
-      const res = await fetch("/api/feedback/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "fix",
-          ...(appName && { app: appName }),
-          issues: selected.map(i => ({
-            number: i.issueNumber,
-            title: i.title,
-            ...(i.status === "regression" && {
-              status: i.status,
-              insights: i.insights,
-              claudeSessionIds: i.claudeSessionIds,
-            }),
-          })),
-        }),
+      await backend.issueAction({
+        action: 'fix',
+        ...(appName && { app: appName }),
+        issues: selected.map(i => ({
+          number: i.issueNumber,
+          title: i.title,
+          ...(i.status === "regression" && {
+            status: i.status,
+            insights: i.insights,
+            claudeSessionIds: i.claudeSessionIds,
+          }),
+        })),
       });
-      if (res.ok) {
-        // Optimistically mark as in_progress
-        setIssues(prev => prev.map(i =>
-          selectedIds.has(i.issueNumber) ? { ...i, status: "in_progress" } : i
-        ));
-        setSelectedIds(new Set());
-      }
+      // Optimistically mark as in_progress
+      setIssues(prev => prev.map(i =>
+        selectedIds.has(i.issueNumber) ? { ...i, status: "in_progress" } : i
+      ));
+      setSelectedIds(new Set());
     } catch { /* ignore */ }
     setFixLoading(false);
   }
@@ -346,35 +339,28 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   async function handleFixSingleIssue(issue: Issue, resumeSessionId?: string) {
     setFixSessionLoading(true);
     try {
-      const res = await fetch("/api/feedback/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "fix",
-          ...(appName && { app: appName }),
-          issues: [{
-            number: issue.issueNumber,
-            title: issue.title,
-            status: issue.status,
-            insights: issue.insights,
-            claudeSessionIds: issue.claudeSessionIds,
-            claudeLaunchDir: issue.claudeLaunchDir,
-          }],
-          ...(resumeSessionId && { resumeSessionId }),
-        }),
+      await backend.issueAction({
+        action: 'fix',
+        ...(appName && { app: appName }),
+        issues: [{
+          number: issue.issueNumber,
+          title: issue.title,
+          status: issue.status,
+          insights: issue.insights,
+          claudeSessionIds: issue.claudeSessionIds,
+          claudeLaunchDir: issue.claudeLaunchDir,
+        }],
+        ...(resumeSessionId && { resumeSessionId }),
       });
-      if (res.ok) {
-        setIssues(prev => prev.map(i =>
-          i.issueNumber === issue.issueNumber ? { ...i, status: "in_progress" } : i
-        ));
-        setFixSessionTarget(null);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        if (res.status === 401 || data.error === 'auth_expired') {
-          alert(labels.authExpired);
-        }
+      setIssues(prev => prev.map(i =>
+        i.issueNumber === issue.issueNumber ? { ...i, status: "in_progress" } : i
+      ));
+      setFixSessionTarget(null);
+    } catch (err) {
+      if (err instanceof BackendAuthExpiredError) {
+        alert(labels.authExpired);
       }
-    } catch { /* ignore */ }
+    }
     setFixSessionLoading(false);
   }
 
@@ -403,23 +389,17 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     setActionLoading(issue.issueNumber);
     try {
       const shouldConclude = !hasNonClosedSibling(issue);
-      const res = await fetch("/api/feedback/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "reviewed",
-          ...(appName && { app: appName }),
-          issueNumbers: [issue.issueNumber],
-          conclude: shouldConclude,
-          claudeSessionId: issue.claudeSessionId,
-          claudeLaunchDir: issue.claudeLaunchDir,
-        }),
+      await backend.issueAction({
+        action: 'reviewed',
+        ...(appName && { app: appName }),
+        issueNumbers: [issue.issueNumber],
+        conclude: shouldConclude,
+        claudeSessionId: issue.claudeSessionId,
+        claudeLaunchDir: issue.claudeLaunchDir,
       });
-      if (res.ok) {
-        setIssues(prev => prev.map(i =>
-          i.issueNumber === issue.issueNumber ? { ...i, status: "closed" } : i
-        ));
-      }
+      setIssues(prev => prev.map(i =>
+        i.issueNumber === issue.issueNumber ? { ...i, status: "closed" } : i
+      ));
     } catch { /* ignore */ }
     setActionLoading(null);
   }
@@ -427,20 +407,14 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   async function handleCloseForNow(issue: Issue) {
     setActionLoading(issue.issueNumber);
     try {
-      const res = await fetch("/api/feedback/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "close",
-          ...(appName && { app: appName }),
-          issueNumber: issue.issueNumber,
-        }),
+      await backend.issueAction({
+        action: 'close',
+        ...(appName && { app: appName }),
+        issueNumber: issue.issueNumber,
       });
-      if (res.ok) {
-        setIssues(prev => prev.map(i =>
-          i.issueNumber === issue.issueNumber ? { ...i, status: "closed" } : i
-        ));
-      }
+      setIssues(prev => prev.map(i =>
+        i.issueNumber === issue.issueNumber ? { ...i, status: "closed" } : i
+      ));
     } catch { /* ignore */ }
     setActionLoading(null);
   }
@@ -448,41 +422,34 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   async function handleConfirmReview(selectedNumbers: Set<number>, conclude: boolean) {
     if (!reviewTrigger) return;
     try {
-      const res = await fetch("/api/feedback/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "reviewed",
-          ...(appName && { app: appName }),
-          issueNumbers: Array.from(selectedNumbers),
-          conclude,
-          claudeSessionId: reviewTrigger.trigger.claudeSessionId,
-          claudeLaunchDir: reviewTrigger.trigger.claudeLaunchDir,
-        }),
+      await backend.issueAction({
+        action: 'reviewed',
+        ...(appName && { app: appName }),
+        issueNumbers: Array.from(selectedNumbers),
+        conclude,
+        claudeSessionId: reviewTrigger.trigger.claudeSessionId,
+        claudeLaunchDir: reviewTrigger.trigger.claudeLaunchDir,
       });
-      if (res.ok) {
-        // Optimistically mark as closed
-        setIssues(prev => prev.map(i =>
-          selectedNumbers.has(i.issueNumber) ? { ...i, status: "closed" } : i
-        ));
-        setReviewTrigger(null);
-      }
+      // Optimistically mark as closed
+      setIssues(prev => prev.map(i =>
+        selectedNumbers.has(i.issueNumber) ? { ...i, status: "closed" } : i
+      ));
+      setReviewTrigger(null);
     } catch { /* ignore */ }
   }
 
   async function handleClearRegression(issueNumber: number) {
     setActionLoading(issueNumber);
     try {
-      const res = await fetch("/api/feedback/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "update", issueNumber, status: "closed", ...(appName && { app: appName }) }),
+      await backend.issueAction({
+        action: 'update',
+        issueNumber,
+        status: 'closed',
+        ...(appName && { app: appName }),
       });
-      if (res.ok) {
-        setIssues(prev => prev.map(i =>
-          i.issueNumber === issueNumber ? { ...i, status: "closed" } : i
-        ));
-      }
+      setIssues(prev => prev.map(i =>
+        i.issueNumber === issueNumber ? { ...i, status: "closed" } : i
+      ));
     } catch { /* ignore */ }
     setActionLoading(null);
   }
@@ -490,16 +457,14 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   async function handleCloseIssue(issueNumber: number) {
     setActionLoading(issueNumber);
     try {
-      const res = await fetch("/api/feedback/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "close", issueNumber, ...(appName && { app: appName }) }),
+      await backend.issueAction({
+        action: 'close',
+        issueNumber,
+        ...(appName && { app: appName }),
       });
-      if (res.ok) {
-        setIssues(prev => prev.map(i =>
-          i.issueNumber === issueNumber ? { ...i, status: "closed" } : i
-        ));
-      }
+      setIssues(prev => prev.map(i =>
+        i.issueNumber === issueNumber ? { ...i, status: "closed" } : i
+      ));
     } catch { /* ignore */ }
     setActionLoading(null);
   }
@@ -508,14 +473,12 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
     if (!window.confirm(labels.deleteConfirm)) return;
     setActionLoading(issueNumber);
     try {
-      const res = await fetch("/api/feedback/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete", issueNumber, ...(appName && { app: appName }) }),
+      await backend.issueAction({
+        action: 'delete',
+        issueNumber,
+        ...(appName && { app: appName }),
       });
-      if (res.ok) {
-        setIssues(prev => prev.filter(i => i.issueNumber !== issueNumber));
-      }
+      setIssues(prev => prev.filter(i => i.issueNumber !== issueNumber));
     } catch { /* ignore */ }
     setActionLoading(null);
   }
@@ -523,33 +486,33 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   async function handleMaintenanceLaunch(mp: MaintenancePrompt) {
     setMaintenanceLaunching(mp.id);
     try {
-      const res = await fetch("/api/feedback/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "maintenance", skill: mp.skill, title: mp.title, ...(appName && { app: appName }) }),
+      const data = await backend.issueAction({
+        action: 'maintenance',
+        skill: mp.skill,
+        title: mp.title,
+        ...(appName && { app: appName }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        // Optimistically add the maintenance issue as in_progress
-        if (data.issueNumber) {
-          setMaintenanceIssues(prev => {
-            const next = new Map(prev);
-            next.set(mp.title, {
-              issueNumber: data.issueNumber,
-              title: mp.title,
-              description: "",
-              status: "in_progress",
-              labels: ["maintenance"],
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              claudeSessionId: data.claudeSessionId,
-            });
-            return next;
+      // Optimistically add the maintenance issue as in_progress
+      const issueNumber = 'issueNumber' in data ? data.issueNumber : undefined;
+      const claudeSessionId = 'claudeSessionId' in data ? data.claudeSessionId : undefined;
+      if (issueNumber) {
+        setMaintenanceIssues(prev => {
+          const next = new Map(prev);
+          next.set(mp.title, {
+            issueNumber,
+            title: mp.title,
+            description: "",
+            status: "in_progress",
+            labels: ["maintenance"],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            claudeSessionId,
           });
-        }
-        setMaintenanceLaunched(mp.id);
-        setTimeout(() => setMaintenanceLaunched(null), 2000);
+          return next;
+        });
       }
+      setMaintenanceLaunched(mp.id);
+      setTimeout(() => setMaintenanceLaunched(null), 2000);
     } catch { /* ignore */ }
     setMaintenanceLaunching(null);
   }
@@ -557,31 +520,25 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
   async function handleMaintenanceReview(issue: Issue) {
     setActionLoading(issue.issueNumber);
     try {
-      const res = await fetch("/api/feedback/issues", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "reviewed",
-          ...(appName && { app: appName }),
-          issueNumbers: [issue.issueNumber],
-          conclude: true,
-          claudeSessionId: issue.claudeSessionId,
-          claudeLaunchDir: issue.claudeLaunchDir,
-        }),
+      await backend.issueAction({
+        action: 'reviewed',
+        ...(appName && { app: appName }),
+        issueNumbers: [issue.issueNumber],
+        conclude: true,
+        claudeSessionId: issue.claudeSessionId,
+        claudeLaunchDir: issue.claudeLaunchDir,
       });
-      if (res.ok) {
-        // Remove from active maintenance issues (closed)
-        setMaintenanceIssues(prev => {
-          const next = new Map(prev);
-          for (const [title, mi] of next) {
-            if (mi.issueNumber === issue.issueNumber) {
-              next.delete(title);
-              break;
-            }
+      // Remove from active maintenance issues (closed)
+      setMaintenanceIssues(prev => {
+        const next = new Map(prev);
+        for (const [title, mi] of next) {
+          if (mi.issueNumber === issue.issueNumber) {
+            next.delete(title);
+            break;
           }
-          return next;
-        });
-      }
+        }
+        return next;
+      });
     } catch { /* ignore */ }
     setActionLoading(null);
   }
@@ -987,7 +944,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
 
         {activeTab === "maintenance" && (
           <div data-id="maintenance-tab" className="space-y-2">
-            {MAINTENANCE_PROMPTS.map(mp => {
+            {maintenancePrompts.map(mp => {
               const activeIssue = maintenanceIssues.get(mp.title);
               const isInProgress = activeIssue?.status === "in_progress";
               const isReview = activeIssue?.status === "review";
@@ -1065,6 +1022,7 @@ export function FeedbackIssuesPage({ lang, labels: labelOverrides, colorScheme =
       {/* Regression Chat Modal */}
       {chatTarget && (
         <RegressionChatModal
+          backend={backend}
           issue={chatTarget}
           appName={appName}
           labels={labels}
