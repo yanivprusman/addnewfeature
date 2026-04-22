@@ -274,7 +274,7 @@ if (typeof window !== 'undefined') {
 }
 
 export function FeedbackChat(props: FeedbackChatProps) {
-  if (process.env.NEXT_PUBLIC_IS_PROD === 'true') return null;
+  if (process.env.NODE_ENV === 'production') return null;
   return <FeedbackChatDev {...props} />;
 }
 

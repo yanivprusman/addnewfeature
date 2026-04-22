@@ -62,10 +62,10 @@ export function useProdPreview(): boolean {
 
 /**
  * Hook: returns true if the app should behave as prod.
- * True when NEXT_PUBLIC_IS_PROD=true (real prod) OR when
- * the prod-preview toggle is active (P pressed in dev).
+ * True in real prod (NODE_ENV === 'production') OR when the
+ * prod-preview toggle is active (P pressed in dev).
  */
 export function useIsProd(): boolean {
   const preview = useProdPreview();
-  return process.env.NEXT_PUBLIC_IS_PROD === 'true' || preview;
+  return process.env.NODE_ENV === 'production' || preview;
 }

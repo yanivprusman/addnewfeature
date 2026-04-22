@@ -48,6 +48,14 @@ function buildLocationTag(pagePath?: string, pageContext?: string): string | nul
   return parts.length > 0 ? `[${parts.join(' | ')}]` : null;
 }
 
+/** Feedback-lib is dev-only. Any /api/feedback/* call in a prod build returns 404. */
+function assertDevOnly(): NextResponse | null {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+  }
+  return null;
+}
+
 /**
  * Returns a POST handler for /api/feedback
  * Launches or messages the Claude issue-clarifier session.
@@ -56,6 +64,7 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
   startSessionCleanupInterval();
 
   return async function POST(request: NextRequest) {
+    const blocked = assertDevOnly(); if (blocked) return blocked;
     try {
       const body = await request.json();
       const { message, sessionId, tmuxSession, resumeSessionId, pagePath, pageContext, priorIssue } = body;
@@ -213,6 +222,7 @@ export function handleFeedbackMessage(appName: string, workDir: string) {
  */
 export function handleFeedbackResponse() {
   return async function POST(request: NextRequest) {
+    const blocked = assertDevOnly(); if (blocked) return blocked;
     try {
       const body = await request.json();
       const { session_id, last_assistant_message } = body;
@@ -237,6 +247,7 @@ export function handleFeedbackResponse() {
  */
 export function handleFeedbackSubmit(appName: string) {
   return async function POST(request: NextRequest) {
+    const blocked = assertDevOnly(); if (blocked) return blocked;
     try {
       const body = await request.json();
       const { issues, pagePath, pageContext, sessionId } = body;
@@ -296,6 +307,7 @@ export function handleFeedbackSubmit(appName: string) {
  */
 export function handleFeedbackClose(appName: string, dashboardPort = 3007) {
   return async function POST(request: NextRequest) {
+    const blocked = assertDevOnly(); if (blocked) return blocked;
     try {
       const { tmuxSession } = await request.json();
       if (tmuxSession) {
@@ -333,6 +345,7 @@ export function handleFeedbackClose(appName: string, dashboardPort = 3007) {
  */
 export function handleFeedbackStatus() {
   return async function GET(request: NextRequest) {
+    const blocked = assertDevOnly(); if (blocked) return blocked;
     try {
       const tmuxSession = request.nextUrl.searchParams.get('tmuxSession');
       if (!tmuxSession) {
@@ -353,6 +366,7 @@ export function handleFeedbackStatus() {
  */
 export function handleFeedbackSessionEnd(appName: string, dashboardPort = 3007) {
   return async function POST(request: NextRequest) {
+    const blocked = assertDevOnly(); if (blocked) return blocked;
     try {
       const body = await request.json();
       const { session_id } = body;
@@ -395,6 +409,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
   const dashboardPort = opts?.dashboardPort ?? 3007;
 
   async function GET(request: NextRequest) {
+    const blocked = assertDevOnly(); if (blocked) return blocked;
     try {
       const overrideApp = request.nextUrl.searchParams.get('app');
       const effectiveApp = overrideApp || appName;
@@ -408,6 +423,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
   }
 
   async function POST(request: NextRequest) {
+    const blocked = assertDevOnly(); if (blocked) return blocked;
     try {
       const body = await request.json();
       const { action } = body;
@@ -617,6 +633,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
  */
 export function handleFeedbackSessionHistory(_appName: string, workDir: string) {
   return async function GET(request: NextRequest) {
+    const blocked = assertDevOnly(); if (blocked) return blocked;
     const sessionId = request.nextUrl.searchParams.get('sessionId');
     if (!sessionId || !/^[a-f0-9-]+$/i.test(sessionId)) {
       return NextResponse.json({ error: 'Valid sessionId required' }, { status: 400 });
