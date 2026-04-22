@@ -43,7 +43,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       name: 'Dev Auto',
       credentials: {},
       async authorize() {
-        if (process.env.NEXT_PUBLIC_IS_PROD === 'true') return null;
+        if (process.env.NODE_ENV === 'production') return null;
 
         let user = await prisma.user.findFirst({ orderBy: { createdAt: 'asc' } });
         if (!user) {

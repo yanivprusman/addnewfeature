@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-const isDev = process.env.NEXT_PUBLIC_IS_PROD !== 'true';
+const isDev = process.env.NODE_ENV !== 'production';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');

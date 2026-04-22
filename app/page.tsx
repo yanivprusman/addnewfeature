@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 export default function HomePage() {
-  if (process.env.NEXT_PUBLIC_IS_PROD !== 'true') {
+  if (process.env.NODE_ENV !== 'production') {
     redirect('/apps');
   }
 
