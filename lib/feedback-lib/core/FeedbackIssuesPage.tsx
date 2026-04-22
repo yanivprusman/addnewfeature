@@ -7,7 +7,7 @@ import { BackendAuthExpiredError } from './api-contract';
 import { issuesTranslations } from './issues-page-i18n';
 import { useSystemDark, statusBadge, formatDate } from './shared-ui';
 import { RegressionChatModal } from './issues-page-chat-modal';
-import { ReviewDialog, FixSessionDialog } from './issues-page-dialogs';
+import { ReviewDialog, FixSessionDialog, BatchFixSessionDialog } from './issues-page-dialogs';
 
 export type { Issue, IssuesPageLabels } from './issues-page-types';
 
@@ -52,6 +52,9 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
   // Fix session choice dialog (for regression issues with previous sessions)
   const [fixSessionTarget, setFixSessionTarget] = useState<Issue | null>(null);
   const [fixSessionLoading, setFixSessionLoading] = useState(false);
+
+  // Batch fix session dialog (top-bar Fix with Claude when selected issues have prior sessions)
+  const [batchFixTarget, setBatchFixTarget] = useState<{ issues: Issue[]; sessionIds: string[] } | null>(null);
 
   // Regression chat modal
   const [chatTarget, setChatTarget] = useState<Issue | null>(null);
@@ -312,27 +315,60 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
   async function handleFixWithClaude() {
     const selected = issues.filter(i => selectedIds.has(i.issueNumber) && i.status !== "closed");
     if (selected.length === 0) return;
+
+    // Merge prior sessions across all selected issues (own + sibling sessions via clarifier)
+    const mergedSessions: string[] = [];
+    const seen = new Set<string>();
+    for (const issue of selected) {
+      const own = issue.claudeSessionIds ?? [];
+      const siblings = getSiblingFixSessions(issue);
+      for (const sid of [...own, ...siblings]) {
+        if (!seen.has(sid)) {
+          seen.add(sid);
+          mergedSessions.push(sid);
+        }
+      }
+    }
+
+    if (mergedSessions.length > 0) {
+      setBatchFixTarget({ issues: selected, sessionIds: mergedSessions });
+      return;
+    }
+
+    await launchBatchFix(selected);
+  }
+
+  async function launchBatchFix(selected: Issue[], resumeSessionId?: string) {
     setFixLoading(true);
     try {
       await backend.issueAction({
         action: 'fix',
         ...(appName && { app: appName }),
-        issues: selected.map(i => ({
-          number: i.issueNumber,
-          title: i.title,
-          ...(i.status === "regression" && {
+        issues: selected.map(i => {
+          const launchDir = i.claudeLaunchDir || getSiblingLaunchDir(i);
+          return {
+            number: i.issueNumber,
+            title: i.title,
             status: i.status,
-            insights: i.insights,
-            claudeSessionIds: i.claudeSessionIds,
-          }),
-        })),
+            ...(i.insights && { insights: i.insights }),
+            ...(i.claudeSessionIds && { claudeSessionIds: i.claudeSessionIds }),
+            ...(launchDir && { claudeLaunchDir: launchDir }),
+          };
+        }),
+        ...(resumeSessionId && { resumeSessionId }),
       });
       // Optimistically mark as in_progress
+      const selectedNumbers = new Set(selected.map(i => i.issueNumber));
       setIssues(prev => prev.map(i =>
-        selectedIds.has(i.issueNumber) ? { ...i, status: "in_progress" } : i
+        selectedNumbers.has(i.issueNumber) ? { ...i, status: "in_progress" } : i
       ));
       setSelectedIds(new Set());
-    } catch { /* ignore */ }
+      setBatchFixTarget(null);
+    } catch (err) {
+      if (err instanceof BackendAuthExpiredError) {
+        alert(labels.authExpired);
+      }
+    }
     setFixLoading(false);
   }
 
@@ -1016,6 +1052,21 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
           fixLoading={fixSessionLoading}
           onClose={() => setFixSessionTarget(null)}
           onFixSingleIssue={handleFixSingleIssue}
+        />
+      )}
+
+      {/* Batch Fix Session Choice Dialog */}
+      {batchFixTarget && (
+        <BatchFixSessionDialog
+          issues={batchFixTarget.issues}
+          sessionIds={batchFixTarget.sessionIds}
+          labels={labels}
+          isDark={isDark}
+          dialogBgClass={dialogBgClass}
+          btnClass={btnClass}
+          fixLoading={fixLoading}
+          onClose={() => setBatchFixTarget(null)}
+          onFixBatch={(resumeSessionId) => launchBatchFix(batchFixTarget.issues, resumeSessionId)}
         />
       )}
 

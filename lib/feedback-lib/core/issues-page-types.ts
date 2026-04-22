@@ -53,6 +53,7 @@ export interface IssuesPageLabels {
   resumeSession: string;
   newSession: string;
   previousSessions: string;
+  selectedIssues: string;
   resumeChat: string;
   chatPlaceholder: string;
   chatThinking: string;

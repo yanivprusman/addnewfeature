@@ -224,6 +224,103 @@ interface FixSessionDialogProps {
   onFixSingleIssue: (issue: Issue, resumeSessionId?: string) => void;
 }
 
+// --- Batch Fix Session Choice Dialog ---
+
+interface BatchFixSessionDialogProps {
+  issues: Issue[];
+  sessionIds: string[];
+  labels: IssuesPageLabels;
+  isDark: boolean;
+  dialogBgClass: string;
+  btnClass: string;
+  fixLoading: boolean;
+  onClose: () => void;
+  onFixBatch: (resumeSessionId?: string) => void;
+}
+
+export function BatchFixSessionDialog({ issues, sessionIds, labels, isDark, dialogBgClass, btnClass, fixLoading, onClose, onFixBatch }: BatchFixSessionDialogProps) {
+  return (
+    <div data-id="batch-fix-session-dialog" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !fixLoading && onClose()}>
+      <div data-id="batch-fix-session-backdrop" className="absolute inset-0 bg-black/50" />
+      <div
+        data-id="batch-fix-session-body"
+        className={`relative border rounded-xl shadow-2xl p-6 max-w-lg w-full mx-4 ${dialogBgClass}`}
+        onClick={e => e.stopPropagation()}
+      >
+        <h2 data-id="batch-fix-session-title" className="text-lg font-bold mb-3">{labels.fixWithClaude}</h2>
+
+        {/* Selected issues */}
+        <p data-id="batch-fix-selected-label" className={`text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+          {labels.selectedIssues}
+        </p>
+        <ul data-id="batch-fix-selected-list" className="mb-4 space-y-1">
+          {issues.map(i => (
+            <li data-id={`batch-fix-selected-${i.issueNumber}`} key={i.issueNumber} className={`text-sm ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+              <span data-id={`batch-fix-selected-number-${i.issueNumber}`} className={`font-mono text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>#{i.issueNumber}</span>
+              {" "}{i.title}
+            </li>
+          ))}
+        </ul>
+
+        {/* Previous sessions */}
+        {sessionIds.length > 0 && (
+          <div data-id="batch-fix-previous-sessions" className="mb-4">
+            <p data-id="batch-fix-previous-sessions-label" className={`text-xs font-medium mb-2 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+              {labels.previousSessions}
+            </p>
+            <div data-id="batch-fix-session-list" className="space-y-2">
+              {sessionIds.map(sid => (
+                <div data-id={`batch-fix-session-item-${sid.slice(0, 8)}`} key={sid} className={`flex items-center justify-between px-3 py-2 rounded-lg ${isDark ? "bg-slate-700/50" : "bg-slate-50"}`}>
+                  <span data-id={`batch-fix-session-id-${sid.slice(0, 8)}`} className={`font-mono text-xs break-all ${isDark ? "text-slate-400" : "text-slate-500"}`}>{sid}</span>
+                  <button
+                    data-id={`batch-resume-session-${sid.slice(0, 8)}`}
+                    onClick={() => onFixBatch(sid)}
+                    disabled={fixLoading}
+                    className={`text-xs px-3 py-1 rounded-md transition-colors cursor-pointer active:scale-95 ${
+                      isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
+                    } disabled:opacity-50`}
+                  >
+                    {fixLoading ? labels.launching : labels.resumeSession}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div data-id="batch-fix-session-actions" className="flex justify-end gap-3">
+          <button
+            data-id="batch-fix-session-cancel"
+            onClick={onClose}
+            disabled={fixLoading}
+            className={`text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer ${btnClass} active:scale-95`}
+          >
+            {labels.cancel}
+          </button>
+          <button
+            data-id="batch-fix-session-new"
+            onClick={() => onFixBatch()}
+            disabled={fixLoading}
+            className={`text-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-2 cursor-pointer ${
+              isDark ? "bg-purple-700 hover:bg-purple-600 text-white" : "bg-purple-500 hover:bg-purple-600 text-white"
+            } disabled:opacity-50 active:scale-95`}
+          >
+            {fixLoading ? (
+              <>{labels.launching}</>
+            ) : (
+              <>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z" /><path d="M18 14l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3z" /></svg>
+                {labels.newSession}
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function FixSessionDialog({ issue, labels, isDark, dialogBgClass, btnClass, fixLoading, onClose, onFixSingleIssue }: FixSessionDialogProps) {
   return (
     <div data-id="fix-session-dialog" className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => !fixLoading && onClose()}>

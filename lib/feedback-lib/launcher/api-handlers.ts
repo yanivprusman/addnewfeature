@@ -453,7 +453,7 @@ export function handleFeedbackIssues(appName: string, opts?: { workDir?: string;
         let result;
         try {
           result = body.resumeSessionId
-            ? launchFixResume({ appName: fixApp, workDir: fixWorkDir, resumeSessionId: body.resumeSessionId, issue: issues[0], dashboardPort })
+            ? launchFixResume({ appName: fixApp, workDir: fixWorkDir, resumeSessionId: body.resumeSessionId, issues, dashboardPort })
             : launchFix({ appName: fixApp, workDir: fixWorkDir, issues, dashboardPort });
         } catch (err) {
           if (err instanceof Error && err.message === 'auth_expired') {

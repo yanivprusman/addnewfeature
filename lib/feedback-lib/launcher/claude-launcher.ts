@@ -226,6 +226,19 @@ export interface FixConfig {
   dashboardPort?: number;
 }
 
+function formatFixIssueLine(appName: string, i: FixIssue): string {
+  let line = `- #${i.number}: ${i.title} (repo:${appName})`;
+  if (i.status === 'regression') {
+    line += `\n  REGRESSION — this issue was previously fixed but broke again.`;
+    if (i.insights) line += `\n  User reported: ${i.insights}`;
+    if (i.claudeSessionIds?.length) {
+      line += `\n  Previous fix sessions: ${i.claudeSessionIds.join(', ')}`;
+      line += `\n  Check ~/.claude/projects/ for these session files to understand what was tried before.`;
+    }
+  }
+  return line;
+}
+
 /**
  * Launch a Claude session to fix issues using /fix-issues-skill.
  */
@@ -233,18 +246,7 @@ export function launchFix(config: FixConfig): LaunchResult {
   const { appName, workDir, issues, user, dashboardPort } = config;
 
   const claudeSessionId = crypto.randomUUID();
-  const issueLines = issues.map(i => {
-    let line = `- #${i.number}: ${i.title} (repo:${appName})`;
-    if (i.status === 'regression') {
-      line += `\n  REGRESSION — this issue was previously fixed but broke again.`;
-      if (i.insights) line += `\n  User reported: ${i.insights}`;
-      if (i.claudeSessionIds?.length) {
-        line += `\n  Previous fix sessions: ${i.claudeSessionIds.join(', ')}`;
-        line += `\n  Check ~/.claude/projects/ for these session files to understand what was tried before.`;
-      }
-    }
-    return line;
-  });
+  const issueLines = issues.map(i => formatFixIssueLine(appName, i));
   const prompt = `/fix-issues-skill ${appName}\n\nIssues to fix:\n${issueLines.join('\n')}`;
 
   const claudeCmd = `claude --session-id ${claudeSessionId} --dangerously-skip-permissions`;
@@ -307,39 +309,39 @@ export interface FixResumeConfig {
   appName: string;
   workDir: string;
   resumeSessionId: string;
-  issue: FixIssue;
+  issues: FixIssue[];
   user?: string;
   dashboardPort?: number;
 }
 
 /**
- * Resume a previous Claude session and run /fix-issues-skill for a regression issue.
+ * Resume a previous Claude session and run /fix-issues-skill for the given issues.
  * Falls back to launchFix (new session) if the session file doesn't exist.
  */
 export function launchFixResume(config: FixResumeConfig): LaunchResult {
-  const { appName, workDir, resumeSessionId, issue, user, dashboardPort } = config;
+  const { appName, workDir, resumeSessionId, issues, user, dashboardPort } = config;
 
-  const resumeDir = issue.claudeLaunchDir || workDir;
+  const primary = issues[0];
+  const resumeDir = primary.claudeLaunchDir || workDir;
   const home = process.env.HOME || '/root';
   const projectKey = resumeDir.replace(/\//g, '-');
   const sessionFile = `${home}/.claude/projects/${projectKey}/${resumeSessionId}.jsonl`;
   if (!existsSync(sessionFile)) {
-    return launchFix({ appName, workDir, issues: [issue], user, dashboardPort });
+    return launchFix({ appName, workDir, issues, user, dashboardPort });
   }
 
-  let issueDesc = `- #${issue.number}: ${issue.title} (repo:${appName})\n  REGRESSION — this issue was previously fixed but broke again.`;
-  if (issue.insights) issueDesc += `\n  User reported: ${issue.insights}`;
-  const prompt = `/fix-issues-skill ${appName}\n\nIssues to fix:\n${issueDesc}`;
+  const issueLines = issues.map(i => formatFixIssueLine(appName, i));
+  const prompt = `/fix-issues-skill ${appName}\n\nIssues to fix:\n${issueLines.join('\n')}`;
 
   const claudeCmd = `claude -r ${resumeSessionId} --dangerously-skip-permissions`;
   const bashCmd = `cd '${resumeDir}' && ${claudeCmd} $'${escapeBashPrompt(prompt)}'; exec bash`;
 
-  const issueKeys = [`${appName}#${issue.number}`];
+  const issueKeys = issues.map(i => `${appName}#${i.number}`);
   return launchInTmux({
     appName, workDir: resumeDir, tmuxPrefix: 'fix', claudeSessionId: resumeSessionId, bashCmd, user, dashboardPort,
     dashboardExtra: {
       issueKeys,
-      issues: [{ key: `${appName}#${issue.number}`, number: issue.number, title: issue.title }],
+      issues: issues.map(i => ({ key: `${appName}#${i.number}`, number: i.number, title: i.title })),
     },
   });
 }
