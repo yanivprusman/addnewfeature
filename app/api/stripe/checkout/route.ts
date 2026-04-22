@@ -17,7 +17,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Stripe is not configured' }, { status: 503 });
   }
 
-  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3039';
+  const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host');
+  const proto = req.headers.get('x-forwarded-proto') ?? new URL(req.url).protocol.replace(':', '');
+  const baseUrl = `${proto}://${host}`;
 
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: 'subscription',
