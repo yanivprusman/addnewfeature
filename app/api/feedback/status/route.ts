@@ -1,2 +1,2 @@
-import { handleFeedbackStatus } from '@automate/feedback-lib/launcher';
+import { handleFeedbackStatus } from '@addnewfeature/feedback-lib-launcher';
 export const GET = handleFeedbackStatus();
