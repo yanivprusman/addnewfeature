@@ -27,8 +27,7 @@ export function RegressionChatModal({ backend, issue, appName, labels, isDark, o
   const [tmuxSession, setTmuxSession] = useState<string | null>(initialTmuxSession ?? null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [chatIssues, setChatIssues] = useState<{ title: string; description: string }[] | null>(null);
-  const [checkedIssues, setCheckedIssues] = useState<boolean[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  const [submittingIndex, setSubmittingIndex] = useState<number | null>(null);
   const [submitResults, setSubmitResults] = useState<{ title: string; issueNumber?: number; success: boolean }[] | null>(null);
   const [maximized, setMaximized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -85,7 +84,6 @@ export function RegressionChatModal({ backend, issue, appName, labels, isDark, o
     if (chatIssues && chatIssues.length > 0) {
       setMessages(prev => [...prev, { role: "assistant", text: "", staleIssues: chatIssues }, { role: "user", text }]);
       setChatIssues(null);
-      setCheckedIssues([]);
     } else {
       setMessages(prev => [...prev, { role: "user", text }]);
     }
@@ -139,7 +137,6 @@ export function RegressionChatModal({ backend, issue, appName, labels, isDark, o
       }
       if (data.issues) {
         setChatIssues(data.issues);
-        setCheckedIssues(new Array(data.issues.length).fill(true));
       }
     } catch {
       setMessages(prev => [...prev, { role: "assistant", text: "Something went wrong. Please try again." }]);
@@ -148,34 +145,40 @@ export function RegressionChatModal({ backend, issue, appName, labels, isDark, o
   }
 
   function handleResendStale(staleIssues: { title: string; description: string }[]) {
-    setChatIssues(staleIssues);
-    setCheckedIssues(new Array(staleIssues.length).fill(true));
+    setChatIssues(prev => {
+      if (!prev || prev.length === 0) return staleIssues;
+      const existing = new Set(prev.map(i => i.title));
+      const additions = staleIssues.filter(i => !existing.has(i.title));
+      if (additions.length === 0) return prev;
+      return [...prev, ...additions];
+    });
+    setSubmitResults(null);
   }
 
-  async function handleSubmitIssues() {
-    if (!chatIssues || submitting) return;
-    const selected = chatIssues.filter((_, i) => checkedIssues[i]);
-    if (selected.length === 0) return;
+  async function handleSubmitOneIssue(index: number) {
+    if (!chatIssues || submittingIndex !== null) return;
+    const chatIssue = chatIssues[index];
+    if (!chatIssue) return;
 
-    setSubmitting(true);
+    setSubmittingIndex(index);
     try {
-      const results = await backend.submitChatIssues(selected, {
+      const results = await backend.submitChatIssues([chatIssue], {
         ...(appName && { app: appName }),
         pagePath: "/feedback-lib-issues",
         pageContext: "Issues",
         sessionId: sessionId || issue.clarifierSessionId,
       });
-      setSubmitResults(results);
-      setChatIssues(null);
-      setCheckedIssues([]);
+      const remaining = chatIssues.filter((_, i) => i !== index);
+      setChatIssues(remaining.length > 0 ? remaining : null);
+      setSubmitResults(prev => prev ? [...prev, ...results] : results);
       fetchIssues();
-      if (results.every(r => r.success)) {
+      if (remaining.length === 0 && results.every(r => r.success)) {
         closeModal();
       }
     } catch {
       setMessages(prev => [...prev, { role: "assistant", text: "Something went wrong. Please try again." }]);
     } finally {
-      setSubmitting(false);
+      setSubmittingIndex(null);
     }
   }
 
@@ -235,14 +238,12 @@ export function RegressionChatModal({ backend, issue, appName, labels, isDark, o
           {!historyLoading && messages.length === 0 && (
             <p data-id="chat-modal-no-history" className={`text-sm text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>{labels.noSessionHistory}</p>
           )}
-          <ChatMessages messages={messages} isDark={isDark} selectIssuesLabel={labels.selectIssues} onResendStale={!chatIssues ? handleResendStale : undefined} resendLabel={labels.resend} copyLabel={labels.copy} copiedLabel={labels.copied} />
+          <ChatMessages messages={messages} isDark={isDark} selectIssuesLabel={labels.selectIssues} onResendStale={handleResendStale} resendLabel={labels.resend} copyLabel={labels.copy} copiedLabel={labels.copied} />
           {chatIssues && chatIssues.length > 0 && (
             <ChatIssueChecklist
               issues={chatIssues}
-              checkedIssues={checkedIssues}
-              onToggle={i => setCheckedIssues(prev => { const next = [...prev]; next[i] = !next[i]; return next; })}
-              onSubmit={handleSubmitIssues}
-              submitting={submitting}
+              onSubmitOne={handleSubmitOneIssue}
+              submittingIndex={submittingIndex}
               isDark={isDark}
               selectLabel={labels.selectIssues}
               submitLabel={labels.chatSubmit}

@@ -35,6 +35,9 @@ export interface SendChatMessageRequest {
     status?: string;
     insights?: string;
   };
+  /** Titles of issues already submitted from this conversation. Forwarded to
+   *  the clarifier as context so it doesn't re-propose them. */
+  submittedIssueTitles?: string[];
 }
 
 export interface SendChatMessageResponse {

@@ -86,8 +86,8 @@ const defaultLabels: FeedbackLabels = {
   greeting: "Hi! Use this chat to report bugs, suggest features, or share any feedback with the development team. Describe what's on your mind and I'll help you put together a clear report.",
   title: "Issue Clarifier",
   newChat: "New Chat",
-  selectIssues: "Select the issues to submit:",
-  submit: "Submit Selected",
+  selectIssues: "Suggested issues:",
+  submit: "Submit",
   submitting: "Submitting...",
   issueSubmitted: "Issue #",
   error: "Something went wrong. Please try again.",
@@ -148,6 +148,9 @@ interface PersistedSession {
   messages: Message[];
   issues?: ChatIssue[];
   checkedIssues?: boolean[];
+  /** Titles of issues already submitted from this conversation — passed back to
+   *  the clarifier so it doesn't re-propose them in subsequent suggestions. */
+  submittedIssueTitles?: string[];
 }
 
 function openIssuesTab(url: string, target = 'feedback-issues') {
@@ -309,8 +312,7 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [tmuxSession, setTmuxSession] = useState<string | null>(null);
   const [issues, setIssues] = useState<ChatIssue[] | null>(null);
-  const [checkedIssues, setCheckedIssues] = useState<boolean[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  const [submittingIndex, setSubmittingIndex] = useState<number | null>(null);
   const [submitResults, setSubmitResults] = useState<ChatSubmitResult[] | null>(null);
   const [hookWarning, setHookWarning] = useState<string | null>(null);
   const [restoredSession, setRestoredSession] = useState(false);
@@ -319,6 +321,7 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
   const [directDesc, setDirectDesc] = useState("");
   const [directLoading, setDirectLoading] = useState(false);
   const [showPostSubmitPrompt, setShowPostSubmitPrompt] = useState(false);
+  const [submittedIssueTitles, setSubmittedIssueTitles] = useState<string[]>([]);
   const [fullScreen, setFullScreen] = useState(false);
   const [resumeId, setResumeId] = useState<string | null>(null);
   const [customHeight, setCustomHeight] = useState<number | null>(null);
@@ -371,11 +374,12 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
         sessionId: sid,
         tmuxSession: tmuxSession || '',
         messages,
-        ...(issues && issues.length > 0 && { issues, checkedIssues }),
+        ...(issues && issues.length > 0 && { issues }),
+        ...(submittedIssueTitles.length > 0 && { submittedIssueTitles }),
       };
       sessionStorage.setItem(storageKey, JSON.stringify(data));
     }
-  }, [storageKey, sessionId, tmuxSession, resumeId, messages, issues, checkedIssues]);
+  }, [storageKey, sessionId, tmuxSession, resumeId, messages, issues, submittedIssueTitles]);
 
   // Restore session from sessionStorage on mount
   useEffect(() => {
@@ -405,7 +409,9 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
       }
       if (data.issues && data.issues.length > 0) {
         setIssues(data.issues);
-        setCheckedIssues(data.checkedIssues ?? new Array(data.issues.length).fill(true));
+      }
+      if (data.submittedIssueTitles && data.submittedIssueTitles.length > 0) {
+        setSubmittedIssueTitles(data.submittedIssueTitles);
       }
       if (!data.tmuxSession) {
         // No tmux recorded — set up for resume
@@ -558,9 +564,9 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
     setInput("");
     setLoadingCount(0);
     setIssues(null);
-    setCheckedIssues([]);
     setSubmitResults(null);
     setShowPostSubmitPrompt(false);
+    setSubmittedIssueTitles([]);
   }
 
   function handleEndSession() {
@@ -569,9 +575,9 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
     setInput("");
     setLoadingCount(0);
     setIssues(null);
-    setCheckedIssues([]);
     setSubmitResults(null);
     setShowPostSubmitPrompt(false);
+    setSubmittedIssueTitles([]);
     setOpen(false);
   }
 
@@ -585,7 +591,6 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
     if (issues && issues.length > 0) {
       setMessages((prev) => [...prev, { role: "assistant", text: "", staleIssues: issues }, { role: "user", text }]);
       setIssues(null);
-      setCheckedIssues([]);
     } else {
       setMessages((prev) => [...prev, { role: "user", text }]);
     }
@@ -604,6 +609,7 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
           pagePath: getFullPagePath(),
           pageContext: getPageContext(),
           ...(appOverride && { app: appOverride }),
+          ...(submittedIssueTitles.length > 0 && { submittedIssueTitles }),
         });
       } catch (err) {
         if (err instanceof BackendAuthExpiredError) {
@@ -614,7 +620,6 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
           setMessages((prev) => [...prev, { role: "assistant", text: labels.sessionExpired }]);
           setResumeId(null);
           setIssues(null);
-          setCheckedIssues([]);
           sessionStorage.removeItem(storageKey);
           return;
         }
@@ -644,7 +649,6 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
 
       if (data.issues) {
         setIssues(data.issues);
-        setCheckedIssues(new Array(data.issues.length).fill(true));
       }
     } catch (err) {
       const isNetwork = err instanceof TypeError && err.message === 'Failed to fetch';
@@ -654,44 +658,47 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
     }
   }
 
-  async function handleSubmitIssues() {
-    if (!issues || submitting) return;
+  async function handleSubmitOneIssue(index: number) {
+    if (!issues || submittingIndex !== null) return;
+    const issue = issues[index];
+    if (!issue) return;
 
-    const selected = issues.filter((_, i) => checkedIssues[i]);
-    if (selected.length === 0) return;
-
-    setSubmitting(true);
+    setSubmittingIndex(index);
     try {
-      const results = await backend.submitChatIssues(selected, {
+      const results = await backend.submitChatIssues([issue], {
         pagePath: getFullPagePath(),
         pageContext: getPageContext(),
         sessionId: sessionId || resumeId,
         ...(appOverride && { app: appOverride }),
       });
-      setSubmitResults(results);
-      setIssues(null);
-      setCheckedIssues([]);
-      if (results.every(r => r.success)) {
+      setMessages((prev) => [...prev, { role: "assistant", text: "", staleIssues: [issue] }]);
+      const remaining = issues.filter((_, i) => i !== index);
+      setIssues(remaining.length > 0 ? remaining : null);
+      setSubmitResults(prev => prev ? [...prev, ...results] : results);
+      const justSubmitted = results.filter(r => r.success).map(r => r.title);
+      if (justSubmitted.length > 0) {
+        setSubmittedIssueTitles(prev => Array.from(new Set([...prev, ...justSubmitted])));
+      }
+      if (remaining.length === 0 && results.every(r => r.success)) {
         setShowPostSubmitPrompt(true);
       }
     } catch {
       setMessages((prev) => [...prev, { role: "assistant", text: labels.error }]);
     } finally {
-      setSubmitting(false);
+      setSubmittingIndex(null);
     }
   }
 
-  function toggleIssue(index: number) {
-    setCheckedIssues((prev) => {
-      const next = [...prev];
-      next[index] = !next[index];
-      return next;
-    });
-  }
-
   function handleResendStale(staleIssues: ChatIssue[]) {
-    setIssues(staleIssues);
-    setCheckedIssues(new Array(staleIssues.length).fill(true));
+    setIssues(prev => {
+      if (!prev || prev.length === 0) return staleIssues;
+      const existing = new Set(prev.map(i => i.title));
+      const additions = staleIssues.filter(i => !existing.has(i.title));
+      if (additions.length === 0) return prev;
+      return [...prev, ...additions];
+    });
+    setSubmitResults(null);
+    setShowPostSubmitPrompt(false);
   }
 
   function handleGoToIssues() {
@@ -711,20 +718,16 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
         openIssuesTab('/feedback-lib-issues?app=addnewfeature', 'addnewfeature-issues');
       }
     }
-    handlePostSubmitCleanup();
+    // Keep chat open with full conversation history (issue #181) — only dismiss
+    // the post-submit prompt.
+    setShowPostSubmitPrompt(false);
   }
 
-  function handlePostSubmitCleanup() {
-    closeSession();
-    setMessages([{ role: "assistant", text: labels.greeting }]);
-    setInput("");
-    setLoadingCount(0);
-    setIssues(null);
-    setCheckedIssues([]);
-    setSubmitResults(null);
+  function handleDismissPostSubmitPrompt() {
+    // Issue #181: dismissing the post-submit prompt should NOT close the chat
+    // or wipe the conversation. Just hide the prompt — session, messages, and
+    // submit results stay visible so the user can keep chatting.
     setShowPostSubmitPrompt(false);
-    setDirectMode(false);
-    setOpen(false);
   }
 
   async function handleDirectSubmit() {
@@ -920,7 +923,7 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
               <p data-id="post-submit-prompt-text" className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.goToIssuesPrompt}</p>
               <div data-id="post-submit-prompt-actions" className="flex gap-2">
                 <button data-id="go-to-issues" onClick={handleGoToIssues} className={`flex-1 px-3 py-2 ${accent} text-white text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesYes}</button>
-                <button data-id="dismiss-prompt" onClick={handlePostSubmitCleanup} className={`flex-1 px-3 py-2 ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'} text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesNo}</button>
+                <button data-id="dismiss-prompt" onClick={handleDismissPostSubmitPrompt} className={`flex-1 px-3 py-2 ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'} text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesNo}</button>
               </div>
             </div>
           )}
@@ -929,15 +932,13 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
         <>
         {/* Messages */}
         <div data-id="messages-area" className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 ${fullScreen || sizedCompact ? '' : 'min-h-[12rem] max-h-[20rem]'}`}>
-          <ChatMessages messages={messages} isDark={isDark} accentBg={accentBase} selectIssuesLabel={labels.selectIssues} onResendStale={!issues ? handleResendStale : undefined} resendLabel={labels.resend} copyLabel={labels.copy} copiedLabel={labels.copied} />
+          <ChatMessages messages={messages} isDark={isDark} accentBg={accentBase} selectIssuesLabel={labels.selectIssues} onResendStale={handleResendStale} resendLabel={labels.resend} copyLabel={labels.copy} copiedLabel={labels.copied} />
 
           {issues && issues.length > 0 && (
             <ChatIssueChecklist
               issues={issues}
-              checkedIssues={checkedIssues}
-              onToggle={toggleIssue}
-              onSubmit={handleSubmitIssues}
-              submitting={submitting}
+              onSubmitOne={handleSubmitOneIssue}
+              submittingIndex={submittingIndex}
               isDark={isDark}
               accentClass={accent}
               selectLabel={labels.selectIssues}
@@ -955,7 +956,7 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
               <p data-id="chat-post-submit-prompt-text" className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.goToIssuesPrompt}</p>
               <div data-id="chat-post-submit-prompt-actions" className="flex gap-2">
                 <button data-id="chat-go-to-issues" onClick={handleGoToIssues} className={`flex-1 px-3 py-2 ${accent} text-white text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesYes}</button>
-                <button data-id="chat-dismiss-prompt" onClick={handlePostSubmitCleanup} className={`flex-1 px-3 py-2 ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'} text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesNo}</button>
+                <button data-id="chat-dismiss-prompt" onClick={handleDismissPostSubmitPrompt} className={`flex-1 px-3 py-2 ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'} text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesNo}</button>
               </div>
             </div>
           )}

@@ -54,17 +54,19 @@ export interface ChatSubmitResult {
   success: boolean;
 }
 
-/** Grayed-out issue checklist for previously-proposed issues in chat history. */
-export function StaleIssueList({ issues, isDark, label, onResend, resendLabel }: { issues: ChatIssue[]; isDark: boolean; label: string; onResend?: (issues: ChatIssue[]) => void; resendLabel?: string }) {
+/** Grayed-out issue checklist for previously-proposed issues in chat history.
+ *  Each item has its own re-send button so the user can re-propose individual
+ *  issues even while a fresh suggestions checklist is awaiting submission. */
+export function StaleIssueList({ issues, isDark, label, onResend, resendLabel }: { issues: ChatIssue[]; isDark: boolean; label: string; onResend: (issues: ChatIssue[]) => void; resendLabel?: string }) {
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const mouseRef = useRef<{ x: number; y: number } | null>(null);
   return (
-    <div data-id="stale-issue-list" className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2 opacity-50`}>
-      <p data-id="stale-issue-list-label" className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{label}</p>
+    <div data-id="stale-issue-list" className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
+      <p data-id="stale-issue-list-label" className={`text-xs font-medium opacity-60 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{label}</p>
       {issues.map((issue, j) => (
         <div data-id={`stale-issue-item-${j}`} key={j} className="flex items-start gap-2 p-2">
-          <input data-id={`stale-issue-checkbox-${j}`} type="checkbox" checked disabled className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600" />
-          <div data-id={`stale-issue-content-${j}`} className="flex-1 min-w-0">
+          <input data-id={`stale-issue-checkbox-${j}`} type="checkbox" checked disabled className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 opacity-60" />
+          <div data-id={`stale-issue-content-${j}`} className="flex-1 min-w-0 opacity-60">
             <p data-id={`stale-issue-title-${j}`} className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
             <p
               data-id={`stale-issue-description-${j}`}
@@ -75,17 +77,17 @@ export function StaleIssueList({ issues, isDark, label, onResend, resendLabel }:
               {issue.description}
             </p>
           </div>
+          <button
+            data-id={`stale-issue-resend-${j}`}
+            type="button"
+            onClick={() => onResend([issue])}
+            title={resendLabel ?? 'Re-send'}
+            className={`shrink-0 mt-0.5 px-2 py-1 text-xs font-medium rounded-md transition-colors ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+          >
+            {resendLabel ?? 'Re-send'}
+          </button>
         </div>
       ))}
-      {onResend && (
-        <button
-          data-id="stale-issue-resend"
-          onClick={() => onResend(issues)}
-          className={`w-full mt-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
-        >
-          {resendLabel ?? "Re-send"}
-        </button>
-      )}
     </div>
   );
 }
@@ -171,7 +173,7 @@ export function ChatMessages({ messages, isDark, accentBg = 'bg-indigo-600', sel
               </div>
             </div>
           )}
-          {msg.staleIssues && (
+          {msg.staleIssues && onResendStale && (
             <StaleIssueList issues={msg.staleIssues} isDark={isDark} label={selectIssuesLabel} onResend={onResendStale} resendLabel={resendLabel} />
           )}
         </Fragment>
@@ -180,13 +182,11 @@ export function ChatMessages({ messages, isDark, accentBg = 'bg-indigo-600', sel
   );
 }
 
-/** Active issue checklist with checkboxes and submit button. */
-export function ChatIssueChecklist({ issues, checkedIssues, onToggle, onSubmit, submitting, isDark, accentClass = 'bg-indigo-600 hover:bg-indigo-700', selectLabel, submitLabel, submittingLabel, expandable = false }: {
+/** Active issue checklist with per-issue submit buttons. */
+export function ChatIssueChecklist({ issues, onSubmitOne, submittingIndex, isDark, accentClass = 'bg-indigo-600 hover:bg-indigo-700', selectLabel, submitLabel, submittingLabel, expandable = false }: {
   issues: ChatIssue[];
-  checkedIssues: boolean[];
-  onToggle: (i: number) => void;
-  onSubmit: () => void;
-  submitting: boolean;
+  onSubmitOne: (i: number) => void;
+  submittingIndex: number | null;
   isDark: boolean;
   accentClass?: string;
   selectLabel: string;
@@ -201,14 +201,7 @@ export function ChatIssueChecklist({ issues, checkedIssues, onToggle, onSubmit, 
     <div data-id="chat-issue-checklist" className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
       <p data-id="chat-issue-checklist-label" className={`text-xs font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{selectLabel}</p>
       {issues.map((issue, i) => (
-        <label data-id={`chat-issue-label-${i}`} key={i} className={`flex items-start gap-2 cursor-pointer p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
-          <input
-            data-id={`chat-issue-checkbox-${i}`}
-            type="checkbox"
-            checked={checkedIssues[i] ?? true}
-            onChange={() => onToggle(i)}
-            className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-          />
+        <div data-id={`chat-issue-item-${i}`} key={i} className={`flex items-start gap-2 p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
           <div data-id={`chat-issue-content-${i}`} className="flex-1 min-w-0">
             <p data-id={`chat-issue-title-${i}`} className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
             <p
@@ -222,16 +215,16 @@ export function ChatIssueChecklist({ issues, checkedIssues, onToggle, onSubmit, 
               {issue.description}
             </p>
           </div>
-        </label>
+          <button
+            data-id={`chat-issue-submit-${i}`}
+            onClick={() => onSubmitOne(i)}
+            disabled={submittingIndex !== null}
+            className={`shrink-0 mt-0.5 px-3 py-1 text-xs font-medium rounded-lg transition-colors ${accentClass} ${isDark ? 'disabled:bg-slate-600' : 'disabled:bg-slate-300'} text-white disabled:cursor-not-allowed`}
+          >
+            {submittingIndex === i ? submittingLabel : submitLabel}
+          </button>
+        </div>
       ))}
-      <button
-        data-id="chat-issue-submit"
-        onClick={onSubmit}
-        disabled={submitting || !checkedIssues.some(Boolean)}
-        className={`w-full mt-1 px-3 py-2 ${accentClass} ${isDark ? 'disabled:bg-slate-600' : 'disabled:bg-slate-300'} text-white text-sm font-medium rounded-lg transition-colors`}
-      >
-        {submitting ? submittingLabel : submitLabel}
-      </button>
     </div>
   );
 }
