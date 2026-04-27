@@ -30,6 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.Button
@@ -125,6 +126,14 @@ fun FeedbackChatScreen(
                     if (onNavigateToIssues != null) {
                         IconButton(onClick = onNavigateToIssues) {
                             Icon(Icons.AutoMirrored.Filled.List, contentDescription = "View Issues")
+                        }
+                    }
+                    if (!state.directMode && state.sessionId != null) {
+                        IconButton(onClick = {
+                            viewModel.closeSession()
+                            onNavigateBack()
+                        }) {
+                            Icon(Icons.Filled.Close, contentDescription = "End Session")
                         }
                     }
                     if (!state.directMode && state.messages.isNotEmpty()) {
