@@ -21,4 +21,11 @@ data class FeedbackChatUiState(
     val submitResults: List<FeedbackSubmitResult>? = null,
     val error: String? = null,
     val serverFound: Boolean = false,
+    val hookWarning: String? = null,
+    val directMode: Boolean = false,
+    val directTitle: String = "",
+    val directDescription: String = "",
+    val directLoading: Boolean = false,
+    val showPostSubmitPrompt: Boolean = false,
+    val restoringSession: Boolean = false,
 )

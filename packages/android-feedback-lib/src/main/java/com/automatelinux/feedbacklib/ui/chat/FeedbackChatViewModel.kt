@@ -2,7 +2,11 @@ package com.automatelinux.feedbacklib.ui.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.automatelinux.feedbacklib.FeedbackConfig
 import com.automatelinux.feedbacklib.data.repository.FeedbackRepository
+import com.automatelinux.feedbacklib.data.repository.FeedbackSessionStore
+import com.automatelinux.feedbacklib.data.repository.PersistedMessage
+import com.automatelinux.feedbacklib.data.repository.PersistedSession
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -16,12 +20,18 @@ import javax.inject.Inject
 @HiltViewModel
 class FeedbackChatViewModel @Inject constructor(
     private val feedbackRepository: FeedbackRepository,
+    private val sessionStore: FeedbackSessionStore,
+    private val config: FeedbackConfig,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FeedbackChatUiState())
     val uiState: StateFlow<FeedbackChatUiState> = _uiState.asStateFlow()
 
     private var healthCheckJob: Job? = null
+
+    init {
+        restoreSession()
+    }
 
     fun setServerFound(found: Boolean) {
         _uiState.update { it.copy(serverFound = found) }
@@ -45,8 +55,11 @@ class FeedbackChatViewModel @Inject constructor(
                 proposedIssues = null,
                 checkedIssues = emptyList(),
                 submitResults = null,
+                showPostSubmitPrompt = false,
             )
         }
+
+        val screenContext = feedbackRepository.getScreenContext()
 
         viewModelScope.launch {
             val current = _uiState.value
@@ -55,6 +68,8 @@ class FeedbackChatViewModel @Inject constructor(
                 sessionId = current.sessionId,
                 tmuxSession = current.tmuxSession,
                 resumeSessionId = current.resumeSessionId,
+                pagePath = screenContext,
+                pageContext = screenContext,
             ).onSuccess { data ->
                 val displayText = stripJsonBlocks(data.response)
                 _uiState.update {
@@ -65,9 +80,11 @@ class FeedbackChatViewModel @Inject constructor(
                         resumeSessionId = null,
                         proposedIssues = data.issues,
                         checkedIssues = data.issues?.map { true } ?: emptyList(),
+                        hookWarning = data.hookWarning ?: it.hookWarning,
                         isSending = false,
                     )
                 }
+                persistSession()
                 startHealthCheck(data.tmuxSession)
             }.onFailure { e ->
                 val msg = e.message ?: "Failed to send message"
@@ -81,6 +98,7 @@ class FeedbackChatViewModel @Inject constructor(
                             isSending = false,
                         )
                     }
+                    sessionStore.clear()
                 } else {
                     _uiState.update {
                         it.copy(error = msg, isSending = false)
@@ -106,8 +124,15 @@ class FeedbackChatViewModel @Inject constructor(
 
         _uiState.update { it.copy(isSubmitting = true, error = null) }
 
+        val screenContext = feedbackRepository.getScreenContext()
+
         viewModelScope.launch {
-            feedbackRepository.submitIssues(selected, state.sessionId)
+            feedbackRepository.submitIssues(
+                selected,
+                state.sessionId,
+                pagePath = screenContext,
+                pageContext = screenContext,
+            )
                 .onSuccess { data ->
                     _uiState.update {
                         it.copy(
@@ -115,9 +140,10 @@ class FeedbackChatViewModel @Inject constructor(
                             proposedIssues = null,
                             checkedIssues = emptyList(),
                             isSubmitting = false,
+                            showPostSubmitPrompt = true,
                         )
                     }
-                    concludeAfterSubmit()
+                    persistSession()
                 }
                 .onFailure { e ->
                     _uiState.update {
@@ -133,6 +159,7 @@ class FeedbackChatViewModel @Inject constructor(
             viewModelScope.launch { feedbackRepository.closeSession(tmux) }
         }
         stopHealthCheck()
+        sessionStore.clear()
     }
 
     fun newChat() {
@@ -144,18 +171,124 @@ class FeedbackChatViewModel @Inject constructor(
         _uiState.update { it.copy(error = null) }
     }
 
-    fun concludeAfterSubmit() {
-        val results = _uiState.value.submitResults
-        closeSession()
-        _uiState.value = FeedbackChatUiState(
-            serverFound = true,
-            submitResults = results,
+    fun dismissSubmitResults() {
+        _uiState.update { it.copy(submitResults = null, showPostSubmitPrompt = false) }
+    }
+
+    fun dismissPostSubmitPrompt() {
+        _uiState.update { it.copy(showPostSubmitPrompt = false) }
+    }
+
+    // ── Direct mode (#30) ────────────────────────────────────────────────
+
+    fun toggleDirectMode() {
+        _uiState.update { it.copy(directMode = !it.directMode) }
+    }
+
+    fun updateDirectTitle(text: String) {
+        _uiState.update { it.copy(directTitle = text) }
+    }
+
+    fun updateDirectDescription(text: String) {
+        _uiState.update { it.copy(directDescription = text) }
+    }
+
+    fun submitDirectIssue() {
+        val state = _uiState.value
+        val title = state.directTitle.trim()
+        if (title.isBlank() || state.directLoading) return
+
+        _uiState.update { it.copy(directLoading = true, error = null) }
+
+        val screenContext = feedbackRepository.getScreenContext()
+
+        viewModelScope.launch {
+            feedbackRepository.createDirectIssue(
+                title = title,
+                description = state.directDescription.trim().ifBlank { null },
+                pagePath = screenContext,
+                pageContext = screenContext,
+            )
+                .onSuccess { data ->
+                    _uiState.update {
+                        it.copy(
+                            directTitle = "",
+                            directDescription = "",
+                            directLoading = false,
+                            submitResults = listOf(
+                                com.automatelinux.feedbacklib.data.model.FeedbackSubmitResult(
+                                    title = title,
+                                    issueNumber = data.issueNumber,
+                                    success = true,
+                                )
+                            ),
+                            showPostSubmitPrompt = true,
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(
+                            directLoading = false,
+                            submitResults = listOf(
+                                com.automatelinux.feedbacklib.data.model.FeedbackSubmitResult(
+                                    title = title,
+                                    success = false,
+                                    error = e.message,
+                                )
+                            ),
+                        )
+                    }
+                }
+        }
+    }
+
+    // ── Session persistence (#26) ────────────────────────────────────────
+
+    private fun persistSession() {
+        val state = _uiState.value
+        val sessionId = state.sessionId ?: return
+        val tmuxSession = state.tmuxSession ?: return
+        sessionStore.save(
+            PersistedSession(
+                sessionId = sessionId,
+                tmuxSession = tmuxSession,
+                messages = state.messages.map { PersistedMessage(it.role, it.text) },
+            )
         )
     }
 
-    fun dismissSubmitResults() {
-        _uiState.update { it.copy(submitResults = null) }
+    private fun restoreSession() {
+        val persisted = sessionStore.load() ?: return
+        _uiState.update {
+            it.copy(
+                sessionId = persisted.sessionId,
+                tmuxSession = persisted.tmuxSession,
+                messages = persisted.messages.map { m -> ChatMessage(m.role, m.text) },
+                restoringSession = true,
+            )
+        }
+        viewModelScope.launch {
+            val alive = feedbackRepository.checkSessionAlive(persisted.tmuxSession)
+            if (alive) {
+                _uiState.update { it.copy(restoringSession = false) }
+                startHealthCheck(persisted.tmuxSession)
+            } else {
+                _uiState.update {
+                    it.copy(
+                        resumeSessionId = persisted.sessionId,
+                        sessionId = null,
+                        tmuxSession = null,
+                        messages = it.messages + ChatMessage("system", "Previous session ended. Your next message will continue the conversation."),
+                        restoringSession = false,
+                    )
+                }
+                sessionStore.clear()
+            }
+        }
     }
+
+    // ── Health check ─────────────────────────────────────────────────────
 
     private fun startHealthCheck(tmuxSession: String) {
         healthCheckJob?.cancel()
@@ -172,6 +305,7 @@ class FeedbackChatViewModel @Inject constructor(
                             )
                         } else it
                     }
+                    sessionStore.clear()
                     break
                 }
             }
@@ -185,7 +319,8 @@ class FeedbackChatViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        closeSession()
+        persistSession()
+        stopHealthCheck()
     }
 
     companion object {

@@ -31,12 +31,16 @@ data class FeedbackMessageRequest(
     @SerializedName("tmuxSession") val tmuxSession: String? = null,
     @SerializedName("resumeSessionId") val resumeSessionId: String? = null,
     val app: String,
+    val pagePath: String? = null,
+    val pageContext: String? = null,
 )
 
 data class FeedbackSubmitRequest(
     val issues: List<FeedbackIssue>,
     @SerializedName("sessionId") val sessionId: String? = null,
     val app: String,
+    val pagePath: String? = null,
+    val pageContext: String? = null,
 )
 
 data class FeedbackCloseRequest(
@@ -46,6 +50,15 @@ data class FeedbackCloseRequest(
 data class IssueActionRequest(
     val action: String, // "close" | "reopen" | "delete"
     @SerializedName("issueNumber") val issueNumber: Int,
+    val app: String,
+)
+
+data class CreateIssueRequest(
+    val action: String = "create",
+    val title: String,
+    val description: String? = null,
+    val pagePath: String? = null,
+    val pageContext: String? = null,
     val app: String,
 )
 
@@ -79,6 +92,7 @@ data class FeedbackMessageResponse(
     @SerializedName("sessionId") val sessionId: String,
     @SerializedName("tmuxSession") val tmuxSession: String,
     val issues: List<FeedbackIssue>? = null,
+    val hookWarning: String? = null,
 )
 
 data class FeedbackSubmitResponse(
@@ -102,4 +116,10 @@ data class IssuesListResponse(
 
 data class OkResponse(
     val ok: Boolean? = null,
+)
+
+data class CreateIssueResponse(
+    val ok: Boolean? = null,
+    @SerializedName("issueNumber") val issueNumber: Int? = null,
+    val effectiveApp: String? = null,
 )

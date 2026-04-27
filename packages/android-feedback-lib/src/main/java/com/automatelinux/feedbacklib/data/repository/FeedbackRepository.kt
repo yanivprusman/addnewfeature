@@ -11,11 +11,15 @@ class FeedbackRepository @Inject constructor(
     private val api: FeedbackApi,
     private val config: FeedbackConfig,
 ) {
+    fun getScreenContext(): String? = config.currentScreenProvider?.invoke()
+
     suspend fun sendMessage(
         message: String,
         sessionId: String? = null,
         tmuxSession: String? = null,
         resumeSessionId: String? = null,
+        pagePath: String? = null,
+        pageContext: String? = null,
     ): Result<FeedbackMessageResponse> = apiCall {
         api.sendFeedbackMessage(
             FeedbackMessageRequest(
@@ -24,6 +28,8 @@ class FeedbackRepository @Inject constructor(
                 tmuxSession = tmuxSession,
                 resumeSessionId = resumeSessionId,
                 app = config.appName,
+                pagePath = pagePath,
+                pageContext = pageContext,
             )
         )
     }
@@ -31,11 +37,32 @@ class FeedbackRepository @Inject constructor(
     suspend fun submitIssues(
         issues: List<FeedbackIssue>,
         sessionId: String? = null,
+        pagePath: String? = null,
+        pageContext: String? = null,
     ): Result<FeedbackSubmitResponse> = apiCall {
         api.submitFeedbackIssues(
             FeedbackSubmitRequest(
                 issues = issues,
                 sessionId = sessionId,
+                app = config.appName,
+                pagePath = pagePath,
+                pageContext = pageContext,
+            )
+        )
+    }
+
+    suspend fun createDirectIssue(
+        title: String,
+        description: String? = null,
+        pagePath: String? = null,
+        pageContext: String? = null,
+    ): Result<CreateIssueResponse> = apiCall {
+        api.createIssue(
+            CreateIssueRequest(
+                title = title,
+                description = description,
+                pagePath = pagePath,
+                pageContext = pageContext,
                 app = config.appName,
             )
         )
