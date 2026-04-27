@@ -107,14 +107,21 @@ function CopyMessageButton({ text, isUser, isDark, label, copiedLabel }: {
   copiedLabel: string;
 }) {
   const [copied, setCopied] = useState(false);
-  const handleCopy = async (e: React.MouseEvent) => {
+  const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await navigator.clipboard.writeText(text);
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // clipboard API unavailable — silently ignore
+      // copy unavailable
     }
   };
   const tone = isUser
