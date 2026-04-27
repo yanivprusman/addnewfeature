@@ -705,29 +705,23 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
     if (!isOnIssuesPage) {
       openIssuesTab(issuesPath || '/feedback-lib-issues');
     } else {
-      // The /issues page shows the host app's issues by default (no ?app= ⇒
-      // API falls back to the current app, not addnewfeature). Read the actually
-      // viewed app from FeedbackIssuesPage's window export.
       const viewedApp = new URLSearchParams(window.location.search).get('app')
         || (window as Window & { __feedbackIssuesAppName?: string }).__feedbackIssuesAppName;
       if (viewedApp === 'addnewfeature') {
-        // Already viewing addnewfeature's issues — just refresh data
         window.dispatchEvent(new Event('feedback-issues-refresh'));
       } else {
-        // On another app's /issues page — open addnewfeature's issues in a named tab
         openIssuesTab('/feedback-lib-issues?app=addnewfeature', 'addnewfeature-issues');
       }
     }
-    // Keep chat open with full conversation history (issue #181) — only dismiss
-    // the post-submit prompt.
-    setShowPostSubmitPrompt(false);
+  }
+
+  function handlePostSubmitGoToIssues() {
+    handleGoToIssues();
+    handleEndSession();
   }
 
   function handleDismissPostSubmitPrompt() {
-    // Issue #181: dismissing the post-submit prompt should NOT close the chat
-    // or wipe the conversation. Just hide the prompt — session, messages, and
-    // submit results stay visible so the user can keep chatting.
-    setShowPostSubmitPrompt(false);
+    handleEndSession();
   }
 
   async function handleDirectSubmit() {
@@ -922,7 +916,7 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
             <div data-id="post-submit-prompt" className={`${isDark ? 'border-slate-600' : 'border-slate-200'} border rounded-xl p-3 space-y-2`}>
               <p data-id="post-submit-prompt-text" className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.goToIssuesPrompt}</p>
               <div data-id="post-submit-prompt-actions" className="flex gap-2">
-                <button data-id="go-to-issues" onClick={handleGoToIssues} className={`flex-1 px-3 py-2 ${accent} text-white text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesYes}</button>
+                <button data-id="go-to-issues" onClick={handlePostSubmitGoToIssues} className={`flex-1 px-3 py-2 ${accent} text-white text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesYes}</button>
                 <button data-id="dismiss-prompt" onClick={handleDismissPostSubmitPrompt} className={`flex-1 px-3 py-2 ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'} text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesNo}</button>
               </div>
             </div>
@@ -955,7 +949,7 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
             <div data-id="chat-post-submit-prompt" className={`${isDark ? 'border-slate-600' : 'border-slate-200'} border rounded-xl p-3 space-y-2`}>
               <p data-id="chat-post-submit-prompt-text" className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{labels.goToIssuesPrompt}</p>
               <div data-id="chat-post-submit-prompt-actions" className="flex gap-2">
-                <button data-id="chat-go-to-issues" onClick={handleGoToIssues} className={`flex-1 px-3 py-2 ${accent} text-white text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesYes}</button>
+                <button data-id="chat-go-to-issues" onClick={handlePostSubmitGoToIssues} className={`flex-1 px-3 py-2 ${accent} text-white text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesYes}</button>
                 <button data-id="chat-dismiss-prompt" onClick={handleDismissPostSubmitPrompt} className={`flex-1 px-3 py-2 ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'} text-sm font-medium rounded-lg transition-colors`}>{labels.goToIssuesNo}</button>
               </div>
             </div>
