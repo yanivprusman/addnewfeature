@@ -29,10 +29,8 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
   const systemDark = useSystemDark();
   const isDark = colorScheme === "dark" || (colorScheme !== "light" && systemDark);
 
-  // Seeded from the server-resolved ?app= query param so SSR and client
-  // hydration render the same title, avoiding both the root-metadata flash
-  // and the generic "Issues"-only intermediate state before the API responds.
-  const [appName, setAppName] = useState<string | null>(initialAppName ?? null);
+  const resolvedInitialApp = initialAppName ?? (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('app') : null);
+  const [appName, setAppName] = useState<string | null>(resolvedInitialApp);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +59,8 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
   // Preserved (dismissed but not ended) chat sessions: clarifierSessionId → session data
   const [preservedSessions, setPreservedSessions] = useState<Map<string, { sessionId: string; tmuxSession: string }>>(new Map());
   const mouseDownRef = useRef<{ x: number; y: number } | null>(null);
+  const fixSingleRef = useRef(false);
+  const fixBatchRef = useRef(false);
 
   // Tabs: "issues" or "maintenance"
   const [activeTab, setActiveTab] = useState<"issues" | "maintenance">("issues");
@@ -339,6 +339,8 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
   }
 
   async function launchBatchFix(selected: Issue[], resumeSessionId?: string) {
+    if (fixBatchRef.current) return;
+    fixBatchRef.current = true;
     setFixLoading(true);
     try {
       await backend.issueAction({
@@ -369,10 +371,13 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
         alert(labels.authExpired);
       }
     }
+    fixBatchRef.current = false;
     setFixLoading(false);
   }
 
   async function handleFixSingleIssue(issue: Issue, resumeSessionId?: string) {
+    if (fixSingleRef.current) return;
+    fixSingleRef.current = true;
     setFixSessionLoading(true);
     try {
       await backend.issueAction({
@@ -397,6 +402,7 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
         alert(labels.authExpired);
       }
     }
+    fixSingleRef.current = false;
     setFixSessionLoading(false);
   }
 
