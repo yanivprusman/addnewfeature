@@ -155,6 +155,28 @@ export function RegressionChatModal({ backend, issue, appName, labels, isDark, o
     setSubmitResults(null);
   }
 
+  async function handleSubmitStaleIssue(staleIssue: { title: string; description: string }): Promise<boolean> {
+    try {
+      const results = await backend.submitChatIssues([staleIssue], {
+        ...(appName && { app: appName }),
+        pagePath: "/feedback-lib-issues",
+        pageContext: "Issues",
+        sessionId: sessionId || issue.clarifierSessionId,
+      });
+      setMessages(prev => prev.map(msg => {
+        if (!msg.staleIssues) return msg;
+        const filtered = msg.staleIssues.filter(i => i.title !== staleIssue.title);
+        return { ...msg, staleIssues: filtered.length > 0 ? filtered : undefined };
+      }));
+      setSubmitResults(prev => prev ? [...prev, ...results] : results);
+      fetchIssues();
+      return results.every(r => r.success);
+    } catch {
+      setMessages(prev => [...prev, { role: "assistant", text: "Something went wrong. Please try again." }]);
+      return false;
+    }
+  }
+
   async function handleSubmitOneIssue(index: number) {
     if (!chatIssues || submittingIndex !== null) return;
     const chatIssue = chatIssues[index];
@@ -238,7 +260,7 @@ export function RegressionChatModal({ backend, issue, appName, labels, isDark, o
           {!historyLoading && messages.length === 0 && (
             <p data-id="chat-modal-no-history" className={`text-sm text-center ${isDark ? "text-slate-500" : "text-slate-400"}`}>{labels.noSessionHistory}</p>
           )}
-          <ChatMessages messages={messages} isDark={isDark} selectIssuesLabel={labels.selectIssues} onResendStale={handleResendStale} resendLabel={labels.resend} copyLabel={labels.copy} copiedLabel={labels.copied} />
+          <ChatMessages messages={messages} isDark={isDark} selectIssuesLabel={labels.selectIssues} onResendStale={handleResendStale} onSubmitStaleIssue={handleSubmitStaleIssue} resendLabel={labels.resend} submitLabel={labels.chatSubmit} submittingLabel={labels.chatSubmitting} copyLabel={labels.copy} copiedLabel={labels.copied} />
           {chatIssues && chatIssues.length > 0 && (
             <ChatIssueChecklist
               issues={chatIssues}

@@ -143,6 +143,10 @@ export interface SessionHistoryResult {
 export interface ListIssuesResult {
   issues: Issue[];
   appName: string;
+  /** True when the bridge served a cached value because the live daemon /
+   *  shared-DB call kept failing. UI uses this to suppress empty-state
+   *  flashes — there's no visible affordance for "stale". */
+  _stale?: boolean;
 }
 
 /**

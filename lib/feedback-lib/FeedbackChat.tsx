@@ -701,6 +701,31 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
     setShowPostSubmitPrompt(false);
   }
 
+  async function handleSubmitStaleIssue(staleIssue: ChatIssue): Promise<boolean> {
+    try {
+      const results = await backend.submitChatIssues([staleIssue], {
+        pagePath: getFullPagePath(),
+        pageContext: getPageContext(),
+        sessionId: sessionId || resumeId,
+        ...(appOverride && { app: appOverride }),
+      });
+      setMessages(prev => prev.map(msg => {
+        if (!msg.staleIssues) return msg;
+        const filtered = msg.staleIssues.filter(i => i.title !== staleIssue.title);
+        return { ...msg, staleIssues: filtered.length > 0 ? filtered : undefined };
+      }));
+      setSubmitResults(prev => prev ? [...prev, ...results] : results);
+      const justSubmitted = results.filter(r => r.success).map(r => r.title);
+      if (justSubmitted.length > 0) {
+        setSubmittedIssueTitles(prev => Array.from(new Set([...prev, ...justSubmitted])));
+      }
+      return results.every(r => r.success);
+    } catch {
+      setMessages(prev => [...prev, { role: "assistant", text: labels.error }]);
+      return false;
+    }
+  }
+
   function handleGoToIssues() {
     if (!isOnIssuesPage) {
       openIssuesTab(issuesPath || '/feedback-lib-issues');
@@ -926,7 +951,7 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
         <>
         {/* Messages */}
         <div data-id="messages-area" className={`flex-1 overflow-y-auto px-4 py-3 space-y-3 ${fullScreen || sizedCompact ? '' : 'min-h-[12rem] max-h-[20rem]'}`}>
-          <ChatMessages messages={messages} isDark={isDark} accentBg={accentBase} selectIssuesLabel={labels.selectIssues} onResendStale={handleResendStale} resendLabel={labels.resend} copyLabel={labels.copy} copiedLabel={labels.copied} />
+          <ChatMessages messages={messages} isDark={isDark} accentBg={accentBase} selectIssuesLabel={labels.selectIssues} onResendStale={handleResendStale} onSubmitStaleIssue={handleSubmitStaleIssue} resendLabel={labels.resend} submitLabel={labels.submit} submittingLabel={labels.submitting} copyLabel={labels.copy} copiedLabel={labels.copied} />
 
           {issues && issues.length > 0 && (
             <ChatIssueChecklist

@@ -57,16 +57,30 @@ export interface ChatSubmitResult {
 /** Grayed-out issue checklist for previously-proposed issues in chat history.
  *  Each item has its own re-send button so the user can re-propose individual
  *  issues even while a fresh suggestions checklist is awaiting submission. */
-export function StaleIssueList({ issues, isDark, label, onResend, resendLabel }: { issues: ChatIssue[]; isDark: boolean; label: string; onResend: (issues: ChatIssue[]) => void; resendLabel?: string }) {
+export function StaleIssueList({ issues, isDark, label, onResend, onSubmitStale, resendLabel, submitLabel, submittingLabel }: {
+  issues: ChatIssue[];
+  isDark: boolean;
+  label: string;
+  onResend: (issues: ChatIssue[]) => void;
+  onSubmitStale?: (issue: ChatIssue) => Promise<boolean>;
+  resendLabel?: string;
+  submitLabel?: string;
+  submittingLabel?: string;
+}) {
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const mouseRef = useRef<{ x: number; y: number } | null>(null);
+  const [activated, setActivated] = useState<Set<string>>(new Set());
+  const [submittingTitle, setSubmittingTitle] = useState<string | null>(null);
   return (
     <div data-id="stale-issue-list" className={`${isDark ? 'bg-slate-700/50 border-slate-600' : 'bg-slate-50 border-slate-200'} border rounded-xl p-3 space-y-2`}>
       <p data-id="stale-issue-list-label" className={`text-xs font-medium opacity-60 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{label}</p>
-      {issues.map((issue, j) => (
-        <div data-id={`stale-issue-item-${j}`} key={j} className="flex items-start gap-2 p-2">
-          <input data-id={`stale-issue-checkbox-${j}`} type="checkbox" checked disabled className="mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 opacity-60" />
-          <div data-id={`stale-issue-content-${j}`} className="flex-1 min-w-0 opacity-60">
+      {issues.map((issue, j) => {
+        const isActivated = activated.has(issue.title);
+        const isSubmitting = submittingTitle === issue.title;
+        return (
+        <div data-id={`stale-issue-item-${j}`} key={j} className={`flex items-start gap-2 p-2 ${isActivated ? `rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors` : ''}`}>
+          <input data-id={`stale-issue-checkbox-${j}`} type="checkbox" checked disabled className={`mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 ${isActivated ? '' : 'opacity-60'}`} />
+          <div data-id={`stale-issue-content-${j}`} className={`flex-1 min-w-0 ${isActivated ? '' : 'opacity-60'}`}>
             <p data-id={`stale-issue-title-${j}`} className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
             <p
               data-id={`stale-issue-description-${j}`}
@@ -77,17 +91,42 @@ export function StaleIssueList({ issues, isDark, label, onResend, resendLabel }:
               {issue.description}
             </p>
           </div>
-          <button
-            data-id={`stale-issue-resend-${j}`}
-            type="button"
-            onClick={() => onResend([issue])}
-            title={resendLabel ?? 'Re-send'}
-            className={`shrink-0 mt-0.5 px-2 py-1 text-xs font-medium rounded-md transition-colors ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
-          >
-            {resendLabel ?? 'Re-send'}
-          </button>
+          {isActivated ? (
+            <button
+              data-id={`stale-issue-submit-${j}`}
+              type="button"
+              onClick={async () => {
+                if (!onSubmitStale || isSubmitting) return;
+                setSubmittingTitle(issue.title);
+                const ok = await onSubmitStale(issue);
+                setSubmittingTitle(null);
+                if (ok) setActivated(prev => { const next = new Set(prev); next.delete(issue.title); return next; });
+              }}
+              disabled={submittingTitle !== null}
+              className={`shrink-0 mt-0.5 px-3 py-1 text-xs font-medium rounded-lg transition-colors bg-indigo-600 hover:bg-indigo-700 ${isDark ? 'disabled:bg-slate-600' : 'disabled:bg-slate-300'} text-white disabled:cursor-not-allowed`}
+            >
+              {isSubmitting ? (submittingLabel ?? 'Submitting...') : (submitLabel ?? 'Submit')}
+            </button>
+          ) : (
+            <button
+              data-id={`stale-issue-resend-${j}`}
+              type="button"
+              onClick={() => {
+                if (onSubmitStale) {
+                  setActivated(prev => new Set(prev).add(issue.title));
+                } else {
+                  onResend([issue]);
+                }
+              }}
+              title={resendLabel ?? 'Re-send'}
+              className={`shrink-0 mt-0.5 px-2 py-1 text-xs font-medium rounded-md transition-colors ${isDark ? 'bg-slate-600 hover:bg-slate-500 text-slate-200' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+            >
+              {resendLabel ?? 'Re-send'}
+            </button>
+          )}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -154,13 +193,16 @@ function CopyMessageButton({ text, isUser, isDark, label, copiedLabel }: {
 }
 
 /** Chat message list — renders user/assistant bubbles with inline stale issues. */
-export function ChatMessages({ messages, isDark, accentBg = 'bg-indigo-600', selectIssuesLabel, onResendStale, resendLabel, copyLabel = 'Copy', copiedLabel = 'Copied' }: {
+export function ChatMessages({ messages, isDark, accentBg = 'bg-indigo-600', selectIssuesLabel, onResendStale, onSubmitStaleIssue, resendLabel, submitLabel, submittingLabel, copyLabel = 'Copy', copiedLabel = 'Copied' }: {
   messages: { role: string; text: string; staleIssues?: ChatIssue[] }[];
   isDark: boolean;
   accentBg?: string;
   selectIssuesLabel: string;
   onResendStale?: (issues: ChatIssue[]) => void;
+  onSubmitStaleIssue?: (issue: ChatIssue) => Promise<boolean>;
   resendLabel?: string;
+  submitLabel?: string;
+  submittingLabel?: string;
   copyLabel?: string;
   copiedLabel?: string;
 }) {
@@ -180,8 +222,8 @@ export function ChatMessages({ messages, isDark, accentBg = 'bg-indigo-600', sel
               </div>
             </div>
           )}
-          {msg.staleIssues && onResendStale && (
-            <StaleIssueList issues={msg.staleIssues} isDark={isDark} label={selectIssuesLabel} onResend={onResendStale} resendLabel={resendLabel} />
+          {msg.staleIssues && msg.staleIssues.length > 0 && onResendStale && (
+            <StaleIssueList issues={msg.staleIssues} isDark={isDark} label={selectIssuesLabel} onResend={onResendStale} onSubmitStale={onSubmitStaleIssue} resendLabel={resendLabel} submitLabel={submitLabel} submittingLabel={submittingLabel} />
           )}
         </Fragment>
       ))}
