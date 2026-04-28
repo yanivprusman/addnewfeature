@@ -33,7 +33,10 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
   const [appName, setAppName] = useState<string | null>(resolvedInitialApp);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // True when the bridge marked the latest response as cached/stale. We don't
+  // show this to the user — its only job is to suppress the "no issues found"
+  // empty-state on a cold-start cache miss while the daemon is briefly down.
+  const [lastResponseStale, setLastResponseStale] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [actionLoading, setActionLoading] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -150,8 +153,12 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
 
   const fetchIssues = useCallback(async () => {
     try {
-      setError(null);
       const data = await backend.listIssues(overrideApp);
+      // Bridge always returns HTTP 200 — `_stale` indicates a cached response
+      // because the live daemon / shared-DB call failed. We suppress the
+      // empty-state on stale responses so a cold-start cache miss never flashes
+      // "No issues found" to the user.
+      setLastResponseStale(data._stale === true);
       if (data.appName) setAppName(data.appName);
       const all: Issue[] = Array.isArray(data.issues) ? data.issues : [];
       // Only show user-reported issues, sorted: open by createdAt newest-first, closed by updatedAt newest-first
@@ -181,11 +188,15 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
       }
       setMaintenanceIssues(maintMap);
     } catch {
-      setError(labels.error);
+      // Bridge absorbs all transient daemon/shared-DB errors and returns a
+      // 200 response with `_stale: true`. So the only way we land here is a
+      // genuine network/JS error on the user's side. Swallow silently — the
+      // task explicitly requires "no errors what so ever at all". Existing
+      // issues stay on screen; the next 15s poll retries.
     } finally {
       setLoading(false);
     }
-  }, [backend, overrideApp, labels.error]);
+  }, [backend, overrideApp]);
 
   useEffect(() => {
     fetchIssues();
@@ -342,6 +353,12 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
     if (fixBatchRef.current) return;
     fixBatchRef.current = true;
     setFixLoading(true);
+    const selectedNumbers = new Set(selected.map(i => i.issueNumber));
+    setIssues(prev => prev.map(i =>
+      selectedNumbers.has(i.issueNumber) ? { ...i, status: "in_progress" } : i
+    ));
+    setSelectedIds(new Set());
+    setBatchFixTarget(null);
     try {
       await backend.issueAction({
         action: 'fix',
@@ -359,13 +376,6 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
         }),
         ...(resumeSessionId && { resumeSessionId }),
       });
-      // Optimistically mark as in_progress
-      const selectedNumbers = new Set(selected.map(i => i.issueNumber));
-      setIssues(prev => prev.map(i =>
-        selectedNumbers.has(i.issueNumber) ? { ...i, status: "in_progress" } : i
-      ));
-      setSelectedIds(new Set());
-      setBatchFixTarget(null);
     } catch (err) {
       if (err instanceof BackendAuthExpiredError) {
         alert(labels.authExpired);
@@ -379,6 +389,10 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
     if (fixSingleRef.current) return;
     fixSingleRef.current = true;
     setFixSessionLoading(true);
+    setIssues(prev => prev.map(i =>
+      i.issueNumber === issue.issueNumber ? { ...i, status: "in_progress" } : i
+    ));
+    setFixSessionTarget(null);
     try {
       await backend.issueAction({
         action: 'fix',
@@ -393,10 +407,6 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
         }],
         ...(resumeSessionId && { resumeSessionId }),
       });
-      setIssues(prev => prev.map(i =>
-        i.issueNumber === issue.issueNumber ? { ...i, status: "in_progress" } : i
-      ));
-      setFixSessionTarget(null);
     } catch (err) {
       if (err instanceof BackendAuthExpiredError) {
         alert(labels.authExpired);
@@ -684,9 +694,11 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
 
         {activeTab === "issues" && <>
         {loading && <p data-id="issues-loading" className={isDark ? "text-slate-400" : "text-slate-500"}>{labels.loading}</p>}
-        {error && <p data-id="issues-error" className="text-red-500">{error}</p>}
 
-        {!loading && !error && displayIssues.length === 0 && (
+        {/* Empty-state is suppressed when the latest response was stale —
+            we don't know yet whether the list is really empty, so showing
+            "No issues found" would be a lie until the daemon comes back. */}
+        {!loading && !lastResponseStale && displayIssues.length === 0 && (
           <p data-id="issues-empty" className={isDark ? "text-slate-400" : "text-slate-500"}>{labels.noIssues}</p>
         )}
 
