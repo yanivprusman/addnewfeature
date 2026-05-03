@@ -74,6 +74,7 @@ fun FeedbackIssuesScreen(
     val selectedCount = state.selectedIds.count { id ->
         state.issues.any { it.issueNumber == id && it.status != "closed" }
     }
+    val hasFixedIssues = state.issues.any { it.status == "review" || it.status == "closed" }
 
     val pullRefreshState = rememberPullRefreshState(
         refreshing = state.refreshing,
@@ -109,6 +110,27 @@ fun FeedbackIssuesScreen(
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text("Fix ($selectedCount)")
                             }
+                        }
+                    }
+                    if (hasFixedIssues) {
+                        TextButton(
+                            onClick = { viewModel.installFixedVersion() },
+                            enabled = !state.installLoading,
+                        ) {
+                            if (state.installLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Filled.GetApp,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Install")
                         }
                     }
                     IconButton(onClick = viewModel::refresh) {
@@ -168,13 +190,11 @@ fun FeedbackIssuesScreen(
                                 selected = state.selectedIds.contains(issue.issueNumber),
                                 actionLoading = state.actionLoadingIssue == issue.issueNumber,
                                 fixLoading = state.fixLoading,
-                                installLoading = state.installLoading,
                                 onToggleExpand = { viewModel.toggleExpanded(issue.issueNumber) },
                                 onToggleSelect = { viewModel.toggleSelected(issue.issueNumber) },
                                 onClose = { viewModel.closeIssue(issue.issueNumber) },
                                 onReopen = { viewModel.reopenIssue(issue.issueNumber) },
                                 onDelete = { confirmDelete = issue },
-                                onInstall = { viewModel.installFixedVersion() },
                                 onFix = {
                                     val sessions = issue.claudeSessionIds
                                     if (!sessions.isNullOrEmpty()) {
@@ -263,17 +283,14 @@ fun IssueCard(
     selected: Boolean,
     actionLoading: Boolean,
     fixLoading: Boolean,
-    installLoading: Boolean = false,
     onToggleExpand: () -> Unit,
     onToggleSelect: () -> Unit,
     onClose: () -> Unit,
     onReopen: () -> Unit,
     onDelete: () -> Unit,
-    onInstall: () -> Unit = {},
     onFix: () -> Unit,
 ) {
     val canFix = issue.status == "open" || issue.status == "regression"
-    val canInstall = issue.status == "review" || issue.status == "closed"
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(12.dp),
@@ -348,27 +365,6 @@ fun IssueCard(
                             strokeWidth = 2.dp,
                         )
                     } else {
-                        if (canInstall) {
-                            TextButton(
-                                onClick = onInstall,
-                                enabled = !installLoading,
-                            ) {
-                                if (installLoading) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(14.dp),
-                                        strokeWidth = 2.dp,
-                                    )
-                                } else {
-                                    Icon(
-                                        Icons.Filled.GetApp,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp),
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Install Fixed Version")
-                            }
-                        }
                         if (canFix) {
                             TextButton(
                                 onClick = onFix,
