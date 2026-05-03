@@ -78,6 +78,11 @@ data class FixIssuesRequest(
     @SerializedName("resumeSessionId") val resumeSessionId: String? = null,
 )
 
+data class InstallAppRequest(
+    val action: String = "install",
+    val app: String,
+)
+
 data class FixIssuesResponse(
     val ok: Boolean? = null,
     @SerializedName("claudeSessionId") val claudeSessionId: String? = null,

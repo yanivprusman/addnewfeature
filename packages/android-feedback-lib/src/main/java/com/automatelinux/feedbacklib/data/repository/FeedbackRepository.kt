@@ -106,4 +106,8 @@ class FeedbackRepository @Inject constructor(
             )
         )
     }
+
+    suspend fun installApp(): Result<OkResponse> = apiCall {
+        api.installApp(InstallAppRequest(app = config.appName))
+    }
 }

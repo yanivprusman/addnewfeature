@@ -21,6 +21,7 @@ data class FeedbackIssuesUiState(
     val expandedIds: Set<Int> = emptySet(),
     val selectedIds: Set<Int> = emptySet(),
     val fixLoading: Boolean = false,
+    val installLoading: Boolean = false,
     val error: String? = null,
 )
 
@@ -179,6 +180,18 @@ class FeedbackIssuesViewModel @Inject constructor(
                 .onFailure { e ->
                     _uiState.update {
                         it.copy(fixLoading = false, error = e.message ?: "Fix failed")
+                    }
+                }
+        }
+    }
+
+    fun installFixedVersion() {
+        _uiState.update { it.copy(installLoading = true, error = null) }
+        viewModelScope.launch {
+            feedbackRepository.installApp()
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(installLoading = false, error = e.message ?: "Install failed")
                     }
                 }
         }
