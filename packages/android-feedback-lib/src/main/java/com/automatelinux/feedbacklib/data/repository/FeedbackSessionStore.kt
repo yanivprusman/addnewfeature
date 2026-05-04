@@ -15,7 +15,7 @@ data class PersistedMessage(
 
 data class PersistedSession(
     val sessionId: String,
-    val tmuxSession: String,
+    val tmuxSession: String?,
     val messages: List<PersistedMessage>,
 )
 

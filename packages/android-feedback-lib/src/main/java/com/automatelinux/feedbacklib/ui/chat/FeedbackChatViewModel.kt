@@ -98,7 +98,7 @@ class FeedbackChatViewModel @Inject constructor(
                             isSending = false,
                         )
                     }
-                    sessionStore.clear()
+                    persistSession()
                 } else {
                     _uiState.update {
                         it.copy(error = msg, isSending = false)
@@ -247,12 +247,11 @@ class FeedbackChatViewModel @Inject constructor(
 
     private fun persistSession() {
         val state = _uiState.value
-        val sessionId = state.sessionId ?: return
-        val tmuxSession = state.tmuxSession ?: return
+        val sid = state.sessionId ?: state.resumeSessionId ?: return
         sessionStore.save(
             PersistedSession(
-                sessionId = sessionId,
-                tmuxSession = tmuxSession,
+                sessionId = sid,
+                tmuxSession = state.tmuxSession,
                 messages = state.messages.map { PersistedMessage(it.role, it.text) },
             )
         )
@@ -260,11 +259,23 @@ class FeedbackChatViewModel @Inject constructor(
 
     private fun restoreSession() {
         val persisted = sessionStore.load() ?: return
+        val restoredMessages = persisted.messages.map { m -> ChatMessage(m.role, m.text) }
+
+        if (persisted.tmuxSession == null) {
+            _uiState.update {
+                it.copy(
+                    resumeSessionId = persisted.sessionId,
+                    messages = restoredMessages,
+                )
+            }
+            return
+        }
+
         _uiState.update {
             it.copy(
                 sessionId = persisted.sessionId,
                 tmuxSession = persisted.tmuxSession,
-                messages = persisted.messages.map { m -> ChatMessage(m.role, m.text) },
+                messages = restoredMessages,
                 restoringSession = true,
             )
         }
@@ -279,11 +290,10 @@ class FeedbackChatViewModel @Inject constructor(
                         resumeSessionId = persisted.sessionId,
                         sessionId = null,
                         tmuxSession = null,
-                        messages = it.messages + ChatMessage("system", "Previous session ended. Your next message will continue the conversation."),
                         restoringSession = false,
                     )
                 }
-                sessionStore.clear()
+                persistSession()
             }
         }
     }
@@ -305,7 +315,7 @@ class FeedbackChatViewModel @Inject constructor(
                             )
                         } else it
                     }
-                    sessionStore.clear()
+                    persistSession()
                     break
                 }
             }
