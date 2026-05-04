@@ -41,6 +41,7 @@ data class FeedbackSubmitRequest(
     val app: String,
     val pagePath: String? = null,
     val pageContext: String? = null,
+    val labels: List<String> = listOf("android"),
 )
 
 data class FeedbackCloseRequest(
@@ -60,6 +61,7 @@ data class CreateIssueRequest(
     val pagePath: String? = null,
     val pageContext: String? = null,
     val app: String,
+    val labels: List<String> = listOf("android"),
 )
 
 data class FixIssueItem(
