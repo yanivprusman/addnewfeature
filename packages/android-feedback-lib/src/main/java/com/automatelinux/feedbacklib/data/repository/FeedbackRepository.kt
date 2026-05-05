@@ -1,8 +1,11 @@
 package com.automatelinux.feedbacklib.data.repository
 
+import android.content.Context
+import android.os.Build
 import com.automatelinux.feedbacklib.FeedbackConfig
 import com.automatelinux.feedbacklib.data.api.FeedbackApi
 import com.automatelinux.feedbacklib.data.model.*
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -10,9 +13,16 @@ import javax.inject.Singleton
 class FeedbackRepository @Inject constructor(
     private val api: FeedbackApi,
     private val config: FeedbackConfig,
+    @ApplicationContext private val context: Context,
 ) {
     fun getScreenContext(): String? = config.currentScreenProvider?.invoke()
-    fun getPlatformContext(): String? = config.platformContextProvider?.invoke()
+
+    val platformString: String by lazy {
+        val versionName = try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?"
+        } catch (_: Exception) { "?" }
+        "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}, v$versionName"
+    }
 
     suspend fun sendMessage(
         message: String,
@@ -31,6 +41,7 @@ class FeedbackRepository @Inject constructor(
                 app = config.appName,
                 pagePath = pagePath,
                 pageContext = pageContext,
+                platform = platformString,
             )
         )
     }
@@ -48,6 +59,7 @@ class FeedbackRepository @Inject constructor(
                 app = config.appName,
                 pagePath = pagePath,
                 pageContext = pageContext,
+                platform = platformString,
             )
         )
     }
@@ -64,6 +76,7 @@ class FeedbackRepository @Inject constructor(
                 description = description,
                 pagePath = pagePath,
                 pageContext = pageContext,
+                platform = platformString,
                 app = config.appName,
             )
         )

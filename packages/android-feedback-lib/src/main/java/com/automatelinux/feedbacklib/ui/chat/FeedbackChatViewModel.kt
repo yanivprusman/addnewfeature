@@ -60,8 +60,6 @@ class FeedbackChatViewModel @Inject constructor(
         }
 
         val screenContext = feedbackRepository.getScreenContext()
-        val platformContext = feedbackRepository.getPlatformContext()
-        val fullContext = listOfNotNull(screenContext, platformContext).joinToString(" | ").ifEmpty { null }
 
         viewModelScope.launch {
             val current = _uiState.value
@@ -71,7 +69,7 @@ class FeedbackChatViewModel @Inject constructor(
                 tmuxSession = current.tmuxSession,
                 resumeSessionId = current.resumeSessionId,
                 pagePath = screenContext,
-                pageContext = fullContext,
+                pageContext = screenContext,
             ).onSuccess { data ->
                 val displayText = stripJsonBlocks(data.response)
                 _uiState.update {
@@ -127,15 +125,13 @@ class FeedbackChatViewModel @Inject constructor(
         _uiState.update { it.copy(isSubmitting = true, error = null) }
 
         val screenContext = feedbackRepository.getScreenContext()
-        val platformContext = feedbackRepository.getPlatformContext()
-        val fullContext = listOfNotNull(screenContext, platformContext).joinToString(" | ").ifEmpty { null }
 
         viewModelScope.launch {
             feedbackRepository.submitIssues(
                 selected,
                 state.sessionId,
                 pagePath = screenContext,
-                pageContext = fullContext,
+                pageContext = screenContext,
             )
                 .onSuccess { data ->
                     _uiState.update {
@@ -205,15 +201,13 @@ class FeedbackChatViewModel @Inject constructor(
         _uiState.update { it.copy(directLoading = true, error = null) }
 
         val screenContext = feedbackRepository.getScreenContext()
-        val platformContext = feedbackRepository.getPlatformContext()
-        val fullContext = listOfNotNull(screenContext, platformContext).joinToString(" | ").ifEmpty { null }
 
         viewModelScope.launch {
             feedbackRepository.createDirectIssue(
                 title = title,
                 description = state.directDescription.trim().ifBlank { null },
                 pagePath = screenContext,
-                pageContext = fullContext,
+                pageContext = screenContext,
             )
                 .onSuccess { data ->
                     _uiState.update {
