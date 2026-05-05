@@ -33,6 +33,7 @@ data class FeedbackMessageRequest(
     val app: String,
     val pagePath: String? = null,
     val pageContext: String? = null,
+    val platform: String = "android",
 )
 
 data class FeedbackSubmitRequest(

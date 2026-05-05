@@ -7,6 +7,7 @@ import { useSystemDark, ChatIssue, ChatSubmitResult, ChatMessages, ChatIssueChec
 import type { FeedbackBackend } from "./api-contract";
 import { BackendAuthExpiredError, BackendSessionExpiredError } from "./api-contract";
 
+const PLATFORM = 'chrome';
 const PAGE_CONTEXT_KEY = '__feedbackPageContext';
 
 /** Set the current page context (e.g. active tab name) for issue tracking.
@@ -608,6 +609,7 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
           resumeSessionId: !sessionId ? resumeId : undefined,
           pagePath: getFullPagePath(),
           pageContext: getPageContext(),
+          platform: PLATFORM,
           ...(appOverride && { app: appOverride }),
           ...(submittedIssueTitles.length > 0 && { submittedIssueTitles }),
         });
@@ -669,6 +671,7 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
         pagePath: getFullPagePath(),
         pageContext: getPageContext(),
         sessionId: sessionId || resumeId,
+        labels: [PLATFORM],
         ...(appOverride && { app: appOverride }),
       });
       setMessages((prev) => [...prev, { role: "assistant", text: "", staleIssues: [issue] }]);
@@ -707,6 +710,7 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
         pagePath: getFullPagePath(),
         pageContext: getPageContext(),
         sessionId: sessionId || resumeId,
+        labels: [PLATFORM],
         ...(appOverride && { app: appOverride }),
       });
       setMessages(prev => prev.map(msg => {
@@ -759,6 +763,7 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
         description: directDesc,
         pagePath: getFullPagePath(),
         pageContext: getPageContext(),
+        labels: [PLATFORM],
         ...(appOverride && { app: appOverride }),
       });
       const issueNumber = 'issueNumber' in data ? data.issueNumber : undefined;

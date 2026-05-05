@@ -27,6 +27,8 @@ export interface SendChatMessageRequest {
   pageContext?: string;
   /** Override which app the issues target (e.g. from /feedback-lib-issues?app=foo) */
   app?: string;
+  /** Reporting platform — "chrome" or "android" */
+  platform?: string;
   /** Optional prior-issue context passed when reopening a conversation */
   priorIssue?: {
     issueNumber?: number;
@@ -67,7 +69,7 @@ export class BackendSessionExpiredError extends Error {
 
 /** Body for POST /api/feedback/issues routed through the backend. */
 export type IssueAction =
-  | { action: 'create'; title: string; description?: string; pagePath?: string; pageContext?: string; app?: string }
+  | { action: 'create'; title: string; description?: string; pagePath?: string; pageContext?: string; app?: string; labels?: string[] }
   | { action: 'update'; issueNumber: number; title?: string; description?: string; status?: string; insights?: string; labels?: string[]; app?: string }
   | { action: 'close'; issueNumber: number; app?: string }
   | { action: 'reopen'; issueNumber: number; app?: string }
@@ -161,7 +163,7 @@ export interface FeedbackBackend {
   /** Submit a set of chat-proposed issues to the tracker. */
   submitChatIssues(
     issues: ChatIssue[],
-    context: { pagePath?: string; pageContext?: string; sessionId?: string | null; app?: string },
+    context: { pagePath?: string; pageContext?: string; sessionId?: string | null; app?: string; labels?: string[] },
   ): Promise<ChatSubmitResult[]>;
 
   /** Check whether a clarifier tmux is still alive. */
