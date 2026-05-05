@@ -12,6 +12,7 @@ class FeedbackRepository @Inject constructor(
     private val config: FeedbackConfig,
 ) {
     fun getScreenContext(): String? = config.currentScreenProvider?.invoke()
+    fun getPlatformContext(): String? = config.platformContextProvider?.invoke()
 
     suspend fun sendMessage(
         message: String,

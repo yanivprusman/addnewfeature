@@ -9,4 +9,5 @@ data class FeedbackConfig(
     val directTitlePlaceholder: String = "Issue title",
     val directDescPlaceholder: String = "Description (optional)",
     val currentScreenProvider: (() -> String?)? = null,
+    val platformContextProvider: (() -> String?)? = null,
 )
