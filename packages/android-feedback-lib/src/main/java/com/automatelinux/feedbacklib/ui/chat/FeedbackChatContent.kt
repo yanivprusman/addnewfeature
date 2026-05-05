@@ -240,7 +240,10 @@ fun FeedbackChatScreen(
                                         nav()
                                     }
                                 },
-                                onDone = viewModel::dismissPostSubmitPrompt,
+                                onDone = {
+                                    viewModel.newChat()
+                                    onNavigateBack()
+                                },
                             )
                         }
                     }
