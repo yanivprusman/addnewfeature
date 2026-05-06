@@ -219,7 +219,8 @@ fun FeedbackChatScreen(
                         AssistantBubble(text = greeting)
                     }
 
-                    items(state.messages, key = { "${it.role}_${state.messages.indexOf(it)}" }) { msg ->
+                    items(state.messages.size, key = { i -> "${state.messages[i].role}_$i" }) { i ->
+                        val msg = state.messages[i]
                         when (msg.role) {
                             "user" -> UserBubble(text = msg.text)
                             "assistant" -> {
