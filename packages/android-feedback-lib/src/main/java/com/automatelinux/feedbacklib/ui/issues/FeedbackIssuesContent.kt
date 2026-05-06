@@ -74,8 +74,6 @@ fun FeedbackIssuesScreen(
     val selectedCount = state.selectedIds.count { id ->
         state.issues.any { it.issueNumber == id && it.status != "closed" }
     }
-    val hasFixedIssues = state.issues.any { it.status == "review" || it.status == "closed" }
-
     val pullRefreshState = rememberPullRefreshState(
         refreshing = state.refreshing,
         onRefresh = { viewModel.refresh() },
@@ -112,8 +110,7 @@ fun FeedbackIssuesScreen(
                             }
                         }
                     }
-                    if (hasFixedIssues) {
-                        TextButton(
+                    TextButton(
                             onClick = { viewModel.installFixedVersion() },
                             enabled = !state.installLoading,
                         ) {
@@ -132,7 +129,6 @@ fun FeedbackIssuesScreen(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("Install")
                         }
-                    }
                     IconButton(onClick = viewModel::refresh) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
                     }
