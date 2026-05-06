@@ -46,9 +46,18 @@ class FeedbackChatViewModel @Inject constructor(
         val text = state.inputText.trim()
         if (text.isBlank() || state.isSending) return
 
+        val existingIssues = state.proposedIssues
+        val newMessages = buildList {
+            addAll(state.messages)
+            if (!existingIssues.isNullOrEmpty()) {
+                add(ChatMessage("assistant", "", staleIssues = existingIssues))
+            }
+            add(ChatMessage("user", text))
+        }
+
         _uiState.update {
             it.copy(
-                messages = it.messages + ChatMessage("user", text),
+                messages = newMessages,
                 inputText = "",
                 isSending = true,
                 error = null,
@@ -153,6 +162,38 @@ class FeedbackChatViewModel @Inject constructor(
         }
     }
 
+    fun submitStaleIssue(issue: com.automatelinux.feedbacklib.data.model.FeedbackIssue) {
+        val state = _uiState.value
+        val screenContext = feedbackRepository.getScreenContext()
+
+        viewModelScope.launch {
+            feedbackRepository.submitIssues(
+                listOf(issue),
+                state.sessionId,
+                pagePath = screenContext,
+                pageContext = screenContext,
+            )
+                .onSuccess { data ->
+                    _uiState.update {
+                        it.copy(
+                            messages = it.messages.map { msg ->
+                                val stale = msg.staleIssues ?: return@map msg
+                                val filtered = stale.filter { si -> si.title != issue.title }
+                                msg.copy(staleIssues = filtered.ifEmpty { null })
+                            },
+                            submitResults = (it.submitResults ?: emptyList()) + data.results,
+                        )
+                    }
+                    persistSession()
+                }
+                .onFailure { e ->
+                    _uiState.update {
+                        it.copy(error = e.message ?: "Failed to submit issue")
+                    }
+                }
+        }
+    }
+
     fun closeSession() {
         val tmux = _uiState.value.tmuxSession
         if (tmux != null) {
@@ -252,7 +293,7 @@ class FeedbackChatViewModel @Inject constructor(
             PersistedSession(
                 sessionId = sid,
                 tmuxSession = state.tmuxSession,
-                messages = state.messages.map { PersistedMessage(it.role, it.text) },
+                messages = state.messages.map { PersistedMessage(it.role, it.text, it.staleIssues) },
             )
         )
     }
@@ -265,14 +306,14 @@ class FeedbackChatViewModel @Inject constructor(
             PersistedSession(
                 sessionId = sid ?: PENDING_SESSION_SENTINEL,
                 tmuxSession = state.tmuxSession,
-                messages = state.messages.map { PersistedMessage(it.role, it.text) },
+                messages = state.messages.map { PersistedMessage(it.role, it.text, it.staleIssues) },
             )
         )
     }
 
     private fun restoreSession() {
         val persisted = sessionStore.load() ?: return
-        val restoredMessages = persisted.messages.map { m -> ChatMessage(m.role, m.text) }
+        val restoredMessages = persisted.messages.map { m -> ChatMessage(m.role, m.text, m.staleIssues) }
 
         if (persisted.sessionId == PENDING_SESSION_SENTINEL) {
             _uiState.update { it.copy(messages = restoredMessages) }

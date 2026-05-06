@@ -11,6 +11,7 @@ import javax.inject.Singleton
 data class PersistedMessage(
     val role: String,
     val text: String,
+    val staleIssues: List<com.automatelinux.feedbacklib.data.model.FeedbackIssue>? = null,
 )
 
 data class PersistedSession(

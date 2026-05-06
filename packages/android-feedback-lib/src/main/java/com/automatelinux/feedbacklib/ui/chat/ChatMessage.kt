@@ -6,6 +6,7 @@ import com.automatelinux.feedbacklib.data.model.FeedbackSubmitResult
 data class ChatMessage(
     val role: String, // "user" | "assistant" | "system"
     val text: String,
+    val staleIssues: List<FeedbackIssue>? = null,
 )
 
 data class FeedbackChatUiState(

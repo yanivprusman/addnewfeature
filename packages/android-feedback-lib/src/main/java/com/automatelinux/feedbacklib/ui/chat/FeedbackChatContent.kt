@@ -222,7 +222,15 @@ fun FeedbackChatScreen(
                     items(state.messages, key = { "${it.role}_${state.messages.indexOf(it)}" }) { msg ->
                         when (msg.role) {
                             "user" -> UserBubble(text = msg.text)
-                            "assistant" -> AssistantBubble(text = msg.text)
+                            "assistant" -> {
+                                if (msg.text.isNotBlank()) AssistantBubble(text = msg.text)
+                                if (!msg.staleIssues.isNullOrEmpty()) {
+                                    StaleIssuesSection(
+                                        issues = msg.staleIssues,
+                                        onSubmit = viewModel::submitStaleIssue,
+                                    )
+                                }
+                            }
                             "system" -> SystemMessage(text = msg.text)
                         }
                     }
@@ -544,6 +552,70 @@ fun IssueCardsSection(
                 )
             } else {
                 Text("Submit Selected ($selectedCount)")
+            }
+        }
+    }
+}
+
+// ── Stale Issues (previously proposed, kept in chat history) ─────────────
+
+@Composable
+fun StaleIssuesSection(
+    issues: List<FeedbackIssue>,
+    onSubmit: (FeedbackIssue) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "Previously suggested:",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.alpha(0.6f),
+        )
+        issues.forEach { issue ->
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                ),
+                shape = RoundedCornerShape(10.dp),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = issue.title,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        if (issue.description.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = issue.description,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                fontSize = 11.sp,
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(
+                        onClick = { onSubmit(issue) },
+                        modifier = Modifier.height(32.dp),
+                    ) {
+                        Text("Submit", fontSize = 12.sp)
+                    }
+                }
             }
         }
     }
