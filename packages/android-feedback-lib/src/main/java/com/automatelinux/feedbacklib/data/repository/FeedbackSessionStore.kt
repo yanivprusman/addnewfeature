@@ -34,6 +34,10 @@ class FeedbackSessionStore @Inject constructor(
         prefs.edit().putString(key, gson.toJson(session)).apply()
     }
 
+    fun saveSync(session: PersistedSession) {
+        prefs.edit().putString(key, gson.toJson(session)).commit()
+    }
+
     fun load(): PersistedSession? {
         val json = prefs.getString(key, null) ?: return null
         return try {
@@ -45,6 +49,6 @@ class FeedbackSessionStore @Inject constructor(
     }
 
     fun clear() {
-        prefs.edit().remove(key).apply()
+        prefs.edit().remove(key).commit()
     }
 }

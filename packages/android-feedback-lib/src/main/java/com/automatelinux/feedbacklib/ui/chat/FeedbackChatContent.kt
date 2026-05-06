@@ -63,6 +63,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.automatelinux.feedbacklib.FeedbackConfig
 import com.automatelinux.feedbacklib.data.model.FeedbackIssue
@@ -84,6 +86,10 @@ fun FeedbackChatScreen(
     val title = config?.title ?: "Issue Clarifier"
     val greeting = config?.greeting ?: "Hi! Describe your issue or idea and I'll help you create a clear report."
     val placeholder = config?.inputPlaceholder ?: "Describe your issue or idea..."
+
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        viewModel.persistOnPause()
+    }
 
     LaunchedEffect(state.messages.size, state.isSending) {
         val totalItems = state.messages.size +

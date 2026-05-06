@@ -257,9 +257,27 @@ class FeedbackChatViewModel @Inject constructor(
         )
     }
 
+    fun persistOnPause() {
+        val state = _uiState.value
+        if (state.messages.isEmpty()) return
+        val sid = state.sessionId ?: state.resumeSessionId
+        sessionStore.saveSync(
+            PersistedSession(
+                sessionId = sid ?: PENDING_SESSION_SENTINEL,
+                tmuxSession = state.tmuxSession,
+                messages = state.messages.map { PersistedMessage(it.role, it.text) },
+            )
+        )
+    }
+
     private fun restoreSession() {
         val persisted = sessionStore.load() ?: return
         val restoredMessages = persisted.messages.map { m -> ChatMessage(m.role, m.text) }
+
+        if (persisted.sessionId == PENDING_SESSION_SENTINEL) {
+            _uiState.update { it.copy(messages = restoredMessages) }
+            return
+        }
 
         if (persisted.tmuxSession == null) {
             _uiState.update {
@@ -329,11 +347,12 @@ class FeedbackChatViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        persistSession()
+        persistOnPause()
         stopHealthCheck()
     }
 
     companion object {
+        internal const val PENDING_SESSION_SENTINEL = "__pending__"
         private val jsonBlockRegex = Regex("```json\\s*\\n.*?\\n```", RegexOption.DOT_MATCHES_ALL)
         private val rawJsonArrayRegex = Regex("\\[\\s*\\{\\s*\"title\".*?\\}\\s*\\]", RegexOption.DOT_MATCHES_ALL)
 
