@@ -192,10 +192,6 @@ class FeedbackIssuesViewModel @Inject constructor(
             feedbackRepository.installApp()
                 .onSuccess {
                     _uiState.update { it.copy(installLoading = false, successMessage = "Installed successfully") }
-                    launch {
-                        kotlinx.coroutines.delay(3000)
-                        _uiState.update { it.copy(successMessage = null) }
-                    }
                 }
                 .onFailure { e ->
                     _uiState.update {
