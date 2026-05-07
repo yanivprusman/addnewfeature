@@ -189,6 +189,9 @@ class FeedbackIssuesViewModel @Inject constructor(
         _uiState.update { it.copy(installLoading = true, error = null) }
         viewModelScope.launch {
             feedbackRepository.installApp()
+                .onSuccess {
+                    _uiState.update { it.copy(installLoading = false) }
+                }
                 .onFailure { e ->
                     _uiState.update {
                         it.copy(installLoading = false, error = e.message ?: "Install failed")
