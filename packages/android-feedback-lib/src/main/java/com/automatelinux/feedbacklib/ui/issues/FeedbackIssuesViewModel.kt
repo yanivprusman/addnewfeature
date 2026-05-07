@@ -23,6 +23,7 @@ data class FeedbackIssuesUiState(
     val fixLoading: Boolean = false,
     val installLoading: Boolean = false,
     val error: String? = null,
+    val successMessage: String? = null,
 )
 
 @HiltViewModel
@@ -186,11 +187,15 @@ class FeedbackIssuesViewModel @Inject constructor(
     }
 
     fun installFixedVersion() {
-        _uiState.update { it.copy(installLoading = true, error = null) }
+        _uiState.update { it.copy(installLoading = true, error = null, successMessage = null) }
         viewModelScope.launch {
             feedbackRepository.installApp()
                 .onSuccess {
-                    _uiState.update { it.copy(installLoading = false) }
+                    _uiState.update { it.copy(installLoading = false, successMessage = "Installed successfully") }
+                    launch {
+                        kotlinx.coroutines.delay(3000)
+                        _uiState.update { it.copy(successMessage = null) }
+                    }
                 }
                 .onFailure { e ->
                     _uiState.update {
@@ -202,5 +207,9 @@ class FeedbackIssuesViewModel @Inject constructor(
 
     fun dismissError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    fun dismissSuccess() {
+        _uiState.update { it.copy(successMessage = null) }
     }
 }

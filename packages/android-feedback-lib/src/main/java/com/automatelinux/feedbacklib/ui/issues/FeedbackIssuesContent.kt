@@ -212,6 +212,30 @@ fun FeedbackIssuesScreen(
                 modifier = Modifier.align(Alignment.TopCenter),
             )
 
+            state.successMessage?.let { msg ->
+                Surface(
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    shape = RoundedCornerShape(8.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = msg,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = viewModel::dismissSuccess) { Text("OK") }
+                    }
+                }
+            }
+
             state.error?.let { err ->
                 Surface(
                     color = MaterialTheme.colorScheme.errorContainer,
