@@ -71,6 +71,7 @@ fun FeedbackIssuesScreen(
     onNavigateToChat: (() -> Unit)? = null,
     isProd: Boolean = false,
     versionName: String? = null,
+    hasUpdate: Boolean = false,
 ) {
     if (isProd) return
 
@@ -92,11 +93,29 @@ fun FeedbackIssuesScreen(
                     Column {
                         Text("Issues")
                         if (versionName != null) {
-                            Text(
-                                text = versionName,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = versionName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                if (hasUpdate) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                            .padding(horizontal = 6.dp, vertical = 1.dp),
+                                    ) {
+                                        Text(
+                                            text = "update available",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontSize = 9.sp,
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 },
