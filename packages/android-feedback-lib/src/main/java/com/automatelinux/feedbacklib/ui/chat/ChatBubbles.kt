@@ -173,7 +173,7 @@ fun ThinkingIndicator() {
 // ── Error Message ────────────────────────────────────────────────────────
 
 @Composable
-fun ErrorMessage(text: String, onDismiss: () -> Unit) {
+fun ErrorMessage(text: String, onDismiss: () -> Unit, onRetry: (() -> Unit)? = null) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(12.dp),
@@ -185,6 +185,11 @@ fun ErrorMessage(text: String, onDismiss: () -> Unit) {
             Icon(Icons.Filled.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Text(text, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+            if (onRetry != null) {
+                TextButton(onClick = onRetry) {
+                    Text("Retry", fontSize = 12.sp)
+                }
+            }
             TextButton(onClick = onDismiss) {
                 Text("OK", fontSize = 12.sp)
             }

@@ -61,6 +61,7 @@ class FeedbackChatViewModel @Inject constructor(
                 inputText = "",
                 isSending = true,
                 error = null,
+                lastSendFailed = false,
                 proposedIssues = null,
                 checkedIssues = emptyList(),
                 submitResults = null,
@@ -110,8 +111,57 @@ class FeedbackChatViewModel @Inject constructor(
                     persistSession()
                 } else {
                     _uiState.update {
-                        it.copy(error = msg, isSending = false)
+                        it.copy(error = msg, isSending = false, lastSendFailed = true)
                     }
+                }
+            }
+        }
+    }
+
+    fun retryLastMessage() {
+        val state = _uiState.value
+        if (state.isSending || !state.lastSendFailed) return
+        val lastUserMsg = state.messages.lastOrNull { it.role == "user" } ?: return
+
+        _uiState.update {
+            it.copy(
+                isSending = true,
+                error = null,
+                lastSendFailed = false,
+            )
+        }
+
+        val screenContext = feedbackRepository.getScreenContext()
+
+        viewModelScope.launch {
+            val current = _uiState.value
+            feedbackRepository.sendMessage(
+                message = lastUserMsg.text,
+                sessionId = current.sessionId,
+                tmuxSession = current.tmuxSession,
+                resumeSessionId = current.resumeSessionId,
+                pagePath = screenContext,
+                pageContext = screenContext,
+            ).onSuccess { data ->
+                val displayText = stripJsonBlocks(data.response)
+                _uiState.update {
+                    it.copy(
+                        messages = it.messages + ChatMessage("assistant", displayText),
+                        sessionId = data.sessionId,
+                        tmuxSession = data.tmuxSession,
+                        resumeSessionId = null,
+                        proposedIssues = data.issues,
+                        checkedIssues = data.issues?.map { true } ?: emptyList(),
+                        hookWarning = data.hookWarning ?: it.hookWarning,
+                        isSending = false,
+                    )
+                }
+                persistSession()
+                startHealthCheck(data.tmuxSession)
+            }.onFailure { e ->
+                val msg = e.message ?: "Failed to send message"
+                _uiState.update {
+                    it.copy(error = msg, isSending = false, lastSendFailed = true)
                 }
             }
         }

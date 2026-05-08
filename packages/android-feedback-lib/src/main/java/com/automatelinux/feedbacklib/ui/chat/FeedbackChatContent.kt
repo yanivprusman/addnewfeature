@@ -243,7 +243,11 @@ fun FeedbackChatScreen(
 
                     if (state.error != null) {
                         item {
-                            ErrorMessage(text = state.error!!, onDismiss = viewModel::dismissError)
+                            ErrorMessage(
+                                text = state.error!!,
+                                onDismiss = viewModel::dismissError,
+                                onRetry = if (state.lastSendFailed) viewModel::retryLastMessage else null,
+                            )
                         }
                     }
 

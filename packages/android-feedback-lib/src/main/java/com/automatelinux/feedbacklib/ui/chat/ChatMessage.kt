@@ -29,4 +29,5 @@ data class FeedbackChatUiState(
     val directLoading: Boolean = false,
     val showPostSubmitPrompt: Boolean = false,
     val restoringSession: Boolean = false,
+    val lastSendFailed: Boolean = false,
 )
