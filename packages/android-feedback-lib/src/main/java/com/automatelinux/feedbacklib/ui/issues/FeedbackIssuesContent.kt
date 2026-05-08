@@ -294,6 +294,24 @@ fun FeedbackIssuesScreen(
             },
         )
     }
+
+    if (state.showSameVersionDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissSameVersionDialog() },
+            title = { Text("Already up to date") },
+            text = { Text("The installed version is the same as the latest build. Reinstall anyway?") },
+            confirmButton = {
+                TextButton(onClick = { viewModel.installFixedVersion(force = true) }) {
+                    Text("Reinstall")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissSameVersionDialog() }) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
 }
 
 @Composable

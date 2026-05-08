@@ -53,5 +53,5 @@ interface FeedbackApi {
     @POST("api/feedback/issues")
     suspend fun installApp(
         @Body request: InstallAppRequest,
-    ): Response<OkResponse>
+    ): Response<InstallAppResponse>
 }

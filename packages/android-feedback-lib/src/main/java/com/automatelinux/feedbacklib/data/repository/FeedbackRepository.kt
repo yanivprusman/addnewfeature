@@ -121,7 +121,17 @@ class FeedbackRepository @Inject constructor(
         )
     }
 
-    suspend fun installApp(): Result<OkResponse> = apiCall {
-        api.installApp(InstallAppRequest(app = config.appName))
+    val versionName: String by lazy {
+        try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?"
+        } catch (_: Exception) { "?" }
+    }
+
+    suspend fun installApp(force: Boolean = false): Result<InstallAppResponse> = apiCall {
+        api.installApp(InstallAppRequest(
+            app = config.appName,
+            currentVersion = versionName,
+            force = if (force) true else null,
+        ))
     }
 }

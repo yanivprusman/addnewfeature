@@ -22,6 +22,7 @@ data class FeedbackIssuesUiState(
     val selectedIds: Set<Int> = emptySet(),
     val fixLoading: Boolean = false,
     val installLoading: Boolean = false,
+    val showSameVersionDialog: Boolean = false,
     val error: String? = null,
     val successMessage: String? = null,
 )
@@ -186,12 +187,16 @@ class FeedbackIssuesViewModel @Inject constructor(
         }
     }
 
-    fun installFixedVersion() {
-        _uiState.update { it.copy(installLoading = true, error = null, successMessage = null) }
+    fun installFixedVersion(force: Boolean = false) {
+        _uiState.update { it.copy(installLoading = true, error = null, successMessage = null, showSameVersionDialog = false) }
         viewModelScope.launch {
-            feedbackRepository.installApp()
-                .onSuccess {
-                    _uiState.update { it.copy(installLoading = false, successMessage = "Installed successfully") }
+            feedbackRepository.installApp(force = force)
+                .onSuccess { response ->
+                    if (response.sameVersion == true && !force) {
+                        _uiState.update { it.copy(installLoading = false, showSameVersionDialog = true) }
+                    } else {
+                        _uiState.update { it.copy(installLoading = false, successMessage = "Installed successfully") }
+                    }
                 }
                 .onFailure { e ->
                     _uiState.update {
@@ -199,6 +204,10 @@ class FeedbackIssuesViewModel @Inject constructor(
                     }
                 }
         }
+    }
+
+    fun dismissSameVersionDialog() {
+        _uiState.update { it.copy(showSameVersionDialog = false) }
     }
 
     fun dismissError() {

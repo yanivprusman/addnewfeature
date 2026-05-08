@@ -86,6 +86,15 @@ data class FixIssuesRequest(
 data class InstallAppRequest(
     val action: String = "install",
     val app: String,
+    @SerializedName("currentVersion") val currentVersion: String? = null,
+    val force: Boolean? = null,
+)
+
+data class InstallAppResponse(
+    val ok: Boolean? = null,
+    val installed: Boolean? = null,
+    @SerializedName("sameVersion") val sameVersion: Boolean? = null,
+    @SerializedName("availableVersion") val availableVersion: String? = null,
 )
 
 data class FixIssuesResponse(
