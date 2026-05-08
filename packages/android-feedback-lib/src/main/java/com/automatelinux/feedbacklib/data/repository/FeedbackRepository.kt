@@ -108,6 +108,29 @@ class FeedbackRepository @Inject constructor(
         api.issueAction(IssueActionRequest("delete", issueNumber, config.appName))
     }
 
+    suspend fun reviewIssue(
+        issueNumbers: List<Int>,
+        conclude: Boolean,
+        claudeSessionId: String? = null,
+        claudeLaunchDir: String? = null,
+    ): Result<OkResponse> = apiCall {
+        api.reviewIssue(ReviewedIssueRequest(
+            app = config.appName,
+            issueNumbers = issueNumbers,
+            conclude = conclude,
+            claudeSessionId = claudeSessionId,
+            claudeLaunchDir = claudeLaunchDir,
+        ))
+    }
+
+    suspend fun updateIssueStatus(issueNumber: Int, status: String): Result<OkResponse> = apiCall {
+        api.updateIssue(UpdateIssueRequest(
+            app = config.appName,
+            issueNumber = issueNumber,
+            status = status,
+        ))
+    }
+
     suspend fun fixIssues(
         issues: List<FixIssueItem>,
         resumeSessionId: String? = null,

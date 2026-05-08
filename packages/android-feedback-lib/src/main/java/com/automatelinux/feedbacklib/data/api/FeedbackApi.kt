@@ -46,6 +46,16 @@ interface FeedbackApi {
     ): Response<CreateIssueResponse>
 
     @POST("api/feedback/issues")
+    suspend fun reviewIssue(
+        @Body request: ReviewedIssueRequest,
+    ): Response<OkResponse>
+
+    @POST("api/feedback/issues")
+    suspend fun updateIssue(
+        @Body request: UpdateIssueRequest,
+    ): Response<OkResponse>
+
+    @POST("api/feedback/issues")
     suspend fun fixIssues(
         @Body request: FixIssuesRequest,
     ): Response<FixIssuesResponse>

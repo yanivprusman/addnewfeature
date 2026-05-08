@@ -56,6 +56,22 @@ data class IssueActionRequest(
     val app: String,
 )
 
+data class ReviewedIssueRequest(
+    val action: String = "reviewed",
+    val app: String,
+    @SerializedName("issueNumbers") val issueNumbers: List<Int>,
+    val conclude: Boolean,
+    @SerializedName("claudeSessionId") val claudeSessionId: String? = null,
+    @SerializedName("claudeLaunchDir") val claudeLaunchDir: String? = null,
+)
+
+data class UpdateIssueRequest(
+    val action: String = "update",
+    val app: String,
+    @SerializedName("issueNumber") val issueNumber: Int,
+    val status: String,
+)
+
 data class CreateIssueRequest(
     val action: String = "create",
     val title: String,

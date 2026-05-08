@@ -93,6 +93,28 @@ class FeedbackIssuesViewModel @Inject constructor(
         actOnIssue(issueNumber) { feedbackRepository.deleteIssue(issueNumber) }
     }
 
+    fun markFixed(issue: Issue) {
+        val hasNonClosedSibling = issue.claudeSessionId?.let { sessionId ->
+            _uiState.value.issues.any {
+                it.issueNumber != issue.issueNumber &&
+                    it.status != "closed" &&
+                    it.claudeSessionId == sessionId
+            }
+        } ?: false
+        actOnIssue(issue.issueNumber) {
+            feedbackRepository.reviewIssue(
+                issueNumbers = listOf(issue.issueNumber),
+                conclude = !hasNonClosedSibling,
+                claudeSessionId = issue.claudeSessionId,
+                claudeLaunchDir = issue.claudeLaunchDir,
+            )
+        }
+    }
+
+    fun clearRegression(issueNumber: Int) {
+        actOnIssue(issueNumber) { feedbackRepository.updateIssueStatus(issueNumber, "closed") }
+    }
+
     private fun actOnIssue(issueNumber: Int, block: suspend () -> Result<*>) {
         _uiState.update { it.copy(actionLoadingIssue = issueNumber, error = null) }
         viewModelScope.launch {
@@ -123,7 +145,7 @@ class FeedbackIssuesViewModel @Inject constructor(
     fun fixSelectedIssues() {
         val state = _uiState.value
         val selected = state.issues.filter {
-            state.selectedIds.contains(it.issueNumber) && it.status != "closed"
+            state.selectedIds.contains(it.issueNumber) && it.status != "closed" && it.status != "review"
         }
         if (selected.isEmpty()) return
         _uiState.update { it.copy(fixLoading = true, error = null) }

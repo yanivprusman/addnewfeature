@@ -1,5 +1,6 @@
 package com.automatelinux.feedbacklib.ui.issues
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,9 +22,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.GetApp
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
@@ -73,7 +78,7 @@ fun FeedbackIssuesScreen(
     var confirmDelete by remember { mutableStateOf<Issue?>(null) }
     var fixSessionTarget by remember { mutableStateOf<Issue?>(null) }
     val selectedCount = state.selectedIds.count { id ->
-        state.issues.any { it.issueNumber == id && it.status != "closed" }
+        state.issues.any { it.issueNumber == id && it.status != "closed" && it.status != "review" }
     }
     val pullRefreshState = rememberPullRefreshState(
         refreshing = state.refreshing,
@@ -211,6 +216,8 @@ fun FeedbackIssuesScreen(
                                         viewModel.fixSingleIssue(issue)
                                     }
                                 },
+                                onMarkFixed = { viewModel.markFixed(issue) },
+                                onClearRegression = { viewModel.clearRegression(issue.issueNumber) },
                             )
                         }
                         item { Spacer(modifier = Modifier.height(8.dp)) }
@@ -339,18 +346,38 @@ fun IssueCard(
     onReopen: () -> Unit,
     onDelete: () -> Unit,
     onFix: () -> Unit,
+    onMarkFixed: () -> Unit,
+    onClearRegression: () -> Unit,
 ) {
-    val canFix = issue.status == "open" || issue.status == "regression"
+    val isClosed = issue.status == "closed"
+    val isReview = issue.status == "review"
+    val isRegression = issue.status == "regression"
+    val isInProgress = issue.status == "in_progress"
+    val canSelect = !isClosed && !isReview
+
+    val borderColor = when {
+        isRegression -> Color(0xFFB71C1C).copy(alpha = 0.3f)
+        isReview -> Color(0xFF4A148C).copy(alpha = 0.3f)
+        else -> Color.Transparent
+    }
+
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(
+            containerColor = when {
+                isRegression -> Color(0xFFB71C1C).copy(alpha = 0.08f)
+                else -> MaterialTheme.colorScheme.surfaceVariant
+            },
+        ),
         shape = RoundedCornerShape(12.dp),
+        border = if (borderColor != Color.Transparent)
+            BorderStroke(1.dp, borderColor) else null,
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onToggleExpand),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (canFix) {
+                if (canSelect) {
                     Checkbox(
                         checked = selected,
                         onCheckedChange = { onToggleSelect() },
@@ -365,9 +392,30 @@ fun IssueCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
                 )
+                if (issue.labels.any { it != "user-reported" && it != "android" }) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    issue.labels
+                        .filter { it != "user-reported" && it != "android" }
+                        .forEach { label ->
+                            Box(
+                                modifier = Modifier
+                                    .padding(end = 4.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
+                                    .padding(horizontal = 6.dp, vertical = 1.dp),
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 9.sp,
+                                )
+                            }
+                        }
+                }
                 Spacer(modifier = Modifier.weight(1f))
                 Text(
-                    text = formatDateShort(if (issue.status == "closed") issue.updatedAt else issue.createdAt),
+                    text = formatDateShort(if (isClosed) issue.updatedAt else issue.createdAt),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
                 )
@@ -415,18 +463,78 @@ fun IssueCard(
                             strokeWidth = 2.dp,
                         )
                     } else {
-                        if (canFix) {
-                            TextButton(
-                                onClick = onFix,
-                                enabled = !fixLoading,
-                            ) {
-                                Icon(
-                                    Icons.Filled.Build,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Fix with Claude")
+                        when {
+                            isReview -> {
+                                TextButton(onClick = onMarkFixed) {
+                                    Icon(
+                                        Icons.Filled.CheckCircle,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = Color(0xFF4CAF50),
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Fixed", color = Color(0xFF4CAF50))
+                                }
+                                TextButton(onClick = onClose) {
+                                    Icon(
+                                        Icons.Filled.Close,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Close for now")
+                                }
+                            }
+                            isRegression -> {
+                                TextButton(
+                                    onClick = onFix,
+                                    enabled = !fixLoading,
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Build,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Fix with Claude")
+                                }
+                                TextButton(onClick = onClearRegression) {
+                                    Icon(
+                                        Icons.Filled.Shield,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = Color(0xFF4CAF50),
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Clear Regression", color = Color(0xFF4CAF50))
+                                }
+                            }
+                            isClosed -> {
+                                TextButton(onClick = onReopen) {
+                                    Icon(
+                                        Icons.Filled.Warning,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.error,
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Not Working", color = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                            else -> {
+                                TextButton(
+                                    onClick = onFix,
+                                    enabled = !fixLoading && !isInProgress,
+                                ) {
+                                    Icon(
+                                        Icons.Filled.Build,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Fix with Claude")
+                                }
+                                TextButton(onClick = onClose) { Text("Close") }
                             }
                         }
                         IconButton(onClick = onDelete) {
@@ -435,11 +543,6 @@ fun IssueCard(
                                 contentDescription = "Delete",
                                 tint = MaterialTheme.colorScheme.error,
                             )
-                        }
-                        if (issue.status == "closed") {
-                            TextButton(onClick = onReopen) { Text("Reopen") }
-                        } else {
-                            TextButton(onClick = onClose) { Text("Close") }
                         }
                     }
                 }
