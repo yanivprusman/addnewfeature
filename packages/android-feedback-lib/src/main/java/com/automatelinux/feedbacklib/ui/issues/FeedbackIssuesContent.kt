@@ -96,8 +96,8 @@ fun FeedbackIssuesScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = versionName,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                 )
                                 if (hasUpdate) {
                                     Spacer(modifier = Modifier.width(6.dp))
