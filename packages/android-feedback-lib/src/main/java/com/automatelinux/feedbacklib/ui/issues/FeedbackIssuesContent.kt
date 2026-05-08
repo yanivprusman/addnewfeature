@@ -65,6 +65,7 @@ fun FeedbackIssuesScreen(
     onNavigateBack: () -> Unit,
     onNavigateToChat: (() -> Unit)? = null,
     isProd: Boolean = false,
+    versionName: String? = null,
 ) {
     if (isProd) return
 
@@ -82,7 +83,18 @@ fun FeedbackIssuesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Issues") },
+                title = {
+                    Column {
+                        Text("Issues")
+                        if (versionName != null) {
+                            Text(
+                                text = versionName,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
