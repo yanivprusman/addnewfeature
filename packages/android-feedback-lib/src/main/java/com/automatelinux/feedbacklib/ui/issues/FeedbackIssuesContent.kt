@@ -73,6 +73,11 @@ fun FeedbackIssuesScreen(
     versionName: String? = null,
     hasUpdate: Boolean = false,
 ) {
+    @Suppress("NAME_SHADOWING")
+    val versionName = versionName ?: run {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
+    }
     if (isProd) return
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
