@@ -253,6 +253,31 @@ class FeedbackChatViewModel @Inject constructor(
         sessionStore.clear()
     }
 
+    fun refreshSession() {
+        val persisted = sessionStore.load() ?: return
+        val restoredMessages = persisted.messages.map { m -> ChatMessage(m.role, m.text, m.staleIssues) }
+        if (restoredMessages.isEmpty()) return
+
+        _uiState.update {
+            it.copy(messages = restoredMessages)
+        }
+
+        val sid = persisted.sessionId.takeIf { it != PENDING_SESSION_SENTINEL }
+        if (sid != null && persisted.tmuxSession != null) {
+            viewModelScope.launch {
+                val alive = feedbackRepository.checkSessionAlive(persisted.tmuxSession)
+                if (alive) {
+                    _uiState.update { it.copy(sessionId = sid, tmuxSession = persisted.tmuxSession) }
+                    startHealthCheck(persisted.tmuxSession)
+                } else {
+                    _uiState.update { it.copy(resumeSessionId = sid, sessionId = null, tmuxSession = null) }
+                }
+            }
+        } else if (sid != null) {
+            _uiState.update { it.copy(resumeSessionId = sid) }
+        }
+    }
+
     fun newChat() {
         closeSession()
         _uiState.value = FeedbackChatUiState(serverFound = true)

@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
@@ -118,6 +119,11 @@ fun FeedbackChatScreen(
                             onNavigateBack()
                         }) {
                             Icon(Icons.Filled.Close, contentDescription = "End Session")
+                        }
+                    }
+                    if (!state.directMode) {
+                        IconButton(onClick = viewModel::refreshSession) {
+                            Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
                         }
                     }
                     if (!state.directMode && state.messages.isNotEmpty()) {
