@@ -48,3 +48,6 @@ next-env.d.ts
 
 # Android feedback-lib Gradle build output
 packages/android-feedback-lib/build/
+
+# Kotlin compiler cache
+.kotlin/
