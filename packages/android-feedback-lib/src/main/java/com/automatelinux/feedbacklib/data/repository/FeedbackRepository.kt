@@ -150,6 +150,10 @@ class FeedbackRepository @Inject constructor(
         } catch (_: Exception) { "?" }
     }
 
+    suspend fun buildApp(): Result<BuildAppResponse> = apiCall {
+        api.buildApp(BuildAppRequest(app = config.appName))
+    }
+
     suspend fun installApp(force: Boolean = false): Result<InstallAppResponse> = apiCall {
         api.installApp(InstallAppRequest(
             app = config.appName,

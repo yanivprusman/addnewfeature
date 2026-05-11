@@ -61,6 +61,11 @@ interface FeedbackApi {
     ): Response<FixIssuesResponse>
 
     @POST("api/feedback/issues")
+    suspend fun buildApp(
+        @Body request: BuildAppRequest,
+    ): Response<BuildAppResponse>
+
+    @POST("api/feedback/issues")
     suspend fun installApp(
         @Body request: InstallAppRequest,
     ): Response<InstallAppResponse>

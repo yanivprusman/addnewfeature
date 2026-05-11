@@ -21,6 +21,7 @@ data class FeedbackIssuesUiState(
     val expandedIds: Set<Int> = emptySet(),
     val selectedIds: Set<Int> = emptySet(),
     val fixLoading: Boolean = false,
+    val buildLoading: Boolean = false,
     val installLoading: Boolean = false,
     val showSameVersionDialog: Boolean = false,
     val error: String? = null,
@@ -205,6 +206,20 @@ class FeedbackIssuesViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(fixLoading = false, error = e.message ?: "Fix failed")
                     }
+                }
+        }
+    }
+
+    fun buildApp(onComplete: () -> Unit = {}) {
+        _uiState.update { it.copy(buildLoading = true, error = null, successMessage = null) }
+        viewModelScope.launch {
+            feedbackRepository.buildApp()
+                .onSuccess {
+                    _uiState.update { it.copy(buildLoading = false, successMessage = "Build complete") }
+                    onComplete()
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(buildLoading = false, error = e.message ?: "Build failed") }
                 }
         }
     }

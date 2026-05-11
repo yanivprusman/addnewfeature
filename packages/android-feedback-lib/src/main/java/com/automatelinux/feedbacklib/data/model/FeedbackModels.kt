@@ -20,6 +20,7 @@ data class Issue(
     val insights: String?,
     @SerializedName("claudeSessionId") val claudeSessionId: String? = null,
     @SerializedName("claudeSessionIds") val claudeSessionIds: List<String>? = null,
+    @SerializedName("clarifierSessionId") val clarifierSessionId: String? = null,
     @SerializedName("claudeLaunchDir") val claudeLaunchDir: String? = null,
 )
 
@@ -97,6 +98,16 @@ data class FixIssuesRequest(
     val app: String,
     val issues: List<FixIssueItem>,
     @SerializedName("resumeSessionId") val resumeSessionId: String? = null,
+)
+
+data class BuildAppRequest(
+    val action: String = "build",
+    val app: String,
+)
+
+data class BuildAppResponse(
+    val ok: Boolean? = null,
+    val built: Boolean? = null,
 )
 
 data class InstallAppRequest(

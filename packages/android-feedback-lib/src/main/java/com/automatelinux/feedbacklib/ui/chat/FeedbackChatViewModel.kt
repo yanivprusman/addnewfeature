@@ -283,6 +283,14 @@ class FeedbackChatViewModel @Inject constructor(
         _uiState.value = FeedbackChatUiState(serverFound = true)
     }
 
+    fun resumeClarifierSession(clarifierSessionId: String) {
+        closeSession()
+        _uiState.value = FeedbackChatUiState(
+            serverFound = true,
+            resumeSessionId = clarifierSessionId,
+        )
+    }
+
     fun dismissError() {
         _uiState.update { it.copy(error = null) }
     }

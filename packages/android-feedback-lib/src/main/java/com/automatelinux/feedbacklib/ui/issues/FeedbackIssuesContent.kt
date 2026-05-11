@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
@@ -28,7 +29,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.GetApp
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Warning
+
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
@@ -69,6 +70,7 @@ fun FeedbackIssuesScreen(
     viewModel: FeedbackIssuesViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToChat: (() -> Unit)? = null,
+    onResumeClarifier: ((clarifierSessionId: String) -> Unit)? = null,
     isProd: Boolean = false,
     versionName: String? = null,
     hasUpdate: Boolean = false,
@@ -270,7 +272,7 @@ fun FeedbackIssuesScreen(
                                 onToggleExpand = { viewModel.toggleExpanded(issue.issueNumber) },
                                 onToggleSelect = { viewModel.toggleSelected(issue.issueNumber) },
                                 onClose = { viewModel.closeIssue(issue.issueNumber) },
-                                onReopen = { viewModel.reopenIssue(issue.issueNumber) },
+
                                 onDelete = { confirmDelete = issue },
                                 onFix = {
                                     val sessions = issue.claudeSessionIds
@@ -282,6 +284,9 @@ fun FeedbackIssuesScreen(
                                 },
                                 onMarkFixed = { viewModel.markFixed(issue) },
                                 onClearRegression = { viewModel.clearRegression(issue.issueNumber) },
+                                onResumeClarifier = issue.clarifierSessionId?.let { sid ->
+                                    onResumeClarifier?.let { callback -> { callback(sid) } }
+                                },
                             )
                         }
                         item { Spacer(modifier = Modifier.height(8.dp)) }
@@ -407,11 +412,11 @@ fun IssueCard(
     onToggleExpand: () -> Unit,
     onToggleSelect: () -> Unit,
     onClose: () -> Unit,
-    onReopen: () -> Unit,
     onDelete: () -> Unit,
     onFix: () -> Unit,
     onMarkFixed: () -> Unit,
     onClearRegression: () -> Unit,
+    onResumeClarifier: (() -> Unit)? = null,
 ) {
     val isClosed = issue.status == "closed"
     val isReview = issue.status == "review"
@@ -548,6 +553,16 @@ fun IssueCard(
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text("Close for now")
                                 }
+                                TextButton(onClick = onResumeClarifier!!) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.Chat,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(14.dp),
+                                        tint = MaterialTheme.colorScheme.error,
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Resume Clarifier", color = MaterialTheme.colorScheme.error)
+                                }
                             }
                             isRegression -> {
                                 TextButton(
@@ -574,15 +589,15 @@ fun IssueCard(
                                 }
                             }
                             isClosed -> {
-                                TextButton(onClick = onReopen) {
+                                TextButton(onClick = onResumeClarifier!!) {
                                     Icon(
-                                        Icons.Filled.Warning,
+                                        Icons.AutoMirrored.Filled.Chat,
                                         contentDescription = null,
                                         modifier = Modifier.size(14.dp),
                                         tint = MaterialTheme.colorScheme.error,
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Not Working", color = MaterialTheme.colorScheme.error)
+                                    Text("Resume Clarifier", color = MaterialTheme.colorScheme.error)
                                 }
                             }
                             else -> {
