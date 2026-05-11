@@ -81,6 +81,7 @@ export interface FeedbackLabels {
   restoreSize: string;
   copy: string;
   copied: string;
+  refresh: string;
 }
 
 const defaultLabels: FeedbackLabels = {
@@ -118,6 +119,7 @@ const defaultLabels: FeedbackLabels = {
   restoreSize: "Restore default size",
   copy: "Copy",
   copied: "Copied",
+  refresh: "Refresh",
 };
 
 interface FeedbackChatProps {
@@ -327,6 +329,7 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
   const [resumeId, setResumeId] = useState<string | null>(null);
   const [customHeight, setCustomHeight] = useState<number | null>(null);
   const [isResizing, setIsResizing] = useState(false);
+  const [refreshState, setRefreshState] = useState<'idle' | 'spinning' | 'found' | 'empty'>('idle');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -531,6 +534,38 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
     setOpen(true);
     setMessages(prev => prev.length === 0 ? [{ role: "assistant", text: labels.greeting }] : prev);
   }, [labels.greeting]);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshState('spinning');
+    const finish = (result: 'found' | 'empty') => {
+      setRefreshState(result);
+      setTimeout(() => setRefreshState('idle'), 1500);
+    };
+    const stored = sessionStorage.getItem(storageKey);
+    if (stored) {
+      try {
+        const data: PersistedSession = JSON.parse(stored);
+        if (data.messages?.length > 0) setMessages([...data.messages]);
+        if (data.issues?.length) setIssues([...data.issues]);
+        if (data.submittedIssueTitles?.length) setSubmittedIssueTitles([...data.submittedIssueTitles]);
+        if (data.sessionId && data.tmuxSession) {
+          backend.getSessionStatus(data.tmuxSession)
+            .then(r => { if (r.alive) { setSessionId(data.sessionId); setTmuxSession(data.tmuxSession); } else { setResumeId(data.sessionId); } })
+            .catch(() => { setResumeId(data.sessionId); })
+            .finally(() => finish('found'));
+        } else if (data.sessionId) {
+          setResumeId(data.sessionId);
+          finish('found');
+        } else {
+          finish('empty');
+        }
+      } catch {
+        finish('empty');
+      }
+      return;
+    }
+    finish('empty');
+  }, [storageKey, backend]);
 
   // Register the current handleOpen into the module-scope callback so the
   // document-level contextmenu listener can invoke it. Done during render
@@ -782,7 +817,7 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
     return (
       <div
         data-id="feedback-chat-bubble"
-        className="fixed bottom-6 end-6 z-[10001] w-14 h-14 rounded-full [&:hover>span:first-child]:border-indigo-400"
+        className="fixed bottom-6 end-6 z-[50000] w-14 h-14 rounded-full [&:hover>span:first-child]:border-indigo-400"
         onPointerDown={(e) => {
           if (e.button === 0) {
             const el = e.currentTarget;
@@ -812,7 +847,7 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
   return (
     <div
       data-id="feedback-chat"
-      className={`fixed z-[10001] ${fullScreen ? 'inset-0' : `bottom-6 end-6 w-96 ${sizedCompact ? '' : 'max-h-[min(32rem,calc(100dvh-3rem))]'} rounded-2xl`} ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-2xl border flex flex-col overflow-hidden ${isResizing ? 'select-none' : ''}`}
+      className={`fixed z-[50000] ${fullScreen ? 'inset-0' : `bottom-6 end-6 w-96 ${sizedCompact ? '' : 'max-h-[min(32rem,calc(100dvh-3rem))]'} rounded-2xl`} ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'} shadow-2xl border flex flex-col overflow-hidden ${isResizing ? 'select-none' : ''}`}
       style={sizedCompact ? { height: `${customHeight}px`, maxHeight: 'calc(100dvh - 3rem)' } : undefined}
     >
       {!fullScreen && (
@@ -864,6 +899,13 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
               <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
               <path d="M12 8v6M9 11h6" />
+            </svg>
+          </button>
+          <button data-id="refresh-chat" onClick={handleRefresh} className={`transition-colors ${refreshState === 'found' ? 'text-green-400' : refreshState === 'empty' ? 'text-amber-400' : 'text-indigo-200 hover:text-white'}`} title={labels.refresh}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={`w-4 h-4 transition-transform ${refreshState === 'spinning' ? 'animate-spin' : ''}`}>
+              <path d="M23 4v6h-6" />
+              <path d="M1 20v-6h6" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
             </svg>
           </button>
           {issuesPath && (

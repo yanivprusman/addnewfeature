@@ -38,6 +38,7 @@ export const feedbackTranslations: Record<string, FeedbackLabels> = {
     restoreSize: "Restore default size",
     copy: "Copy",
     copied: "Copied",
+    refresh: "Refresh",
   },
   he: {
     greeting:
@@ -75,5 +76,6 @@ export const feedbackTranslations: Record<string, FeedbackLabels> = {
     restoreSize: "שחזור לגודל ברירת מחדל",
     copy: "העתקה",
     copied: "הועתק",
+    refresh: "רענון",
   },
 };
