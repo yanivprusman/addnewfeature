@@ -836,7 +836,10 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
         </span>
         {/* Session active indicator dot */}
         {hasSession && (
-          <span data-id="session-indicator" className="absolute top-0 right-0 w-3.5 h-3.5 bg-green-400 border-2 border-white rounded-full pointer-events-none" />
+          <span data-id="session-indicator" className="absolute top-0 right-0 w-3.5 h-3.5 pointer-events-none">
+            {loading && <span className="absolute inset-0 bg-amber-400 rounded-full animate-ping" />}
+            <span className={`absolute inset-0 ${loading ? 'bg-amber-400' : 'bg-green-400'} border-2 border-white rounded-full`} />
+          </span>
         )}
       </div>
     );
@@ -867,8 +870,11 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
           <span data-id="chat-title-text" className="font-semibold text-sm">{labels.title}</span>
           {hasSession && (
             <span data-id="chat-session-status" className="flex items-center gap-1 text-xs opacity-80">
-              <span data-id="chat-session-dot" className="w-2 h-2 bg-green-400 rounded-full inline-block" />
-              {labels.sessionActive}
+              <span data-id="chat-session-dot" className="relative w-2 h-2 inline-block">
+                {loading && <span className="absolute inset-0 bg-amber-400 rounded-full animate-ping" />}
+                <span className={`absolute inset-0 ${loading ? 'bg-amber-400' : 'bg-green-400'} rounded-full`} />
+              </span>
+              {loading ? labels.thinking : labels.sessionActive}
             </span>
           )}
         </div>
