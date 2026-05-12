@@ -176,3 +176,13 @@ data class HealthResponse(
     val gitVersion: Int? = null,
     val apkVersion: Int? = null,
 )
+
+data class SessionHistoryMessage(
+    val role: String,
+    val text: String,
+)
+
+data class SessionHistoryResponse(
+    val messages: List<SessionHistoryMessage>,
+    val found: Boolean,
+)

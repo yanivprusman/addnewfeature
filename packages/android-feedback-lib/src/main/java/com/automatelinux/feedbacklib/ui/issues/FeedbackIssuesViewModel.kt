@@ -26,6 +26,7 @@ data class FeedbackIssuesUiState(
     val showSameVersionDialog: Boolean = false,
     val hasUpdate: Boolean = false,
     val needsBuild: Boolean = false,
+    val buildFailed: Boolean = false,
     val newVersion: String? = null,
     val error: String? = null,
     val successMessage: String? = null,
@@ -239,7 +240,7 @@ class FeedbackIssuesViewModel @Inject constructor(
     }
 
     fun buildApp(onComplete: () -> Unit = {}) {
-        _uiState.update { it.copy(buildLoading = true, error = null, successMessage = null) }
+        _uiState.update { it.copy(buildLoading = true, buildFailed = false, error = null, successMessage = null) }
         viewModelScope.launch {
             feedbackRepository.buildApp()
                 .onSuccess {
@@ -247,7 +248,20 @@ class FeedbackIssuesViewModel @Inject constructor(
                     onComplete()
                 }
                 .onFailure { e ->
-                    _uiState.update { it.copy(buildLoading = false, error = e.message ?: "Build failed") }
+                    _uiState.update { it.copy(buildLoading = false, buildFailed = true, error = e.message ?: "Build failed") }
+                }
+        }
+    }
+
+    fun cleanBuildApp() {
+        _uiState.update { it.copy(buildLoading = true, buildFailed = false, error = null, successMessage = null) }
+        viewModelScope.launch {
+            feedbackRepository.cleanBuildApp()
+                .onSuccess {
+                    _uiState.update { it.copy(buildLoading = false, needsBuild = false, hasUpdate = true, successMessage = "Clean build complete") }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(buildLoading = false, buildFailed = true, error = e.message ?: "Clean build failed") }
                 }
         }
     }
@@ -276,7 +290,7 @@ class FeedbackIssuesViewModel @Inject constructor(
     }
 
     fun dismissError() {
-        _uiState.update { it.copy(error = null) }
+        _uiState.update { it.copy(error = null, buildFailed = false) }
     }
 
     fun dismissSuccess() {

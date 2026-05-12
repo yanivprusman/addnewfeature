@@ -339,6 +339,9 @@ fun FeedbackIssuesScreen(
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.weight(1f),
                         )
+                        if (state.buildFailed) {
+                            TextButton(onClick = viewModel::cleanBuildApp) { Text("Clean & Rebuild") }
+                        }
                         TextButton(onClick = viewModel::dismissError) { Text("OK") }
                     }
                 }
