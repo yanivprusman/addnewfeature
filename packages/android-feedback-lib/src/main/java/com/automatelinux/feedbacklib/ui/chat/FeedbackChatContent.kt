@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -257,7 +256,6 @@ fun FeedbackChatScreen(
                         }
                     }
 
-                    item { Spacer(modifier = Modifier.height(8.dp)) }
                 }
             }
         }
@@ -344,13 +342,12 @@ fun ChatInputBar(
     placeholder: String = "Describe your issue or idea...",
 ) {
     Column {
-        Divider()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.background)
                 .imePadding()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.Bottom,
         ) {
             OutlinedTextField(

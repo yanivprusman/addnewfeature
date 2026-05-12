@@ -13,6 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -24,6 +26,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -46,6 +50,7 @@ fun IssueCardsSection(
     isSubmitting: Boolean,
 ) {
     val selectedCount = checked.count { it }
+    val expanded = remember { mutableStateMapOf<Int, Boolean>() }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
@@ -56,14 +61,17 @@ fun IssueCardsSection(
         )
 
         issues.forEachIndexed { index, issue ->
+            val isExpanded = expanded[index] == true
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.clickable { expanded[index] = !isExpanded },
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(8.dp),
+                        .padding(8.dp)
+                        .animateContentSize(),
                     verticalAlignment = Alignment.Top,
                 ) {
                     Checkbox(
@@ -83,13 +91,21 @@ fun IssueCardsSection(
                         )
                         if (issue.description.isNotBlank()) {
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = issue.description,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall,
-                                maxLines = 4,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                            if (isExpanded) {
+                                Text(
+                                    text = issue.description,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            } else {
+                                Text(
+                                    text = issue.description,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
                 }
