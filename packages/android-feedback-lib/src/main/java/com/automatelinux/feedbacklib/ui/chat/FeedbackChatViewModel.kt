@@ -288,7 +288,26 @@ class FeedbackChatViewModel @Inject constructor(
         _uiState.value = FeedbackChatUiState(
             serverFound = true,
             resumeSessionId = clarifierSessionId,
+            restoringSession = true,
         )
+        viewModelScope.launch {
+            feedbackRepository.getSessionHistory(clarifierSessionId)
+                .onSuccess { data ->
+                    if (data.found && data.messages.isNotEmpty()) {
+                        _uiState.update {
+                            it.copy(
+                                messages = data.messages.map { m -> ChatMessage(m.role, m.text) },
+                                restoringSession = false,
+                            )
+                        }
+                    } else {
+                        _uiState.update { it.copy(restoringSession = false) }
+                    }
+                }
+                .onFailure {
+                    _uiState.update { it.copy(restoringSession = false) }
+                }
+        }
     }
 
     fun dismissError() {
