@@ -169,3 +169,10 @@ data class CreateIssueResponse(
     @SerializedName("issueNumber") val issueNumber: Int? = null,
     val effectiveApp: String? = null,
 )
+
+data class HealthResponse(
+    val gitCommit: String? = null,
+    val apkCommit: String? = null,
+    val gitVersion: Int? = null,
+    val apkVersion: Int? = null,
+)

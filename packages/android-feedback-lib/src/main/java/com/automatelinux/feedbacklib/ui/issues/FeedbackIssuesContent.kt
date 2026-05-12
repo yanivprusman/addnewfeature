@@ -73,10 +73,6 @@ fun FeedbackIssuesScreen(
     onResumeClarifier: ((clarifierSessionId: String) -> Unit)? = null,
     isProd: Boolean = false,
     versionName: String? = null,
-    hasUpdate: Boolean = false,
-    needsBuild: Boolean = false,
-    newVersion: String? = null,
-    onBuildComplete: () -> Unit = {},
 ) {
     @Suppress("NAME_SHADOWING")
     val versionName = versionName ?: run {
@@ -109,7 +105,7 @@ fun FeedbackIssuesScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                 )
-                                if (hasUpdate) {
+                                if (state.hasUpdate) {
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Box(
                                         modifier = Modifier
@@ -137,14 +133,14 @@ fun FeedbackIssuesScreen(
                                             }
                                         } else {
                                             Text(
-                                                text = if (newVersion != null) "update → v$newVersion" else "update available",
+                                                text = if (state.newVersion != null) "update → v${state.newVersion}" else "update available",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.primary,
                                                 fontSize = 9.sp,
                                             )
                                         }
                                     }
-                                } else if (needsBuild || state.buildLoading) {
+                                } else if (state.needsBuild || state.buildLoading) {
                                     Spacer(modifier = Modifier.width(6.dp))
                                     val orange = Color(0xFFFF9800)
                                     Box(
@@ -152,7 +148,7 @@ fun FeedbackIssuesScreen(
                                             .clip(RoundedCornerShape(6.dp))
                                             .background(orange.copy(alpha = 0.12f))
                                             .clickable(enabled = !state.buildLoading) {
-                                                viewModel.buildApp(onComplete = onBuildComplete)
+                                                viewModel.buildApp()
                                             }
                                             .padding(horizontal = 6.dp, vertical = 1.dp),
                                     ) {
@@ -173,7 +169,7 @@ fun FeedbackIssuesScreen(
                                             }
                                         } else {
                                             Text(
-                                                text = if (newVersion != null) "build needed → v$newVersion" else "build needed",
+                                                text = if (state.newVersion != null) "build needed → v${state.newVersion}" else "build needed",
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = orange,
                                                 fontSize = 9.sp,

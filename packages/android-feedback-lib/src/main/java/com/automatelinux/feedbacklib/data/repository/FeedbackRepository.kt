@@ -161,4 +161,6 @@ class FeedbackRepository @Inject constructor(
             force = if (force) true else null,
         ))
     }
+
+    suspend fun checkHealth(): Result<HealthResponse> = apiCall { api.getHealth() }
 }

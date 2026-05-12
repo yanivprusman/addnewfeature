@@ -24,6 +24,9 @@ data class FeedbackIssuesUiState(
     val buildLoading: Boolean = false,
     val installLoading: Boolean = false,
     val showSameVersionDialog: Boolean = false,
+    val hasUpdate: Boolean = false,
+    val needsBuild: Boolean = false,
+    val newVersion: String? = null,
     val error: String? = null,
     val successMessage: String? = null,
 )
@@ -37,11 +40,17 @@ class FeedbackIssuesViewModel @Inject constructor(
     val uiState: StateFlow<FeedbackIssuesUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch { fetchIssues(initial = true) }
+        viewModelScope.launch {
+            fetchIssues(initial = true)
+            checkVersions()
+        }
     }
 
     fun refresh() {
-        viewModelScope.launch { fetchIssues(initial = false) }
+        viewModelScope.launch {
+            fetchIssues(initial = false)
+            checkVersions()
+        }
     }
 
     private suspend fun fetchIssues(initial: Boolean) {
@@ -210,12 +219,31 @@ class FeedbackIssuesViewModel @Inject constructor(
         }
     }
 
+    private suspend fun checkVersions() {
+        feedbackRepository.checkHealth()
+            .onSuccess { health ->
+                val installedCommit = Regex("\\(([^)]+)\\)").find(
+                    feedbackRepository.versionName
+                )?.groupValues?.get(1) ?: ""
+                val gitCommit = health.gitCommit ?: ""
+                val apkCommit = health.apkCommit ?: ""
+                val hasUpdate = apkCommit.isNotBlank() && installedCommit.isNotBlank() && apkCommit != installedCommit
+                val needsBuild = gitCommit.isNotBlank() && apkCommit.isNotBlank() && gitCommit != apkCommit
+                val newVersion = when {
+                    hasUpdate && (health.apkVersion ?: 0) > 0 -> health.apkVersion.toString()
+                    needsBuild && (health.gitVersion ?: 0) > 0 -> health.gitVersion.toString()
+                    else -> null
+                }
+                _uiState.update { it.copy(hasUpdate = hasUpdate, needsBuild = needsBuild, newVersion = newVersion) }
+            }
+    }
+
     fun buildApp(onComplete: () -> Unit = {}) {
         _uiState.update { it.copy(buildLoading = true, error = null, successMessage = null) }
         viewModelScope.launch {
             feedbackRepository.buildApp()
                 .onSuccess {
-                    _uiState.update { it.copy(buildLoading = false, successMessage = "Build complete") }
+                    _uiState.update { it.copy(buildLoading = false, needsBuild = false, hasUpdate = true, successMessage = "Build complete") }
                     onComplete()
                 }
                 .onFailure { e ->

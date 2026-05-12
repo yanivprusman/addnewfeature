@@ -69,4 +69,7 @@ interface FeedbackApi {
     suspend fun installApp(
         @Body request: InstallAppRequest,
     ): Response<InstallAppResponse>
+
+    @GET("api/health")
+    suspend fun getHealth(): Response<HealthResponse>
 }
