@@ -34,20 +34,26 @@ import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -123,7 +129,7 @@ fun FeedbackIssuesScreen(
                                             .clip(RoundedCornerShape(6.dp))
                                             .background(orange.copy(alpha = 0.12f))
                                             .clickable(enabled = !state.buildLoading) {
-                                                viewModel.buildApp()
+                                                viewModel.showUpdateDetails()
                                             }
                                             .padding(horizontal = 6.dp, vertical = 1.dp),
                                     ) {
@@ -162,7 +168,7 @@ fun FeedbackIssuesScreen(
                                             .clip(RoundedCornerShape(6.dp))
                                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
                                             .clickable(enabled = !state.installLoading) {
-                                                viewModel.installFixedVersion()
+                                                viewModel.showUpdateDetails()
                                             }
                                             .padding(horizontal = 6.dp, vertical = 1.dp),
                                     ) {
@@ -427,6 +433,262 @@ fun FeedbackIssuesScreen(
                 }
             },
         )
+    }
+
+    if (state.showUpdateDetails) {
+        UpdateDetailsSheet(
+            state = state,
+            versionName = versionName ?: "",
+            onDismiss = { viewModel.dismissUpdateDetails() },
+            onBuild = { viewModel.buildApp() },
+            onCleanBuild = { viewModel.cleanBuildApp() },
+            onInstall = { viewModel.installFixedVersion() },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun UpdateDetailsSheet(
+    state: FeedbackIssuesUiState,
+    versionName: String,
+    onDismiss: () -> Unit,
+    onBuild: () -> Unit,
+    onCleanBuild: () -> Unit,
+    onInstall: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val orange = Color(0xFFFF9800)
+    val green = Color(0xFF4CAF50)
+    val dimColor = Color(0xFFAAAAAA)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp),
+        ) {
+            Text(
+                text = "Update Details",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Installed version
+            VersionRow(
+                label = "Installed",
+                version = versionName,
+                commit = state.installedCommit,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Code (git) version
+            val gitMatchesInstalled = state.serverGitCommit != null && state.installedCommit != null && state.serverGitCommit == state.installedCommit
+            VersionRow(
+                label = "Code (git)",
+                version = if (state.newVersion != null && state.needsBuild) "v${state.newVersion}" else null,
+                commit = state.serverGitCommit,
+                color = if (gitMatchesInstalled) green else orange,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Built APK version
+            val apkMatchesInstalled = state.serverApkCommit != null && state.installedCommit != null && state.serverApkCommit == state.installedCommit
+            VersionRow(
+                label = "Built APK",
+                version = if (state.newVersion != null && state.hasUpdate) "v${state.newVersion}" else null,
+                commit = state.serverApkCommit,
+                color = if (apkMatchesInstalled) green else if (state.hasUpdate) orange else dimColor,
+            )
+
+            if (state.flVersion != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Feedback Lib",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.width(90.dp),
+                    )
+                    Text(
+                        text = "FL${state.flVersion}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (state.flStale) orange else green,
+                    )
+                    if (state.flStale && state.newFlVersion != null) {
+                        Text(
+                            text = " → FL${state.newFlVersion}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = orange,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Step 1: Build
+            val buildDone = !state.needsBuild && !state.buildLoading
+            ActionStep(
+                step = 1,
+                title = "Build APK",
+                description = when {
+                    state.buildLoading -> "Building…"
+                    state.needsBuild && state.newVersion != null -> "New code available → v${state.newVersion}"
+                    state.needsBuild -> "Code and APK are out of sync"
+                    else -> "APK is up to date with code"
+                },
+                done = buildDone,
+                loading = state.buildLoading,
+                actionLabel = if (state.buildFailed) "Clean & Rebuild" else "Build",
+                showAction = state.needsBuild && !state.buildLoading,
+                onAction = if (state.buildFailed) onCleanBuild else onBuild,
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Step 2: Install
+            val installDone = !state.hasUpdate && !state.installLoading && !state.needsBuild
+            ActionStep(
+                step = 2,
+                title = "Install on device",
+                description = when {
+                    state.installLoading -> "Installing…"
+                    state.needsBuild -> "Build first, then install"
+                    state.hasUpdate && state.newVersion != null -> "v${state.newVersion} ready to install"
+                    state.hasUpdate -> "New APK ready to install"
+                    else -> "Device is up to date"
+                },
+                done = installDone,
+                loading = state.installLoading,
+                actionLabel = "Install",
+                showAction = state.hasUpdate && !state.needsBuild && !state.installLoading,
+                onAction = onInstall,
+            )
+        }
+    }
+}
+
+@Composable
+private fun VersionRow(
+    label: String,
+    version: String?,
+    commit: String?,
+    color: Color,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.width(90.dp),
+        )
+        if (version != null) {
+            Text(
+                text = version,
+                style = MaterialTheme.typography.bodyMedium,
+                color = color,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+        }
+        if (commit != null) {
+            Text(
+                text = "(${commit.take(8)})",
+                style = MaterialTheme.typography.bodySmall,
+                color = color.copy(alpha = 0.7f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActionStep(
+    step: Int,
+    title: String,
+    description: String,
+    done: Boolean,
+    loading: Boolean,
+    actionLabel: String,
+    showAction: Boolean,
+    onAction: () -> Unit,
+) {
+    val green = Color(0xFF4CAF50)
+    val orange = Color(0xFFFF9800)
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(
+                    when {
+                        done -> green.copy(alpha = 0.15f)
+                        loading -> orange.copy(alpha = 0.15f)
+                        else -> MaterialTheme.colorScheme.surfaceVariant
+                    },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (done) {
+                Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = green,
+                    modifier = Modifier.size(18.dp),
+                )
+            } else if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                    color = orange,
+                )
+            } else {
+                Text(
+                    text = step.toString(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (showAction) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(
+                onClick = onAction,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                ),
+                modifier = Modifier.height(36.dp),
+            ) {
+                Text(actionLabel)
+            }
+        }
     }
 }
 

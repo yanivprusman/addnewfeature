@@ -31,6 +31,7 @@ data class FeedbackIssuesUiState(
     val buildLoading: Boolean = false,
     val installLoading: Boolean = false,
     val showSameVersionDialog: Boolean = false,
+    val showUpdateDetails: Boolean = false,
     val hasUpdate: Boolean = false,
     val needsBuild: Boolean = false,
     val buildFailed: Boolean = false,
@@ -39,6 +40,9 @@ data class FeedbackIssuesUiState(
     val flVersion: String? = null,
     val flStale: Boolean = false,
     val vStale: Boolean = false,
+    val installedCommit: String? = null,
+    val serverGitCommit: String? = null,
+    val serverApkCommit: String? = null,
     val error: String? = null,
     val successMessage: String? = null,
     val batchFixTarget: BatchFixTarget? = null,
@@ -296,7 +300,17 @@ class FeedbackIssuesViewModel @Inject constructor(
                     appNeedsBuild && (health.gitVersion ?: 0) > 0 -> health.gitVersion.toString()
                     else -> null
                 }
-                _uiState.update { it.copy(hasUpdate = hasUpdate, needsBuild = appNeedsBuild, newVersion = newVersion, vStale = hasUpdate || appNeedsBuild) }
+                _uiState.update {
+                    it.copy(
+                        hasUpdate = hasUpdate,
+                        needsBuild = appNeedsBuild,
+                        newVersion = newVersion,
+                        vStale = hasUpdate || appNeedsBuild,
+                        installedCommit = installedCommit.ifBlank { null },
+                        serverGitCommit = gitCommit.ifBlank { null },
+                        serverApkCommit = apkCommit.ifBlank { null },
+                    )
+                }
             }
         checkFeedbackLibVersion()
     }
@@ -327,6 +341,7 @@ class FeedbackIssuesViewModel @Inject constructor(
             feedbackRepository.buildApp()
                 .onSuccess {
                     _uiState.update { it.copy(buildLoading = false, needsBuild = false, hasUpdate = true, successMessage = "Build complete") }
+                    checkVersions()
                     onComplete()
                 }
                 .onFailure { e ->
@@ -341,6 +356,7 @@ class FeedbackIssuesViewModel @Inject constructor(
             feedbackRepository.cleanBuildApp()
                 .onSuccess {
                     _uiState.update { it.copy(buildLoading = false, needsBuild = false, hasUpdate = true, successMessage = "Clean build complete") }
+                    checkVersions()
                 }
                 .onFailure { e ->
                     _uiState.update { it.copy(buildLoading = false, buildFailed = true, error = e.message ?: "Clean build failed") }
@@ -368,6 +384,14 @@ class FeedbackIssuesViewModel @Inject constructor(
                     }
                 }
         }
+    }
+
+    fun showUpdateDetails() {
+        _uiState.update { it.copy(showUpdateDetails = true) }
+    }
+
+    fun dismissUpdateDetails() {
+        _uiState.update { it.copy(showUpdateDetails = false) }
     }
 
     fun dismissSameVersionDialog() {
