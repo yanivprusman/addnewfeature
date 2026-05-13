@@ -30,6 +30,7 @@ data class FeedbackIssuesUiState(
     val needsBuild: Boolean = false,
     val buildFailed: Boolean = false,
     val newVersion: String? = null,
+    val newFlVersion: String? = null,
     val error: String? = null,
     val successMessage: String? = null,
 )
@@ -273,11 +274,10 @@ class FeedbackIssuesViewModel @Inject constructor(
             .onSuccess { data ->
                 val serverCommit = data.feedbackLibCommit ?: return@onSuccess
                 if (serverCommit != builtCommit) {
-                    val flVersion = data.feedbackLibVersion
                     _uiState.update {
                         it.copy(
                             needsBuild = true,
-                            newVersion = it.newVersion ?: flVersion?.toString(),
+                            newFlVersion = data.feedbackLibVersion?.toString(),
                         )
                     }
                 }
