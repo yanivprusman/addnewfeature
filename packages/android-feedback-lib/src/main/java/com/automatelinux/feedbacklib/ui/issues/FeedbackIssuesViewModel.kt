@@ -340,8 +340,7 @@ class FeedbackIssuesViewModel @Inject constructor(
         viewModelScope.launch {
             feedbackRepository.buildApp()
                 .onSuccess {
-                    _uiState.update { it.copy(buildLoading = false, needsBuild = false, hasUpdate = true, successMessage = "Build complete") }
-                    checkVersions()
+                    _uiState.update { it.copy(buildLoading = false, needsBuild = false, hasUpdate = true, successMessage = "Build complete", flStale = false) }
                     onComplete()
                 }
                 .onFailure { e ->
@@ -355,8 +354,7 @@ class FeedbackIssuesViewModel @Inject constructor(
         viewModelScope.launch {
             feedbackRepository.cleanBuildApp()
                 .onSuccess {
-                    _uiState.update { it.copy(buildLoading = false, needsBuild = false, hasUpdate = true, successMessage = "Clean build complete") }
-                    checkVersions()
+                    _uiState.update { it.copy(buildLoading = false, needsBuild = false, hasUpdate = true, successMessage = "Clean build complete", flStale = false) }
                 }
                 .onFailure { e ->
                     _uiState.update { it.copy(buildLoading = false, buildFailed = true, error = e.message ?: "Clean build failed") }
