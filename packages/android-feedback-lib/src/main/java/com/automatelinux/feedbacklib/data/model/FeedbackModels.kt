@@ -175,6 +175,9 @@ data class HealthResponse(
     val apkCommit: String? = null,
     val gitVersion: Int? = null,
     val apkVersion: Int? = null,
+    val feedbackLibCommit: String? = null,
+    val feedbackLibVersion: Int? = null,
+    val feedbackLibNeedsBuild: Boolean? = null,
 )
 
 data class SessionHistoryMessage(

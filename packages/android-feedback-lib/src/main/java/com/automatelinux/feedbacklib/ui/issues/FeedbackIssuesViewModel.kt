@@ -228,11 +228,14 @@ class FeedbackIssuesViewModel @Inject constructor(
                 )?.groupValues?.get(1) ?: ""
                 val gitCommit = health.gitCommit ?: ""
                 val apkCommit = health.apkCommit ?: ""
+                val appNeedsBuild = gitCommit.isNotBlank() && apkCommit.isNotBlank() && gitCommit != apkCommit
+                val flNeedsBuild = health.feedbackLibNeedsBuild == true
+                val needsBuild = appNeedsBuild || flNeedsBuild
                 val hasUpdate = apkCommit.isNotBlank() && installedCommit.isNotBlank() && apkCommit != installedCommit
-                val needsBuild = gitCommit.isNotBlank() && apkCommit.isNotBlank() && gitCommit != apkCommit
                 val newVersion = when {
                     hasUpdate && (health.apkVersion ?: 0) > 0 -> health.apkVersion.toString()
-                    needsBuild && (health.gitVersion ?: 0) > 0 -> health.gitVersion.toString()
+                    appNeedsBuild && (health.gitVersion ?: 0) > 0 -> health.gitVersion.toString()
+                    flNeedsBuild && (health.feedbackLibVersion ?: 0) > 0 -> "fl${health.feedbackLibVersion}"
                     else -> null
                 }
                 _uiState.update { it.copy(hasUpdate = hasUpdate, needsBuild = needsBuild, newVersion = newVersion) }
