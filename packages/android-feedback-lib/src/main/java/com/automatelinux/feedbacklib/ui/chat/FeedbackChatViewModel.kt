@@ -254,27 +254,38 @@ class FeedbackChatViewModel @Inject constructor(
     }
 
     fun refreshSession() {
-        val persisted = sessionStore.load() ?: return
-        val restoredMessages = persisted.messages.map { m -> ChatMessage(m.role, m.text, m.staleIssues) }
-        if (restoredMessages.isEmpty()) return
-
-        _uiState.update {
-            it.copy(messages = restoredMessages)
+        val state = _uiState.value
+        val sid = state.sessionId ?: sessionStore.load()?.sessionId?.takeIf { it != PENDING_SESSION_SENTINEL }
+        if (sid == null) {
+            _uiState.update { it.copy(error = "No session to refresh") }
+            return
         }
 
-        val sid = persisted.sessionId.takeIf { it != PENDING_SESSION_SENTINEL }
-        if (sid != null && persisted.tmuxSession != null) {
-            viewModelScope.launch {
-                val alive = feedbackRepository.checkSessionAlive(persisted.tmuxSession)
+        _uiState.update { it.copy(restoringSession = true) }
+        viewModelScope.launch {
+            feedbackRepository.getSessionHistory(sid)
+                .onSuccess { data ->
+                    if (data.found && data.messages.isNotEmpty()) {
+                        val msgs = data.messages.map { m -> ChatMessage(m.role, m.text) }
+                        _uiState.update { it.copy(messages = msgs, restoringSession = false) }
+                        persistSession()
+                    } else {
+                        _uiState.update { it.copy(restoringSession = false) }
+                    }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(restoringSession = false, error = e.message ?: "Refresh failed") }
+                }
+            val tmux = state.tmuxSession ?: sessionStore.load()?.tmuxSession
+            if (tmux != null) {
+                val alive = feedbackRepository.checkSessionAlive(tmux)
                 if (alive) {
-                    _uiState.update { it.copy(sessionId = sid, tmuxSession = persisted.tmuxSession) }
-                    startHealthCheck(persisted.tmuxSession)
+                    _uiState.update { it.copy(sessionId = sid, tmuxSession = tmux) }
+                    startHealthCheck(tmux)
                 } else {
                     _uiState.update { it.copy(resumeSessionId = sid, sessionId = null, tmuxSession = null) }
                 }
             }
-        } else if (sid != null) {
-            _uiState.update { it.copy(resumeSessionId = sid) }
         }
     }
 

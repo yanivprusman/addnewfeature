@@ -52,4 +52,23 @@ class FeedbackSessionStore @Inject constructor(
     fun clear() {
         prefs.edit().remove(key).commit()
     }
+
+    fun markInstallStarted() {
+        prefs.edit().putLong("install_started_${config.appName}", System.currentTimeMillis()).apply()
+    }
+
+    fun clearInstallStarted() {
+        prefs.edit().remove("install_started_${config.appName}").apply()
+    }
+
+    fun isInstallInProgress(): Boolean {
+        val ts = prefs.getLong("install_started_${config.appName}", 0)
+        if (ts == 0L) return false
+        val elapsed = System.currentTimeMillis() - ts
+        if (elapsed > 5 * 60 * 1000) {
+            clearInstallStarted()
+            return false
+        }
+        return true
+    }
 }

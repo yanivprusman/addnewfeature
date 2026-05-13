@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.automatelinux.feedbacklib.data.model.FixIssueItem
 import com.automatelinux.feedbacklib.data.model.Issue
 import com.automatelinux.feedbacklib.data.repository.FeedbackRepository
+import com.automatelinux.feedbacklib.data.repository.FeedbackSessionStore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,15 +37,39 @@ data class FeedbackIssuesUiState(
 @HiltViewModel
 class FeedbackIssuesViewModel @Inject constructor(
     private val feedbackRepository: FeedbackRepository,
+    private val sessionStore: FeedbackSessionStore,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FeedbackIssuesUiState())
     val uiState: StateFlow<FeedbackIssuesUiState> = _uiState.asStateFlow()
 
     init {
+        if (sessionStore.isInstallInProgress()) {
+            _uiState.update { it.copy(installLoading = true, hasUpdate = true) }
+            pollInstallCompletion()
+        }
         viewModelScope.launch {
             fetchIssues(initial = true)
             checkVersions()
+        }
+    }
+
+    private fun pollInstallCompletion() {
+        viewModelScope.launch {
+            while (sessionStore.isInstallInProgress()) {
+                delay(3000)
+                val health = feedbackRepository.checkHealth().getOrNull() ?: continue
+                val installedCommit = Regex("\\(([^)]+)\\)").find(
+                    feedbackRepository.versionName
+                )?.groupValues?.get(1) ?: ""
+                val apkCommit = health.apkCommit ?: ""
+                if (apkCommit.isNotBlank() && installedCommit.isNotBlank() && apkCommit == installedCommit) {
+                    sessionStore.clearInstallStarted()
+                    _uiState.update { it.copy(installLoading = false, hasUpdate = false, successMessage = "Installed successfully") }
+                    return@launch
+                }
+            }
+            _uiState.update { it.copy(installLoading = false) }
         }
     }
 
@@ -287,9 +313,11 @@ class FeedbackIssuesViewModel @Inject constructor(
 
     fun installFixedVersion(force: Boolean = false) {
         _uiState.update { it.copy(installLoading = true, error = null, successMessage = null, showSameVersionDialog = false) }
+        sessionStore.markInstallStarted()
         viewModelScope.launch {
             feedbackRepository.installApp(force = force)
                 .onSuccess { response ->
+                    sessionStore.clearInstallStarted()
                     if (response.sameVersion == true && !force) {
                         _uiState.update { it.copy(installLoading = false, showSameVersionDialog = true) }
                     } else {
@@ -297,6 +325,7 @@ class FeedbackIssuesViewModel @Inject constructor(
                     }
                 }
                 .onFailure { e ->
+                    sessionStore.clearInstallStarted()
                     _uiState.update {
                         it.copy(installLoading = false, error = e.message ?: "Install failed")
                     }

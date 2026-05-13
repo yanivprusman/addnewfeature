@@ -129,8 +129,18 @@ fun FeedbackChatScreen(
                         }
                     }
                     if (!state.directMode) {
-                        IconButton(onClick = viewModel::refreshSession) {
-                            Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                        IconButton(
+                            onClick = viewModel::refreshSession,
+                            enabled = !state.restoringSession,
+                        ) {
+                            if (state.restoringSession) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            } else {
+                                Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
+                            }
                         }
                     }
                     if (!state.directMode && state.messages.isNotEmpty()) {
