@@ -71,4 +71,16 @@ class FeedbackSessionStore @Inject constructor(
         }
         return true
     }
+
+    fun saveBuiltFlCommit(commit: String) {
+        prefs.edit().putString("built_fl_commit_${config.appName}", commit).apply()
+    }
+
+    fun getBuiltFlCommit(): String? {
+        return prefs.getString("built_fl_commit_${config.appName}", null)
+    }
+
+    fun clearBuiltFlCommit() {
+        prefs.edit().remove("built_fl_commit_${config.appName}").apply()
+    }
 }

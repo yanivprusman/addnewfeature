@@ -56,6 +56,7 @@ class FeedbackIssuesViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(FeedbackIssuesUiState())
     val uiState: StateFlow<FeedbackIssuesUiState> = _uiState.asStateFlow()
+    private var latestServerFlCommit: String? = null
 
     init {
         if (sessionStore.isInstallInProgress()) {
@@ -79,6 +80,7 @@ class FeedbackIssuesViewModel @Inject constructor(
                 val apkCommit = health.apkCommit ?: ""
                 if (apkCommit.isNotBlank() && installedCommit.isNotBlank() && apkCommit == installedCommit) {
                     sessionStore.clearInstallStarted()
+                    sessionStore.clearBuiltFlCommit()
                     _uiState.update { it.copy(installLoading = false, hasUpdate = false, successMessage = "Installed successfully") }
                     return@launch
                 }
@@ -316,19 +318,23 @@ class FeedbackIssuesViewModel @Inject constructor(
     }
 
     private suspend fun checkFeedbackLibVersion() {
-        val builtCommit = com.automatelinux.feedbacklib.BuildConfig.FEEDBACK_LIB_COMMIT
-        val builtVersion = com.automatelinux.feedbacklib.BuildConfig.FEEDBACK_LIB_VERSION
-        if (builtCommit.isBlank()) return
+        val installedFlCommit = com.automatelinux.feedbacklib.BuildConfig.FEEDBACK_LIB_COMMIT
+        val installedFlVersion = com.automatelinux.feedbacklib.BuildConfig.FEEDBACK_LIB_VERSION
+        if (installedFlCommit.isBlank()) return
         feedbackRepository.checkFeedbackLibVersion()
             .onSuccess { data ->
                 val serverCommit = data.feedbackLibCommit ?: return@onSuccess
                 val serverVer = data.feedbackLibVersion?.toString()
-                val stale = serverCommit != builtCommit
+                latestServerFlCommit = serverCommit
+                val stale = serverCommit != installedFlCommit
+                val lastBuiltFlCommit = sessionStore.getBuiltFlCommit()
+                val flAlreadyBuilt = lastBuiltFlCommit == serverCommit
                 _uiState.update {
                     it.copy(
-                        needsBuild = if (stale) true else it.needsBuild,
+                        needsBuild = if (stale && !flAlreadyBuilt) true else it.needsBuild,
+                        hasUpdate = if (stale && flAlreadyBuilt) true else it.hasUpdate,
                         newFlVersion = if (stale) serverVer else null,
-                        flVersion = builtVersion.toString(),
+                        flVersion = installedFlVersion.toString(),
                         flStale = stale,
                     )
                 }
@@ -340,6 +346,7 @@ class FeedbackIssuesViewModel @Inject constructor(
         viewModelScope.launch {
             feedbackRepository.buildApp()
                 .onSuccess {
+                    latestServerFlCommit?.let { sessionStore.saveBuiltFlCommit(it) }
                     _uiState.update { it.copy(buildLoading = false, needsBuild = false, hasUpdate = true, successMessage = "Build complete", flStale = false) }
                     onComplete()
                 }
@@ -354,6 +361,7 @@ class FeedbackIssuesViewModel @Inject constructor(
         viewModelScope.launch {
             feedbackRepository.cleanBuildApp()
                 .onSuccess {
+                    latestServerFlCommit?.let { sessionStore.saveBuiltFlCommit(it) }
                     _uiState.update { it.copy(buildLoading = false, needsBuild = false, hasUpdate = true, successMessage = "Clean build complete", flStale = false) }
                 }
                 .onFailure { e ->
@@ -369,6 +377,7 @@ class FeedbackIssuesViewModel @Inject constructor(
             feedbackRepository.installApp(force = force)
                 .onSuccess { response ->
                     sessionStore.clearInstallStarted()
+                    sessionStore.clearBuiltFlCommit()
                     if (response.sameVersion == true && !force) {
                         _uiState.update { it.copy(installLoading = false, showSameVersionDialog = true) }
                     } else {
