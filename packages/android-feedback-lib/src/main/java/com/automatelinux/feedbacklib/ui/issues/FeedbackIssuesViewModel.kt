@@ -31,6 +31,8 @@ data class FeedbackIssuesUiState(
     val buildFailed: Boolean = false,
     val newVersion: String? = null,
     val newFlVersion: String? = null,
+    val flVersion: String? = null,
+    val flStale: Boolean = false,
     val error: String? = null,
     val successMessage: String? = null,
 )
@@ -273,13 +275,15 @@ class FeedbackIssuesViewModel @Inject constructor(
         feedbackRepository.checkFeedbackLibVersion()
             .onSuccess { data ->
                 val serverCommit = data.feedbackLibCommit ?: return@onSuccess
-                if (serverCommit != builtCommit) {
-                    _uiState.update {
-                        it.copy(
-                            needsBuild = true,
-                            newFlVersion = data.feedbackLibVersion?.toString(),
-                        )
-                    }
+                val flVer = data.feedbackLibVersion?.toString()
+                val stale = serverCommit != builtCommit
+                _uiState.update {
+                    it.copy(
+                        needsBuild = if (stale) true else it.needsBuild,
+                        newFlVersion = if (stale) flVer else null,
+                        flVersion = flVer,
+                        flStale = stale,
+                    )
                 }
             }
     }

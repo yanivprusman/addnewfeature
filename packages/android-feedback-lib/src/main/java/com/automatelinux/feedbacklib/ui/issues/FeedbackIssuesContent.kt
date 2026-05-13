@@ -103,11 +103,23 @@ fun FeedbackIssuesScreen(
                         Text("Issues")
                         if (versionName != null) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = versionName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                )
+                                if (state.flVersion != null) {
+                                    val dimColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                    val flColor = if (state.flStale) Color(0xFFFF9800) else dimColor
+                                    Text(
+                                        text = buildAnnotatedString {
+                                            withStyle(SpanStyle(color = dimColor)) { append(versionName) }
+                                            withStyle(SpanStyle(color = flColor)) { append(" FL${state.flVersion}") }
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                    )
+                                } else {
+                                    Text(
+                                        text = versionName,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                    )
+                                }
                                 if (state.hasUpdate) {
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Box(
@@ -135,12 +147,24 @@ fun FeedbackIssuesScreen(
                                                 )
                                             }
                                         } else {
-                                            Text(
-                                                text = if (state.newVersion != null) "update → v${state.newVersion}" else "update available",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.primary,
-                                                fontSize = 9.sp,
-                                            )
+                                            val baseText = if (state.newVersion != null) "update → v${state.newVersion}" else "update available"
+                                            if (state.newFlVersion != null) {
+                                                Text(
+                                                    text = buildAnnotatedString {
+                                                        withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) { append(baseText) }
+                                                        withStyle(SpanStyle(color = Color(0xFFFF9800))) { append(" FL${state.newFlVersion}") }
+                                                    },
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontSize = 9.sp,
+                                                )
+                                            } else {
+                                                Text(
+                                                    text = baseText,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    fontSize = 9.sp,
+                                                )
+                                            }
                                         }
                                     }
                                 } else if (state.needsBuild || state.buildLoading) {
