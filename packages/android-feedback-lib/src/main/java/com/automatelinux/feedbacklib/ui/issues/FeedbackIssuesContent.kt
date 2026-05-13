@@ -103,24 +103,55 @@ fun FeedbackIssuesScreen(
                         Text("Issues")
                         if (versionName != null) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (state.flVersion != null) {
-                                    val dimColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                    val flColor = if (state.flStale) Color(0xFFFF9800) else dimColor
-                                    Text(
-                                        text = buildAnnotatedString {
-                                            withStyle(SpanStyle(color = dimColor)) { append(versionName) }
+                                val dimColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                val orange = Color(0xFFFF9800)
+                                val vColor = if (state.vStale) orange else dimColor
+                                val flColor = if (state.flStale) orange else dimColor
+                                Text(
+                                    text = buildAnnotatedString {
+                                        withStyle(SpanStyle(color = vColor)) { append(versionName) }
+                                        if (state.flVersion != null) {
                                             withStyle(SpanStyle(color = flColor)) { append(" FL${state.flVersion}") }
-                                        },
-                                        style = MaterialTheme.typography.bodySmall,
-                                    )
-                                } else {
-                                    Text(
-                                        text = versionName,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                    )
-                                }
-                                if (state.hasUpdate) {
+                                        }
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                if (state.needsBuild || state.buildLoading) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(orange.copy(alpha = 0.12f))
+                                            .clickable(enabled = !state.buildLoading) {
+                                                viewModel.buildApp()
+                                            }
+                                            .padding(horizontal = 6.dp, vertical = 1.dp),
+                                    ) {
+                                        if (state.buildLoading) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(8.dp),
+                                                    strokeWidth = 1.dp,
+                                                    color = orange,
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "building…",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = orange,
+                                                    fontSize = 9.sp,
+                                                )
+                                            }
+                                        } else {
+                                            Text(
+                                                text = "build needed",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = orange,
+                                                fontSize = 9.sp,
+                                            )
+                                        }
+                                    }
+                                } else if (state.hasUpdate) {
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Box(
                                         modifier = Modifier
@@ -147,81 +178,12 @@ fun FeedbackIssuesScreen(
                                                 )
                                             }
                                         } else {
-                                            val baseText = if (state.newVersion != null) "update → v${state.newVersion}" else "update available"
-                                            if (state.newFlVersion != null) {
-                                                Text(
-                                                    text = buildAnnotatedString {
-                                                        withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) { append(baseText) }
-                                                        withStyle(SpanStyle(color = Color(0xFFFF9800))) { append(" FL${state.newFlVersion}") }
-                                                    },
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    fontSize = 9.sp,
-                                                )
-                                            } else {
-                                                Text(
-                                                    text = baseText,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = MaterialTheme.colorScheme.primary,
-                                                    fontSize = 9.sp,
-                                                )
-                                            }
-                                        }
-                                    }
-                                } else if (state.needsBuild || state.buildLoading) {
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    val orange = Color(0xFFFF9800)
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(orange.copy(alpha = 0.12f))
-                                            .clickable(enabled = !state.buildLoading) {
-                                                viewModel.buildApp()
-                                            }
-                                            .padding(horizontal = 6.dp, vertical = 1.dp),
-                                    ) {
-                                        if (state.buildLoading) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                CircularProgressIndicator(
-                                                    modifier = Modifier.size(8.dp),
-                                                    strokeWidth = 1.dp,
-                                                    color = orange,
-                                                )
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text(
-                                                    text = "building…",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = orange,
-                                                    fontSize = 9.sp,
-                                                )
-                                            }
-                                        } else {
-                                            val hasVersionInfo = state.newVersion != null || state.newFlVersion != null
-                                            if (hasVersionInfo) {
-                                                val currentAppVer = versionName?.let { Regex("v(\\d+)").find(it)?.groupValues?.get(1) }
-                                                val dimColor = orange.copy(alpha = 0.45f)
-                                                Text(
-                                                    text = buildAnnotatedString {
-                                                        withStyle(SpanStyle(color = orange)) { append("build needed → ") }
-                                                        val appVer = state.newVersion ?: currentAppVer
-                                                        if (appVer != null) {
-                                                            val appColor = if (state.newVersion != null) orange else dimColor
-                                                            withStyle(SpanStyle(color = appColor)) { append("V$appVer") }
-                                                        }
-                                                        if (state.newFlVersion != null) {
-                                                            withStyle(SpanStyle(color = orange)) { append("FL${state.newFlVersion}") }
-                                                        }
-                                                    },
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    fontSize = 9.sp,
-                                                )
-                                            } else {
-                                                Text(
-                                                    text = "build needed",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = orange,
-                                                    fontSize = 9.sp,
-                                                )
-                                            }
+                                            Text(
+                                                text = if (state.newVersion != null) "update → v${state.newVersion}" else "update available",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontSize = 9.sp,
+                                            )
                                         }
                                     }
                                 }

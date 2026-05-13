@@ -33,6 +33,7 @@ data class FeedbackIssuesUiState(
     val newFlVersion: String? = null,
     val flVersion: String? = null,
     val flStale: Boolean = false,
+    val vStale: Boolean = false,
     val error: String? = null,
     val successMessage: String? = null,
 )
@@ -264,7 +265,7 @@ class FeedbackIssuesViewModel @Inject constructor(
                     appNeedsBuild && (health.gitVersion ?: 0) > 0 -> health.gitVersion.toString()
                     else -> null
                 }
-                _uiState.update { it.copy(hasUpdate = hasUpdate, needsBuild = appNeedsBuild, newVersion = newVersion) }
+                _uiState.update { it.copy(hasUpdate = hasUpdate, needsBuild = appNeedsBuild, newVersion = newVersion, vStale = hasUpdate || appNeedsBuild) }
             }
         checkFeedbackLibVersion()
     }
