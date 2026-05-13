@@ -277,7 +277,7 @@ class FeedbackIssuesViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             needsBuild = true,
-                            newVersion = it.newVersion ?: if (flVersion != null) "fl$flVersion" else null,
+                            newVersion = it.newVersion ?: flVersion?.toString(),
                         )
                     }
                 }
