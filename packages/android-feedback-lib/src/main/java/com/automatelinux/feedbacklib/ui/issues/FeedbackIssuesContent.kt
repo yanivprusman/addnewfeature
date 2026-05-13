@@ -843,15 +843,17 @@ fun IssueCard(
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text("Close for now")
                                 }
-                                TextButton(onClick = onResumeClarifier!!) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.Chat,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp),
-                                        tint = MaterialTheme.colorScheme.error,
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Resume Clarifier", color = MaterialTheme.colorScheme.error)
+                                if (onResumeClarifier != null) {
+                                    TextButton(onClick = onResumeClarifier) {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.Chat,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = MaterialTheme.colorScheme.error,
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Resume Clarifier", color = MaterialTheme.colorScheme.error)
+                                    }
                                 }
                             }
                             isRegression -> {
@@ -879,15 +881,17 @@ fun IssueCard(
                                 }
                             }
                             isClosed -> {
-                                TextButton(onClick = onResumeClarifier!!) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.Chat,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp),
-                                        tint = MaterialTheme.colorScheme.error,
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Resume Clarifier", color = MaterialTheme.colorScheme.error)
+                                if (onResumeClarifier != null) {
+                                    TextButton(onClick = onResumeClarifier) {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.Chat,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp),
+                                            tint = MaterialTheme.colorScheme.error,
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Resume Clarifier", color = MaterialTheme.colorScheme.error)
+                                    }
                                 }
                             }
                             else -> {
