@@ -442,7 +442,7 @@ fun FeedbackIssuesScreen(
             onDismiss = { viewModel.dismissUpdateDetails() },
             onBuild = { viewModel.buildApp() },
             onCleanBuild = { viewModel.cleanBuildApp() },
-            onInstall = { viewModel.installFixedVersion() },
+            onInstall = { viewModel.installFixedVersion(force = true) },
         )
     }
 }
