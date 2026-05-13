@@ -69,6 +69,26 @@ fun FeedbackChatScreen(
         viewModel.persistOnPause()
     }
 
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        val totalItems = state.messages.size +
+            (if (state.isSending) 1 else 0) +
+            (if (state.proposedIssues != null) 1 else 0) +
+            (if (state.submitResults != null) 1 else 0)
+        if (totalItems > 0) {
+            viewModel.requestScrollToBottom()
+        }
+    }
+
+    LaunchedEffect(state.scrollToBottomTrigger) {
+        val totalItems = state.messages.size +
+            (if (state.isSending) 1 else 0) +
+            (if (state.proposedIssues != null) 1 else 0) +
+            (if (state.submitResults != null) 1 else 0)
+        if (totalItems > 0) {
+            listState.animateScrollToItem(totalItems)
+        }
+    }
+
     LaunchedEffect(state.messages.size, state.isSending) {
         val totalItems = state.messages.size +
             (if (state.isSending) 1 else 0) +

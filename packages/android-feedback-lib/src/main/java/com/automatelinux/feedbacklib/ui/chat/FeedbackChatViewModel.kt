@@ -310,6 +310,10 @@ class FeedbackChatViewModel @Inject constructor(
         }
     }
 
+    fun requestScrollToBottom() {
+        _uiState.update { it.copy(scrollToBottomTrigger = it.scrollToBottomTrigger + 1) }
+    }
+
     fun dismissError() {
         _uiState.update { it.copy(error = null) }
     }
