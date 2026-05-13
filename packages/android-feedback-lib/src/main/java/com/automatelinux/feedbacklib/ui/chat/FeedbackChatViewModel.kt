@@ -3,6 +3,8 @@ package com.automatelinux.feedbacklib.ui.chat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.automatelinux.feedbacklib.FeedbackConfig
+import com.automatelinux.feedbacklib.data.model.Issue
+import com.automatelinux.feedbacklib.data.model.PriorIssueContext
 import com.automatelinux.feedbacklib.data.repository.FeedbackRepository
 import com.automatelinux.feedbacklib.data.repository.FeedbackSessionStore
 import com.automatelinux.feedbacklib.data.repository.PersistedMessage
@@ -28,6 +30,7 @@ class FeedbackChatViewModel @Inject constructor(
     val uiState: StateFlow<FeedbackChatUiState> = _uiState.asStateFlow()
 
     private var healthCheckJob: Job? = null
+    private var restoreJob: Job? = null
 
     init {
         restoreSession()
@@ -80,6 +83,7 @@ class FeedbackChatViewModel @Inject constructor(
                 resumeSessionId = current.resumeSessionId,
                 pagePath = screenContext,
                 pageContext = screenContext,
+                priorIssue = current.priorIssue,
             ).onSuccess { data ->
                 val displayText = stripJsonBlocks(data.response)
                 _uiState.update {
@@ -88,6 +92,7 @@ class FeedbackChatViewModel @Inject constructor(
                         sessionId = data.sessionId,
                         tmuxSession = data.tmuxSession,
                         resumeSessionId = null,
+                        priorIssue = null,
                         proposedIssues = data.issues,
                         checkedIssues = data.issues?.map { true } ?: emptyList(),
                         hookWarning = data.hookWarning ?: it.hookWarning,
@@ -105,6 +110,7 @@ class FeedbackChatViewModel @Inject constructor(
                             resumeSessionId = it.sessionId,
                             sessionId = null,
                             tmuxSession = null,
+                            priorIssue = null,
                             isSending = false,
                         )
                     }
@@ -142,6 +148,7 @@ class FeedbackChatViewModel @Inject constructor(
                 resumeSessionId = current.resumeSessionId,
                 pagePath = screenContext,
                 pageContext = screenContext,
+                priorIssue = current.priorIssue,
             ).onSuccess { data ->
                 val displayText = stripJsonBlocks(data.response)
                 _uiState.update {
@@ -150,6 +157,7 @@ class FeedbackChatViewModel @Inject constructor(
                         sessionId = data.sessionId,
                         tmuxSession = data.tmuxSession,
                         resumeSessionId = null,
+                        priorIssue = null,
                         proposedIssues = data.issues,
                         checkedIssues = data.issues?.map { true } ?: emptyList(),
                         hookWarning = data.hookWarning ?: it.hookWarning,
@@ -294,12 +302,23 @@ class FeedbackChatViewModel @Inject constructor(
         _uiState.value = FeedbackChatUiState(serverFound = true)
     }
 
-    fun resumeClarifierSession(clarifierSessionId: String) {
+    fun resumeClarifierSession(clarifierSessionId: String, issue: Issue? = null) {
+        restoreJob?.cancel()
+        restoreJob = null
         closeSession()
         _uiState.value = FeedbackChatUiState(
             serverFound = true,
             resumeSessionId = clarifierSessionId,
             restoringSession = true,
+            priorIssue = issue?.let {
+                PriorIssueContext(
+                    issueNumber = it.issueNumber,
+                    title = it.title,
+                    description = it.description,
+                    status = it.status,
+                    insights = it.insights,
+                )
+            },
         )
         viewModelScope.launch {
             feedbackRepository.getSessionHistory(clarifierSessionId)
@@ -458,7 +477,7 @@ class FeedbackChatViewModel @Inject constructor(
                 restoringSession = true,
             )
         }
-        viewModelScope.launch {
+        restoreJob = viewModelScope.launch {
             val alive = feedbackRepository.checkSessionAlive(persisted.tmuxSession)
             if (alive) {
                 _uiState.update { it.copy(restoringSession = false) }

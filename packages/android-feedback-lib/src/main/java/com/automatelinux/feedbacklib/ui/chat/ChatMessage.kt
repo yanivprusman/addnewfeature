@@ -2,6 +2,7 @@ package com.automatelinux.feedbacklib.ui.chat
 
 import com.automatelinux.feedbacklib.data.model.FeedbackIssue
 import com.automatelinux.feedbacklib.data.model.FeedbackSubmitResult
+import com.automatelinux.feedbacklib.data.model.PriorIssueContext
 
 data class ChatMessage(
     val role: String, // "user" | "assistant" | "system"
@@ -30,4 +31,5 @@ data class FeedbackChatUiState(
     val showPostSubmitPrompt: Boolean = false,
     val restoringSession: Boolean = false,
     val lastSendFailed: Boolean = false,
+    val priorIssue: PriorIssueContext? = null,
 )

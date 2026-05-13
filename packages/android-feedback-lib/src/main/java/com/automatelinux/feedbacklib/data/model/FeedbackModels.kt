@@ -26,6 +26,14 @@ data class Issue(
 
 // ── Requests ─────────────────────────────────────────────────────────────
 
+data class PriorIssueContext(
+    @SerializedName("issueNumber") val issueNumber: Int? = null,
+    val title: String? = null,
+    val description: String? = null,
+    val status: String? = null,
+    val insights: String? = null,
+)
+
 data class FeedbackMessageRequest(
     val message: String,
     @SerializedName("sessionId") val sessionId: String? = null,
@@ -35,6 +43,7 @@ data class FeedbackMessageRequest(
     val pagePath: String? = null,
     val pageContext: String? = null,
     val platform: String? = null,
+    @SerializedName("priorIssue") val priorIssue: PriorIssueContext? = null,
 )
 
 data class FeedbackSubmitRequest(

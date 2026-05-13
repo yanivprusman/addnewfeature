@@ -31,6 +31,7 @@ class FeedbackRepository @Inject constructor(
         resumeSessionId: String? = null,
         pagePath: String? = null,
         pageContext: String? = null,
+        priorIssue: PriorIssueContext? = null,
     ): Result<FeedbackMessageResponse> = apiCall {
         api.sendFeedbackMessage(
             FeedbackMessageRequest(
@@ -42,6 +43,7 @@ class FeedbackRepository @Inject constructor(
                 pagePath = pagePath,
                 pageContext = pageContext,
                 platform = platformString,
+                priorIssue = priorIssue,
             )
         )
     }

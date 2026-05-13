@@ -73,7 +73,7 @@ fun FeedbackIssuesScreen(
     viewModel: FeedbackIssuesViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToChat: (() -> Unit)? = null,
-    onResumeClarifier: ((clarifierSessionId: String) -> Unit)? = null,
+    onResumeClarifier: ((issue: Issue) -> Unit)? = null,
     isProd: Boolean = false,
     versionName: String? = null,
 ) {
@@ -290,8 +290,8 @@ fun FeedbackIssuesScreen(
                                 },
                                 onMarkFixed = { viewModel.markFixed(issue) },
                                 onClearRegression = { viewModel.clearRegression(issue.issueNumber) },
-                                onResumeClarifier = issue.clarifierSessionId?.let { sid ->
-                                    onResumeClarifier?.let { callback -> { callback(sid) } }
+                                onResumeClarifier = issue.clarifierSessionId?.let { _ ->
+                                    onResumeClarifier?.let { callback -> { callback(issue) } }
                                 },
                             )
                         }
