@@ -310,8 +310,11 @@ class FeedbackChatViewModel @Inject constructor(
         }
     }
 
-    fun requestScrollToBottom() {
-        _uiState.update { it.copy(scrollToBottomTrigger = it.scrollToBottomTrigger + 1) }
+    var savedScrollPosition: Pair<Int, Int>? = null
+        private set
+
+    fun saveScrollPosition(firstVisibleItemIndex: Int, firstVisibleItemScrollOffset: Int) {
+        savedScrollPosition = Pair(firstVisibleItemIndex, firstVisibleItemScrollOffset)
     }
 
     fun dismissError() {

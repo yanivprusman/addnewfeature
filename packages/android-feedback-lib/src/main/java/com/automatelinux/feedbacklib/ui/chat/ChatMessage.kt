@@ -30,5 +30,4 @@ data class FeedbackChatUiState(
     val showPostSubmitPrompt: Boolean = false,
     val restoringSession: Boolean = false,
     val lastSendFailed: Boolean = false,
-    val scrollToBottomTrigger: Int = 0,
 )
