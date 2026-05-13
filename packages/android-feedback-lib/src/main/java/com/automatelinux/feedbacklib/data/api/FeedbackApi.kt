@@ -78,4 +78,7 @@ interface FeedbackApi {
 
     @GET("api/health")
     suspend fun getHealth(): Response<HealthResponse>
+
+    @GET("api/feedback/version")
+    suspend fun getFeedbackLibVersion(): Response<FeedbackLibVersionResponse>
 }

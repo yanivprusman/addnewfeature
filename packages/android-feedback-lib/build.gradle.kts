@@ -5,12 +5,40 @@ plugins {
     id("com.google.dagger.hilt.android")
 }
 
+val feedbackLibRealPath: String = try {
+    val source = providers.exec {
+        commandLine("findmnt", "-n", "-o", "SOURCE", "--target", projectDir.absolutePath)
+    }.standardOutput.asText.get().trim()
+    val match = Regex("\\[(.+)]").find(source)
+    match?.groupValues?.get(1) ?: projectDir.absolutePath
+} catch (_: Exception) {
+    projectDir.absolutePath
+}
+
+val feedbackLibCommitHash: String = try {
+    providers.exec {
+        commandLine("git", "-C", feedbackLibRealPath, "rev-parse", "--short", "HEAD")
+    }.standardOutput.asText.get().trim()
+} catch (_: Exception) { "" }
+
+val feedbackLibCommitCount: Int = try {
+    providers.exec {
+        commandLine("git", "-C", feedbackLibRealPath, "rev-list", "--count", "HEAD")
+    }.standardOutput.asText.get().trim().toInt()
+} catch (_: Exception) { 0 }
+
 android {
     namespace = "com.automatelinux.feedbacklib"
     compileSdk = 34
 
     defaultConfig {
         minSdk = 26
+        buildConfigField("String", "FEEDBACK_LIB_COMMIT", "\"$feedbackLibCommitHash\"")
+        buildConfigField("int", "FEEDBACK_LIB_VERSION", "$feedbackLibCommitCount")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {

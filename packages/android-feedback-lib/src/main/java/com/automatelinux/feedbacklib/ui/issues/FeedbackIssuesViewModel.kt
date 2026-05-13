@@ -229,16 +229,32 @@ class FeedbackIssuesViewModel @Inject constructor(
                 val gitCommit = health.gitCommit ?: ""
                 val apkCommit = health.apkCommit ?: ""
                 val appNeedsBuild = gitCommit.isNotBlank() && apkCommit.isNotBlank() && gitCommit != apkCommit
-                val flNeedsBuild = health.feedbackLibNeedsBuild == true
-                val needsBuild = appNeedsBuild || flNeedsBuild
                 val hasUpdate = apkCommit.isNotBlank() && installedCommit.isNotBlank() && apkCommit != installedCommit
                 val newVersion = when {
                     hasUpdate && (health.apkVersion ?: 0) > 0 -> health.apkVersion.toString()
                     appNeedsBuild && (health.gitVersion ?: 0) > 0 -> health.gitVersion.toString()
-                    flNeedsBuild && (health.feedbackLibVersion ?: 0) > 0 -> "fl${health.feedbackLibVersion}"
                     else -> null
                 }
-                _uiState.update { it.copy(hasUpdate = hasUpdate, needsBuild = needsBuild, newVersion = newVersion) }
+                _uiState.update { it.copy(hasUpdate = hasUpdate, needsBuild = appNeedsBuild, newVersion = newVersion) }
+            }
+        checkFeedbackLibVersion()
+    }
+
+    private suspend fun checkFeedbackLibVersion() {
+        val builtCommit = com.automatelinux.feedbacklib.BuildConfig.FEEDBACK_LIB_COMMIT
+        if (builtCommit.isBlank()) return
+        feedbackRepository.checkFeedbackLibVersion()
+            .onSuccess { data ->
+                val serverCommit = data.feedbackLibCommit ?: return@onSuccess
+                if (serverCommit != builtCommit) {
+                    val flVersion = data.feedbackLibVersion
+                    _uiState.update {
+                        it.copy(
+                            needsBuild = true,
+                            newVersion = it.newVersion ?: if (flVersion != null) "fl$flVersion" else null,
+                        )
+                    }
+                }
             }
     }
 
