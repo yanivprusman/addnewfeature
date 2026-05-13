@@ -259,6 +259,7 @@ class FeedbackChatViewModel @Inject constructor(
         }
         stopHealthCheck()
         sessionStore.clear()
+        _uiState.value = FeedbackChatUiState(serverFound = true)
     }
 
     fun refreshSession() {
