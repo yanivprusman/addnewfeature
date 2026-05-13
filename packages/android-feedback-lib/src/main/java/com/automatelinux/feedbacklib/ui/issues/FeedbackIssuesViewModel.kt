@@ -15,6 +15,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class BatchFixTarget(
+    val issues: List<Issue>,
+    val sessionIds: List<String>,
+)
+
 data class FeedbackIssuesUiState(
     val issues: List<Issue> = emptyList(),
     val loading: Boolean = true,
@@ -36,6 +41,7 @@ data class FeedbackIssuesUiState(
     val vStale: Boolean = false,
     val error: String? = null,
     val successMessage: String? = null,
+    val batchFixTarget: BatchFixTarget? = null,
 )
 
 @HiltViewModel
@@ -189,9 +195,29 @@ class FeedbackIssuesViewModel @Inject constructor(
             state.selectedIds.contains(it.issueNumber) && it.status != "closed" && it.status != "review"
         }
         if (selected.isEmpty()) return
-        _uiState.update { it.copy(fixLoading = true, error = null) }
+
+        val seen = mutableSetOf<String>()
+        val mergedSessions = mutableListOf<String>()
+        for (issue in selected) {
+            val own = issue.claudeSessionIds ?: emptyList()
+            val siblings = getSiblingFixSessions(issue, state.issues)
+            for (sid in own + siblings) {
+                if (seen.add(sid)) mergedSessions.add(sid)
+            }
+        }
+
+        if (mergedSessions.isNotEmpty()) {
+            _uiState.update { it.copy(batchFixTarget = BatchFixTarget(selected, mergedSessions)) }
+            return
+        }
+
+        executeBatchFix(selected)
+    }
+
+    fun executeBatchFix(issues: List<Issue>, resumeSessionId: String? = null) {
+        _uiState.update { it.copy(batchFixTarget = null, fixLoading = true, error = null) }
         viewModelScope.launch {
-            val items = selected.map { issue ->
+            val items = issues.map { issue ->
                 FixIssueItem(
                     number = issue.issueNumber,
                     title = issue.title,
@@ -200,12 +226,13 @@ class FeedbackIssuesViewModel @Inject constructor(
                     claudeSessionIds = if (issue.status == "regression") issue.claudeSessionIds else null,
                 )
             }
-            feedbackRepository.fixIssues(items)
+            feedbackRepository.fixIssues(items, resumeSessionId)
                 .onSuccess {
+                    val issueNumbers = issues.map { it.issueNumber }.toSet()
                     _uiState.update { st ->
                         st.copy(
                             issues = st.issues.map { i ->
-                                if (st.selectedIds.contains(i.issueNumber)) i.copy(status = "in_progress") else i
+                                if (issueNumbers.contains(i.issueNumber)) i.copy(status = "in_progress") else i
                             },
                             selectedIds = emptySet(),
                             fixLoading = false,
@@ -218,6 +245,10 @@ class FeedbackIssuesViewModel @Inject constructor(
                     }
                 }
         }
+    }
+
+    fun dismissBatchFixDialog() {
+        _uiState.update { it.copy(batchFixTarget = null) }
     }
 
     fun fixSingleIssue(issue: Issue, resumeSessionId: String? = null) {
@@ -272,17 +303,18 @@ class FeedbackIssuesViewModel @Inject constructor(
 
     private suspend fun checkFeedbackLibVersion() {
         val builtCommit = com.automatelinux.feedbacklib.BuildConfig.FEEDBACK_LIB_COMMIT
+        val builtVersion = com.automatelinux.feedbacklib.BuildConfig.FEEDBACK_LIB_VERSION
         if (builtCommit.isBlank()) return
         feedbackRepository.checkFeedbackLibVersion()
             .onSuccess { data ->
                 val serverCommit = data.feedbackLibCommit ?: return@onSuccess
-                val flVer = data.feedbackLibVersion?.toString()
+                val serverVer = data.feedbackLibVersion?.toString()
                 val stale = serverCommit != builtCommit
                 _uiState.update {
                     it.copy(
                         needsBuild = if (stale) true else it.needsBuild,
-                        newFlVersion = if (stale) flVer else null,
-                        flVersion = flVer,
+                        newFlVersion = if (stale) serverVer else null,
+                        flVersion = builtVersion.toString(),
                         flStale = stale,
                     )
                 }
@@ -349,4 +381,21 @@ class FeedbackIssuesViewModel @Inject constructor(
     fun dismissSuccess() {
         _uiState.update { it.copy(successMessage = null) }
     }
+}
+
+fun getSiblingFixSessions(issue: Issue, allIssues: List<Issue>): List<String> {
+    val clarifierId = issue.clarifierSessionId ?: return emptyList()
+    val own = issue.claudeSessionIds?.toSet() ?: emptySet()
+    return allIssues
+        .filter { it.clarifierSessionId == clarifierId && !it.claudeSessionIds.isNullOrEmpty() }
+        .flatMap { it.claudeSessionIds!! }
+        .distinct()
+        .filter { it !in own }
+}
+
+fun getSiblingLaunchDir(issue: Issue, allIssues: List<Issue>): String? {
+    val clarifierId = issue.clarifierSessionId ?: return null
+    return allIssues
+        .firstOrNull { it.clarifierSessionId == clarifierId && it.claudeLaunchDir != null }
+        ?.claudeLaunchDir
 }

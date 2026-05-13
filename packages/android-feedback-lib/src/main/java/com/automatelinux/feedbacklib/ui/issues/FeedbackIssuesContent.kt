@@ -143,8 +143,12 @@ fun FeedbackIssuesScreen(
                                                 )
                                             }
                                         } else {
+                                            val parts = mutableListOf<String>()
+                                            if (state.newVersion != null) parts += "v${state.newVersion}"
+                                            if (state.newFlVersion != null) parts += "FL${state.newFlVersion}"
+                                            val label = if (parts.isNotEmpty()) "build → ${parts.joinToString(" · ")}" else "build needed"
                                             Text(
-                                                text = "build needed",
+                                                text = label,
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = orange,
                                                 fontSize = 9.sp,
@@ -281,9 +285,13 @@ fun FeedbackIssuesScreen(
 
                                 onDelete = { confirmDelete = issue },
                                 onFix = {
-                                    val sessions = issue.claudeSessionIds
-                                    if (!sessions.isNullOrEmpty()) {
-                                        fixSessionTarget = issue
+                                    val siblingIds = getSiblingFixSessions(issue, state.issues)
+                                    val allSessionIds = ((issue.claudeSessionIds ?: emptyList()) + siblingIds).distinct()
+                                    if (allSessionIds.isNotEmpty()) {
+                                        fixSessionTarget = issue.copy(
+                                            claudeSessionIds = allSessionIds,
+                                            claudeLaunchDir = issue.claudeLaunchDir ?: getSiblingLaunchDir(issue, state.issues),
+                                        )
                                     } else {
                                         viewModel.fixSingleIssue(issue)
                                     }
@@ -389,6 +397,17 @@ fun FeedbackIssuesScreen(
                 fixSessionTarget = null
                 viewModel.fixSingleIssue(issue, sessionId)
             },
+        )
+    }
+
+    state.batchFixTarget?.let { target ->
+        BatchFixSessionDialog(
+            issues = target.issues,
+            sessionIds = target.sessionIds,
+            fixLoading = state.fixLoading,
+            onDismiss = { viewModel.dismissBatchFixDialog() },
+            onNewSession = { viewModel.executeBatchFix(target.issues) },
+            onResumeSession = { sessionId -> viewModel.executeBatchFix(target.issues, sessionId) },
         )
     }
 
@@ -665,6 +684,77 @@ fun FixSessionDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 issue.claudeSessionIds?.forEach { sessionId ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = sessionId.take(8) + "...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(
+                            onClick = { onResumeSession(sessionId) },
+                            enabled = !fixLoading,
+                        ) { Text("Resume") }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onNewSession,
+                enabled = !fixLoading,
+            ) {
+                if (fixLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Text("New session")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+@Composable
+fun BatchFixSessionDialog(
+    issues: List<Issue>,
+    sessionIds: List<String>,
+    fixLoading: Boolean,
+    onDismiss: () -> Unit,
+    onNewSession: () -> Unit,
+    onResumeSession: (String) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Fix ${issues.size} issues") },
+        text = {
+            Column {
+                issues.forEach { issue ->
+                    Text(
+                        text = "#${issue.issueNumber}: ${issue.title}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Previous fix sessions:",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                sessionIds.forEach { sessionId ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
