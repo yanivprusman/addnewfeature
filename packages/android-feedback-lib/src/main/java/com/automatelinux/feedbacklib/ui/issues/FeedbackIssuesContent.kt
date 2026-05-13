@@ -483,7 +483,7 @@ fun UpdateDetailsSheet(
             // Installed version
             VersionRow(
                 label = "Installed",
-                version = versionName,
+                version = versionName.replace(Regex("\\s*\\([^)]+\\)"), ""),
                 commit = state.installedCommit,
                 color = MaterialTheme.colorScheme.onSurface,
             )
