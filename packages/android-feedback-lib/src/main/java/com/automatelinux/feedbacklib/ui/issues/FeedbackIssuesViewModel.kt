@@ -393,6 +393,10 @@ class FeedbackIssuesViewModel @Inject constructor(
         }
     }
 
+    fun buildAndInstall() {
+        buildApp { installFixedVersion(force = true) }
+    }
+
     fun showUpdateDetails() {
         _uiState.update { it.copy(showUpdateDetails = true) }
     }

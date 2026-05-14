@@ -444,6 +444,7 @@ fun FeedbackIssuesScreen(
             onBuild = { viewModel.buildApp() },
             onCleanBuild = { viewModel.cleanBuildApp() },
             onInstall = { viewModel.installFixedVersion(force = true) },
+            onBuildAndInstall = { viewModel.buildAndInstall() },
         )
     }
 }
@@ -457,6 +458,7 @@ fun UpdateDetailsSheet(
     onBuild: () -> Unit,
     onCleanBuild: () -> Unit,
     onInstall: () -> Unit,
+    onBuildAndInstall: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val orange = Color(0xFFFF9800)
@@ -595,6 +597,27 @@ fun UpdateDetailsSheet(
                 showAction = state.hasUpdate && !state.needsBuild && !state.installLoading,
                 onAction = onInstall,
             )
+
+            if (state.needsBuild && !state.buildLoading && !state.installLoading) {
+                Spacer(modifier = Modifier.height(20.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = onBuildAndInstall,
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFF9800),
+                    ),
+                ) {
+                    Icon(
+                        Icons.Filled.GetApp,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Build & Install")
+                }
+            }
         }
     }
 }
