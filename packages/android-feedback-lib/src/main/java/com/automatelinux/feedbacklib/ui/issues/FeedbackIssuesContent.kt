@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.GetApp
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
@@ -462,6 +463,12 @@ fun UpdateDetailsSheet(
     val green = Color(0xFF4CAF50)
     val dimColor = Color(0xFFAAAAAA)
 
+    var showHelp by remember { mutableStateOf(false) }
+
+    if (showHelp) {
+        UpdateDetailsHelpDialog(onDismiss = { showHelp = false })
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -473,11 +480,24 @@ fun UpdateDetailsSheet(
                 .padding(horizontal = 20.dp)
                 .padding(bottom = 32.dp),
         ) {
-            Text(
-                text = "Update Details",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Update Details",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = { showHelp = true }) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.HelpOutline,
+                        contentDescription = "Help",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
             Spacer(modifier = Modifier.height(16.dp))
 
             // Installed version
@@ -576,6 +596,58 @@ fun UpdateDetailsSheet(
                 onAction = onInstall,
             )
         }
+    }
+}
+
+@Composable
+private fun UpdateDetailsHelpDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Got it") }
+        },
+        title = { Text("Understanding Update Details") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                HelpEntry(
+                    title = "Installed",
+                    body = "The version currently running on this device. This is your baseline — everything else is compared against it.",
+                )
+                HelpEntry(
+                    title = "Code (git)",
+                    body = "The latest commit pushed to the server. If this differs from Installed, new code is available that hasn't been built into an APK yet.",
+                )
+                HelpEntry(
+                    title = "Built APK",
+                    body = "The APK sitting on the server, ready to install. If this matches Code but differs from Installed, there's a new build waiting. If it differs from Code, a build is needed first.",
+                )
+                HelpEntry(
+                    title = "Feedback Lib",
+                    body = "The version of the feedback widget bundled in the installed app. Tracked separately because it's a shared library — it can update independently of the app's own code.",
+                )
+                Text(
+                    text = "Colors: green = matches installed, orange = action needed.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+    )
+}
+
+@Composable
+private fun HelpEntry(title: String, body: String) {
+    Column {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = body,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
