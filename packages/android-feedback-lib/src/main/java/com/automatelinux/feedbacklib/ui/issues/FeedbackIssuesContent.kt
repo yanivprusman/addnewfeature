@@ -55,8 +55,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
+import android.content.Intent
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,6 +65,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -74,8 +75,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.automatelinux.feedbacklib.data.model.Issue
-import com.automatelinux.feedbacklib.ui.chat.FeedbackChatScreen
-import com.automatelinux.feedbacklib.ui.chat.FeedbackChatViewModel
+import com.automatelinux.feedbacklib.ui.chat.FeedbackResumeClarifierActivity
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
@@ -83,7 +83,6 @@ fun FeedbackIssuesScreen(
     viewModel: FeedbackIssuesViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit,
     onNavigateToChat: (() -> Unit)? = null,
-    onResumeClarifier: ((issue: Issue) -> Unit)? = null,
     isProd: Boolean = false,
     versionName: String? = null,
 ) {
@@ -94,21 +93,7 @@ fun FeedbackIssuesScreen(
     }
     if (isProd) return
 
-    var resumingIssue by remember { mutableStateOf<Issue?>(null) }
-
-    resumingIssue?.let { issue ->
-        val chatViewModel: FeedbackChatViewModel = hiltViewModel()
-        LaunchedEffect(issue.clarifierSessionId) {
-            issue.clarifierSessionId?.let { sid ->
-                chatViewModel.resumeClarifierSession(sid, issue)
-            }
-        }
-        FeedbackChatScreen(
-            viewModel = chatViewModel,
-            onNavigateBack = { resumingIssue = null },
-        )
-        return
-    }
+    val context = LocalContext.current
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf<Issue?>(null) }
@@ -325,7 +310,11 @@ fun FeedbackIssuesScreen(
                                 onMarkFixed = { viewModel.markFixed(issue) },
                                 onClearRegression = { viewModel.clearRegression(issue.issueNumber) },
                                 onResumeClarifier = issue.clarifierSessionId?.let { _ ->
-                                    { resumingIssue = issue }
+                                    {
+                                        context.startActivity(
+                                            FeedbackResumeClarifierActivity.intent(context, issue),
+                                        )
+                                    }
                                 },
                             )
                         }
