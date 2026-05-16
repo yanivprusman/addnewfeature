@@ -56,6 +56,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -73,6 +74,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.automatelinux.feedbacklib.data.model.Issue
+import com.automatelinux.feedbacklib.ui.chat.FeedbackChatScreen
+import com.automatelinux.feedbacklib.ui.chat.FeedbackChatViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
@@ -90,6 +93,22 @@ fun FeedbackIssuesScreen(
         remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName }
     }
     if (isProd) return
+
+    var resumingIssue by remember { mutableStateOf<Issue?>(null) }
+
+    resumingIssue?.let { issue ->
+        val chatViewModel: FeedbackChatViewModel = hiltViewModel()
+        LaunchedEffect(issue.clarifierSessionId) {
+            issue.clarifierSessionId?.let { sid ->
+                chatViewModel.resumeClarifierSession(sid, issue)
+            }
+        }
+        FeedbackChatScreen(
+            viewModel = chatViewModel,
+            onNavigateBack = { resumingIssue = null },
+        )
+        return
+    }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf<Issue?>(null) }
@@ -306,7 +325,7 @@ fun FeedbackIssuesScreen(
                                 onMarkFixed = { viewModel.markFixed(issue) },
                                 onClearRegression = { viewModel.clearRegression(issue.issueNumber) },
                                 onResumeClarifier = issue.clarifierSessionId?.let { _ ->
-                                    onResumeClarifier?.let { callback -> { callback(issue) } }
+                                    { resumingIssue = issue }
                                 },
                             )
                         }
