@@ -381,7 +381,7 @@ class FeedbackIssuesViewModel @Inject constructor(
                     if (response.sameVersion == true && !force) {
                         _uiState.update { it.copy(installLoading = false, showSameVersionDialog = true) }
                     } else {
-                        _uiState.update { it.copy(installLoading = false, successMessage = "Installed successfully") }
+                        _uiState.update { it.copy(installLoading = false, hasUpdate = false, successMessage = "Installed successfully") }
                     }
                 }
                 .onFailure { e ->
