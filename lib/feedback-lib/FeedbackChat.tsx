@@ -574,6 +574,14 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
   bubbleOpenCallback.current = handleOpen;
 
   function handleClose() {
+    closeSession();
+    setMessages([{ role: "assistant", text: labels.greeting }]);
+    setInput("");
+    setLoadingCount(0);
+    setIssues(null);
+    setSubmitResults(null);
+    setShowPostSubmitPrompt(false);
+    setSubmittedIssueTitles([]);
     setFullScreen(false);
     setOpen(false);
   }
