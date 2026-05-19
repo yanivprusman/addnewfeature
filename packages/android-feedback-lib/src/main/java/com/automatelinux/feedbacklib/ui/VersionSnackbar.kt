@@ -25,32 +25,51 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.automatelinux.feedbacklib.BuildConfig
 
+private val green = Color(0xFF4CAF50)
 private val orange = Color(0xFFFF9800)
 
 @Composable
 fun VersionSnackbar(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var visible by remember { mutableStateOf(false) }
-    var appVersion by remember { mutableStateOf("") }
-    var flVersion by remember { mutableStateOf(0) }
-    var flUpgraded by remember { mutableStateOf(false) }
+    var displayText by remember { mutableStateOf(buildAnnotatedString {}) }
+
+    val defaultColor = MaterialTheme.colorScheme.inverseOnSurface
 
     LaunchedEffect(Unit) {
         val currentFl = BuildConfig.FEEDBACK_LIB_VERSION
-        flVersion = currentFl
-
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-        appVersion = packageInfo.versionName ?: ""
+        val currentApp = packageInfo.versionName ?: ""
 
         val prefs = context.getSharedPreferences("feedback_lib_version", android.content.Context.MODE_PRIVATE)
-        val lastFl = prefs.getInt("last_fl_version", -1)
+        val prevFl = prefs.getInt("last_fl_version", -1)
+        val prevApp = prefs.getString("last_version", null)
 
-        flUpgraded = lastFl != -1 && lastFl != currentFl
+        val appUpgraded = prevApp != null && prevApp != currentApp
+        val flUpgraded = prevFl != -1 && prevFl != currentFl
 
-        if (lastFl != currentFl) {
-            prefs.edit().putInt("last_fl_version", currentFl).apply()
+        displayText = buildAnnotatedString {
+            if (appUpgraded) {
+                withStyle(SpanStyle(color = green, fontWeight = FontWeight.Bold)) {
+                    append("$prevApp→$currentApp")
+                }
+            } else {
+                append(currentApp)
+            }
+            append(" · ")
+            if (flUpgraded) {
+                withStyle(SpanStyle(color = orange, fontWeight = FontWeight.Bold)) {
+                    append("FL$prevFl→FL$currentFl")
+                }
+            } else {
+                append("FL$currentFl")
+            }
         }
-        prefs.edit().putString("last_version", appVersion).apply()
+
+        prefs.edit()
+            .putString("last_version", currentApp)
+            .putInt("last_fl_version", currentFl)
+            .apply()
 
         visible = true
     }
@@ -69,18 +88,8 @@ fun VersionSnackbar(modifier: Modifier = Modifier) {
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val defaultColor = MaterialTheme.colorScheme.inverseOnSurface
             Text(
-                text = buildAnnotatedString {
-                    append("$appVersion · ")
-                    if (flUpgraded) {
-                        withStyle(SpanStyle(color = orange, fontWeight = FontWeight.Bold)) {
-                            append("FL$flVersion")
-                        }
-                    } else {
-                        append("FL$flVersion")
-                    }
-                },
+                text = displayText,
                 color = defaultColor,
                 style = MaterialTheme.typography.bodyMedium,
             )
