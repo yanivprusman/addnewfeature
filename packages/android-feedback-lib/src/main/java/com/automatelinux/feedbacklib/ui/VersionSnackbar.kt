@@ -25,8 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.automatelinux.feedbacklib.BuildConfig
 
-private val green = Color(0xFF4CAF50)
-private val orange = Color(0xFFFF9800)
+private val upgradeColor = Color(0xFF4CAF50)
 
 @Composable
 fun VersionSnackbar(modifier: Modifier = Modifier) {
@@ -50,7 +49,7 @@ fun VersionSnackbar(modifier: Modifier = Modifier) {
 
         displayText = buildAnnotatedString {
             if (appUpgraded) {
-                withStyle(SpanStyle(color = green, fontWeight = FontWeight.Bold)) {
+                withStyle(SpanStyle(color = upgradeColor, fontWeight = FontWeight.Bold)) {
                     append("$prevApp→$currentApp")
                 }
             } else {
@@ -58,7 +57,7 @@ fun VersionSnackbar(modifier: Modifier = Modifier) {
             }
             append(" · ")
             if (flUpgraded) {
-                withStyle(SpanStyle(color = orange, fontWeight = FontWeight.Bold)) {
+                withStyle(SpanStyle(color = upgradeColor, fontWeight = FontWeight.Bold)) {
                     append("FL$prevFl→FL$currentFl")
                 }
             } else {
