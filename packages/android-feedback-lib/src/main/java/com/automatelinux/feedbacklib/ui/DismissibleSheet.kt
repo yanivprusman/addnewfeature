@@ -165,6 +165,10 @@ fun DismissibleSheet(
         sheetDragHandle = { },
         sheetContainerColor = Color.Transparent,
         sheetShadowElevation = 0.dp,
+        // Material 3's BottomSheetScaffold caps the sheet at 640dp on wide
+        // screens and centres it, which leaves black side-gutters in landscape.
+        // Disable the cap so the sheet always fills the host width.
+        sheetMaxWidth = Dp.Unspecified,
         // Transparent scaffold background so callers can overlay this sheet
         // over arbitrary content (e.g. immersiveRDP's RDP SurfaceView). PT,
         // which fills `content` with an opaque map, is unaffected.
