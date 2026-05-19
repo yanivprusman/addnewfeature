@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -156,6 +156,11 @@ fun DismissibleSheet(
         sheetDragHandle = { },
         sheetContainerColor = Color.Transparent,
         sheetShadowElevation = 0.dp,
+        // Transparent scaffold background so callers can overlay this sheet
+        // over arbitrary content (e.g. immersiveRDP's RDP SurfaceView). PT,
+        // which fills `content` with an opaque map, is unaffected.
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         sheetContent = {
             Box(
                 modifier = Modifier
@@ -224,19 +229,24 @@ fun DismissibleSheet(
                 content(padding)
 
                 if (state.isDismissed) {
+                    // Restore-FAB lands on the edge the sheet was dragged toward, so
+                    // pulling it back goes in the opposite direction from the dismiss:
+                    //   swipe-right → FAB on the right edge (CenterRight or BottomRight)
+                    //   drag-down  → FAB on the top edge (TopCenter), pull down to restore
                     SmallFloatingActionButton(
                         onClick = { scope.launch { state.restore() } },
                         modifier = Modifier
                             .align(
                                 if (state.dismissedBySwipeRight && state.wasExpandedWhenDismissed) AbsoluteAlignment.CenterRight
                                 else if (state.dismissedBySwipeRight) AbsoluteAlignment.BottomRight
-                                else Alignment.BottomCenter
+                                else Alignment.TopCenter
                             )
                             .absolutePadding(
+                                top = if (!state.dismissedBySwipeRight) 16.dp else 0.dp,
                                 right = if (state.dismissedBySwipeRight) 4.dp else 0.dp,
                                 bottom = if (state.dismissedBySwipeRight && state.wasExpandedWhenDismissed) 0.dp
                                          else if (state.dismissedBySwipeRight) 120.dp
-                                         else 16.dp
+                                         else 0.dp,
                             ),
                         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = sheetOpacity),
                         elevation = FloatingActionButtonDefaults.elevation(4.dp),
@@ -244,7 +254,7 @@ fun DismissibleSheet(
                         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                             Icon(
                                 if (state.dismissedBySwipeRight) Icons.AutoMirrored.Filled.KeyboardArrowLeft
-                                else Icons.Default.KeyboardArrowUp,
+                                else Icons.Default.KeyboardArrowDown,
                                 contentDescription = null,
                             )
                         }
