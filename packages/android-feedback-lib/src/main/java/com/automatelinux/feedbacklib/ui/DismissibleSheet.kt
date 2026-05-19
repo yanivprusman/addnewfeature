@@ -14,6 +14,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -144,6 +146,13 @@ fun DismissibleSheet(
     peekHeight: Dp = 280.dp,
     sheetOpacity: Float = 1f,
     sheetShape: Shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+    // Where the restore FAB lands when the sheet was dismissed by dragging
+    // DOWN (i.e. SheetValue.Hidden). PT keeps the original Material default
+    // (BottomCenter + KeyboardArrowUp = "pull up to bring the sheet back").
+    // immersiveRDP overrides to TopCenter + KeyboardArrowDown so the FAB
+    // mirrors the dismiss direction.
+    dragDownRestoreAlignment: Alignment = Alignment.BottomCenter,
+    dragDownRestoreIcon: ImageVector = Icons.Default.KeyboardArrowUp,
 ) {
     val scope = rememberCoroutineScope()
     val viewConfiguration = LocalViewConfiguration.current
@@ -229,23 +238,21 @@ fun DismissibleSheet(
                 content(padding)
 
                 if (state.isDismissed) {
-                    // Restore-FAB lands on the edge the sheet was dragged toward, so
-                    // pulling it back goes in the opposite direction from the dismiss:
-                    //   swipe-right → FAB on the right edge (CenterRight or BottomRight)
-                    //   drag-down  → FAB on the top edge (TopCenter), pull down to restore
+                    val dragDownIsTop = dragDownRestoreAlignment == Alignment.TopCenter
                     SmallFloatingActionButton(
                         onClick = { scope.launch { state.restore() } },
                         modifier = Modifier
                             .align(
                                 if (state.dismissedBySwipeRight && state.wasExpandedWhenDismissed) AbsoluteAlignment.CenterRight
                                 else if (state.dismissedBySwipeRight) AbsoluteAlignment.BottomRight
-                                else Alignment.TopCenter
+                                else dragDownRestoreAlignment
                             )
                             .absolutePadding(
-                                top = if (!state.dismissedBySwipeRight) 16.dp else 0.dp,
+                                top = if (!state.dismissedBySwipeRight && dragDownIsTop) 16.dp else 0.dp,
                                 right = if (state.dismissedBySwipeRight) 4.dp else 0.dp,
                                 bottom = if (state.dismissedBySwipeRight && state.wasExpandedWhenDismissed) 0.dp
                                          else if (state.dismissedBySwipeRight) 120.dp
+                                         else if (!dragDownIsTop) 16.dp
                                          else 0.dp,
                             ),
                         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = sheetOpacity),
@@ -254,7 +261,7 @@ fun DismissibleSheet(
                         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                             Icon(
                                 if (state.dismissedBySwipeRight) Icons.AutoMirrored.Filled.KeyboardArrowLeft
-                                else Icons.Default.KeyboardArrowDown,
+                                else dragDownRestoreIcon,
                                 contentDescription = null,
                             )
                         }
