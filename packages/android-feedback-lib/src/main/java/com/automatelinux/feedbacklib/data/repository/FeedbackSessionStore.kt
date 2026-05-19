@@ -54,7 +54,7 @@ class FeedbackSessionStore @Inject constructor(
     }
 
     fun markInstallStarted() {
-        prefs.edit().putLong("install_started_${config.appName}", System.currentTimeMillis()).apply()
+        prefs.edit().putLong("install_started_${config.appName}", System.currentTimeMillis()).commit()
     }
 
     fun clearInstallStarted() {

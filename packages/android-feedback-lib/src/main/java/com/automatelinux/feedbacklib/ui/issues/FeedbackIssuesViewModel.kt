@@ -46,6 +46,7 @@ data class FeedbackIssuesUiState(
     val error: String? = null,
     val successMessage: String? = null,
     val batchFixTarget: BatchFixTarget? = null,
+    val restartPending: Boolean = false,
 )
 
 @HiltViewModel
@@ -81,7 +82,7 @@ class FeedbackIssuesViewModel @Inject constructor(
                 if (apkCommit.isNotBlank() && installedCommit.isNotBlank() && apkCommit == installedCommit) {
                     sessionStore.clearInstallStarted()
                     sessionStore.clearBuiltFlCommit()
-                    _uiState.update { it.copy(installLoading = false, hasUpdate = false, successMessage = "Installed successfully") }
+                    _uiState.update { it.copy(installLoading = false, hasUpdate = false, successMessage = "Up to date") }
                     return@launch
                 }
             }
@@ -381,7 +382,7 @@ class FeedbackIssuesViewModel @Inject constructor(
                     if (response.sameVersion == true && !force) {
                         _uiState.update { it.copy(installLoading = false, showSameVersionDialog = true) }
                     } else {
-                        _uiState.update { it.copy(installLoading = false, hasUpdate = false, successMessage = "Installed successfully") }
+                        _uiState.update { it.copy(installLoading = false, hasUpdate = false, successMessage = "Installed — restarting…", restartPending = true) }
                     }
                 }
                 .onFailure { e ->
