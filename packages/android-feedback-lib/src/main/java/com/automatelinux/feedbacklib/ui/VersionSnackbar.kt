@@ -65,12 +65,18 @@ fun VersionSnackbar(modifier: Modifier = Modifier) {
             }
         }
 
-        prefs.edit()
-            .putString("last_version", currentApp)
-            .putInt("last_fl_version", currentFl)
-            .apply()
-
-        visible = true
+        if (appUpgraded || flUpgraded) {
+            prefs.edit()
+                .putString("last_version", currentApp)
+                .putInt("last_fl_version", currentFl)
+                .apply()
+            visible = true
+        } else if (prevApp == null) {
+            prefs.edit()
+                .putString("last_version", currentApp)
+                .putInt("last_fl_version", currentFl)
+                .apply()
+        }
     }
 
     if (!visible) return
