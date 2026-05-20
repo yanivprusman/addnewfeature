@@ -28,6 +28,7 @@ import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,10 +41,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.unit.Dp
@@ -52,15 +57,8 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
-/**
- * Holds the state of a [DismissibleSheet]: the underlying Material3 sheet
- * state, the horizontal translation animatable used for the swipe-right
- * dismiss, and flags tracking whether the sheet was dismissed by swiping
- * right (vs. by dragging down to Hidden) and whether it had been expanded
- * at the moment of dismissal.
- *
- * Cloned, with permission, from PT MainScreen.kt's bottom-sheet pattern.
- */
+enum class SheetOrientation { AUTO, PORTRAIT, LANDSCAPE }
+
 @OptIn(ExperimentalMaterial3Api::class)
 class DismissibleSheetState internal constructor(
     val bottomSheetState: SheetState,
@@ -72,22 +70,21 @@ class DismissibleSheetState internal constructor(
     val dismissedBySwipeRight: Boolean get() = dismissedBySwipeRightState.value
     val wasExpandedWhenDismissed: Boolean get() = wasExpandedWhenDismissedState.value
 
-    /** True when the sheet has been hidden by any means (swipe-right or drag-down to Hidden).
-     *  In snapped mode, also treats PartiallyExpanded as dismissed since peek height is 0
-     *  (visually identical to Hidden). */
     val isDismissed: Boolean
         get() = dismissedBySwipeRight ||
                 bottomSheetState.currentValue == SheetValue.Hidden ||
                 bottomSheetState.targetValue == SheetValue.Hidden ||
                 (snapped && (
-                    bottomSheetState.currentValue == SheetValue.PartiallyExpanded ||
-                    bottomSheetState.targetValue == SheetValue.PartiallyExpanded
-                ))
+                        bottomSheetState.currentValue == SheetValue.PartiallyExpanded ||
+                                bottomSheetState.targetValue == SheetValue.PartiallyExpanded
+                        ))
 
-    /** Bring the sheet back to whichever expansion state it had at dismiss time. */
+    suspend fun hide() {
+        bottomSheetState.hide()
+    }
+
     internal suspend fun restore() {
         if (snapped) {
-            // No partial state — restore goes straight back to Expanded.
             bottomSheetState.expand()
             sheetOffsetX.animateTo(0f)
             dismissedBySwipeRightState.value = false
@@ -112,9 +109,6 @@ fun rememberDismissibleSheetState(
     val bottomSheetState = rememberStandardBottomSheetState(
         initialValue = initialValue,
         skipHiddenState = skipHiddenState,
-        // In snapped mode peek = 0, so PartiallyExpanded is visually identical
-        // to Hidden — allow all settles. (Earlier rejection caused drag-down
-        // to bounce back to Expanded.)
     )
     val sheetOffsetX = remember { Animatable(0f) }
     val dismissedBySwipeRight = remember { mutableStateOf(false) }
@@ -130,29 +124,6 @@ fun rememberDismissibleSheetState(
     }
 }
 
-/**
- * A bottom sheet that can be dismissed by swiping right past 40% of its
- * width OR by dragging down past the peek (standard BottomSheet behaviour).
- * When dismissed, a [SmallFloatingActionButton] appears over [content] to
- * restore the sheet.
- *
- * This is the same pattern PT uses on its routing screen, lifted into the
- * shared lib so both PT and immersiveRDP behave identically.
- *
- * Restore-FAB icon and position vary with the dismiss origin:
- *  - Swipe-right dismiss: KeyboardArrowLeft at the right edge
- *    (centre-right when the sheet had been expanded, bottom-right otherwise).
- *  - Drag-down to Hidden: KeyboardArrowUp at the bottom-centre.
- *
- * @param state Hoisted state — pass [rememberDismissibleSheetState] or
- *   create your own to drive it externally (e.g. an IME-aware expand).
- * @param peekHeight Standard BottomSheetScaffold peek height.
- * @param sheetOpacity 0..1 applied to the sheet surface colour and the FAB.
- * @param sheetShape Clip shape of the sheet body.
- * @param sheetContent The contents of the sheet itself.
- * @param content Whatever lives "behind" the sheet — pass an empty Box to
- *   leave the area transparent (e.g. for overlay use over a SurfaceView).
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DismissibleSheet(
@@ -163,13 +134,118 @@ fun DismissibleSheet(
     peekHeight: Dp = 280.dp,
     sheetOpacity: Float = 1f,
     sheetShape: Shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-    // Where the restore FAB lands when the sheet was dismissed by dragging
-    // DOWN (i.e. SheetValue.Hidden). PT keeps the original Material default
-    // (BottomCenter + KeyboardArrowUp = "pull up to bring the sheet back").
-    // immersiveRDP overrides to TopCenter + KeyboardArrowDown so the FAB
-    // mirrors the dismiss direction.
     dragDownRestoreAlignment: Alignment = Alignment.BottomCenter,
     dragDownRestoreIcon: ImageVector = Icons.Default.KeyboardArrowUp,
+    sheetOrientation: SheetOrientation = SheetOrientation.AUTO,
+) {
+    val config = LocalConfiguration.current
+    val deviceIsLandscape = config.screenWidthDp > config.screenHeightDp
+    val needsRotation = when (sheetOrientation) {
+        SheetOrientation.PORTRAIT -> deviceIsLandscape
+        SheetOrientation.LANDSCAPE -> !deviceIsLandscape
+        SheetOrientation.AUTO -> false
+    }
+
+    if (needsRotation) {
+        RightEdgeSheet(
+            sheetContent = sheetContent,
+            content = content,
+            modifier = modifier,
+            state = state,
+            peekHeight = peekHeight,
+            sheetOpacity = sheetOpacity,
+            sheetShape = sheetShape,
+            dragDownRestoreAlignment = dragDownRestoreAlignment,
+            dragDownRestoreIcon = dragDownRestoreIcon,
+        )
+    } else {
+        Sheet(
+            sheetContent = sheetContent,
+            content = content,
+            modifier = modifier,
+            state = state,
+            peekHeight = peekHeight,
+            sheetOpacity = sheetOpacity,
+            sheetShape = sheetShape,
+            dragDownRestoreAlignment = dragDownRestoreAlignment,
+            dragDownRestoreIcon = dragDownRestoreIcon,
+        )
+    }
+}
+
+/**
+ * Rotation wrapper for landscape-locked activities held in portrait.
+ * Swaps layout constraints to portrait and rotates -90° via [graphicsLayer].
+ * Inside, the SAME [BottomSheet] composable runs unchanged — all gestures
+ * (drag-down, swipe-right, restore FAB) work because graphicsLayer
+ * inverse-transforms touch events.
+ */
+@Composable
+private fun RightEdgeSheet(
+    sheetContent: @Composable () -> Unit,
+    content: @Composable (PaddingValues) -> Unit,
+    modifier: Modifier,
+    state: DismissibleSheetState,
+    peekHeight: Dp,
+    sheetOpacity: Float,
+    sheetShape: Shape,
+    dragDownRestoreAlignment: Alignment,
+    dragDownRestoreIcon: ImageVector,
+) {
+    val config = LocalConfiguration.current
+    val pivotFractionY = config.screenHeightDp.toFloat() / (2f * config.screenWidthDp)
+
+    Box(modifier = modifier.fillMaxSize()) {
+        content(PaddingValues())
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .layout { measurable, constraints ->
+                    val portraitConstraints = Constraints(
+                        minWidth = constraints.minHeight,
+                        maxWidth = constraints.maxHeight,
+                        minHeight = constraints.minWidth,
+                        maxHeight = constraints.maxWidth,
+                    )
+                    val placeable = measurable.measure(portraitConstraints)
+                    layout(constraints.maxWidth, constraints.maxHeight) {
+                        placeable.place(x = 0, y = 0)
+                    }
+                }
+                .graphicsLayer {
+                    rotationZ = -90f
+                    transformOrigin = TransformOrigin(0.5f, pivotFractionY)
+                }
+        ) {
+            Sheet(
+                sheetContent = sheetContent,
+                content = { _ -> Box(Modifier.fillMaxSize()) },
+                modifier = Modifier.fillMaxSize(),
+                state = state,
+                peekHeight = peekHeight,
+                sheetOpacity = sheetOpacity,
+                sheetShape = sheetShape,
+                dragDownRestoreAlignment = dragDownRestoreAlignment,
+                dragDownRestoreIcon = dragDownRestoreIcon,
+            )
+        }
+    }
+}
+
+/** Standard bottom-edge sheet — the original BottomSheetScaffold implementation. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun Sheet(
+    sheetContent: @Composable () -> Unit,
+    content: @Composable (PaddingValues) -> Unit,
+    modifier: Modifier,
+    state: DismissibleSheetState,
+    peekHeight: Dp,
+    sheetOpacity: Float,
+    sheetShape: Shape,
+    dragDownRestoreAlignment: Alignment,
+    dragDownRestoreIcon: ImageVector,
 ) {
     val scope = rememberCoroutineScope()
     val viewConfiguration = LocalViewConfiguration.current
@@ -182,13 +258,7 @@ fun DismissibleSheet(
         sheetDragHandle = { },
         sheetContainerColor = Color.Transparent,
         sheetShadowElevation = 0.dp,
-        // Material 3's BottomSheetScaffold caps the sheet at 640dp on wide
-        // screens and centres it, which leaves black side-gutters in landscape.
-        // Disable the cap so the sheet always fills the host width.
         sheetMaxWidth = Dp.Unspecified,
-        // Transparent scaffold background so callers can overlay this sheet
-        // over arbitrary content (e.g. immersiveRDP's RDP SurfaceView). PT,
-        // which fills `content` with an opaque map, is unaffected.
         containerColor = Color.Transparent,
         contentColor = MaterialTheme.colorScheme.onSurface,
         sheetContent = {
