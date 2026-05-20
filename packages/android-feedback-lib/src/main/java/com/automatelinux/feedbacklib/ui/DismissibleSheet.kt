@@ -137,6 +137,7 @@ fun DismissibleSheet(
     dragDownRestoreAlignment: Alignment = Alignment.BottomCenter,
     dragDownRestoreIcon: ImageVector = Icons.Default.KeyboardArrowUp,
     sheetOrientation: SheetOrientation = SheetOrientation.AUTO,
+    swipeRightEnabled: Boolean = true,
 ) {
     val config = LocalConfiguration.current
     val deviceIsLandscape = config.screenWidthDp > config.screenHeightDp
@@ -157,6 +158,7 @@ fun DismissibleSheet(
             sheetShape = sheetShape,
             dragDownRestoreAlignment = dragDownRestoreAlignment,
             dragDownRestoreIcon = dragDownRestoreIcon,
+            swipeRightEnabled = swipeRightEnabled,
         )
     } else {
         Sheet(
@@ -169,6 +171,7 @@ fun DismissibleSheet(
             sheetShape = sheetShape,
             dragDownRestoreAlignment = dragDownRestoreAlignment,
             dragDownRestoreIcon = dragDownRestoreIcon,
+            swipeRightEnabled = swipeRightEnabled,
         )
     }
 }
@@ -191,6 +194,7 @@ private fun RightEdgeSheet(
     sheetShape: Shape,
     dragDownRestoreAlignment: Alignment,
     dragDownRestoreIcon: ImageVector,
+    swipeRightEnabled: Boolean,
 ) {
     val config = LocalConfiguration.current
     val pivotFractionY = config.screenHeightDp.toFloat() / (2f * config.screenWidthDp)
@@ -228,6 +232,7 @@ private fun RightEdgeSheet(
                 sheetShape = sheetShape,
                 dragDownRestoreAlignment = dragDownRestoreAlignment,
                 dragDownRestoreIcon = dragDownRestoreIcon,
+                swipeRightEnabled = swipeRightEnabled,
             )
         }
     }
@@ -246,6 +251,7 @@ private fun Sheet(
     sheetShape: Shape,
     dragDownRestoreAlignment: Alignment,
     dragDownRestoreIcon: ImageVector,
+    swipeRightEnabled: Boolean = true,
 ) {
     val scope = rememberCoroutineScope()
     val viewConfiguration = LocalViewConfiguration.current
@@ -269,7 +275,8 @@ private fun Sheet(
                     .graphicsLayer { translationX = state.sheetOffsetX.value }
                     .clip(sheetShape)
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = sheetOpacity))
-                    .pointerInput(Unit) {
+                    .pointerInput(swipeRightEnabled) {
+                        if (!swipeRightEnabled) return@pointerInput
                         val dismissThreshold = size.width * 0.4f
                         awaitEachGesture {
                             awaitFirstDown(pass = PointerEventPass.Initial)
