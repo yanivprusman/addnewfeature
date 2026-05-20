@@ -67,6 +67,7 @@ class DismissibleSheetState internal constructor(
     internal val sheetOffsetX: Animatable<Float, *>,
     internal val dismissedBySwipeRightState: MutableState<Boolean>,
     internal val wasExpandedWhenDismissedState: MutableState<Boolean>,
+    internal val snapped: Boolean = false,
 ) {
     val dismissedBySwipeRight: Boolean get() = dismissedBySwipeRightState.value
     val wasExpandedWhenDismissed: Boolean get() = wasExpandedWhenDismissedState.value
@@ -79,7 +80,12 @@ class DismissibleSheetState internal constructor(
 
     /** Bring the sheet back to whichever expansion state it had at dismiss time. */
     internal suspend fun restore() {
-        if (dismissedBySwipeRight) {
+        if (snapped) {
+            // No partial state — restore goes straight back to Expanded.
+            bottomSheetState.expand()
+            sheetOffsetX.animateTo(0f)
+            dismissedBySwipeRightState.value = false
+        } else if (dismissedBySwipeRight) {
             if (wasExpandedWhenDismissed) bottomSheetState.expand()
             else bottomSheetState.partialExpand()
             sheetOffsetX.animateTo(0f)
@@ -95,10 +101,19 @@ class DismissibleSheetState internal constructor(
 fun rememberDismissibleSheetState(
     initialValue: SheetValue = SheetValue.PartiallyExpanded,
     skipHiddenState: Boolean = false,
+    snapped: Boolean = false,
 ): DismissibleSheetState {
     val bottomSheetState = rememberStandardBottomSheetState(
         initialValue = initialValue,
         skipHiddenState = skipHiddenState,
+        // When snapped, refuse to settle in PartiallyExpanded — the sheet
+        // collapses straight from Expanded to Hidden (and back) with no
+        // peek state in between.
+        confirmValueChange = if (snapped) {
+            { it != SheetValue.PartiallyExpanded }
+        } else {
+            { true }
+        },
     )
     val sheetOffsetX = remember { Animatable(0f) }
     val dismissedBySwipeRight = remember { mutableStateOf(false) }
@@ -109,6 +124,7 @@ fun rememberDismissibleSheetState(
             sheetOffsetX = sheetOffsetX,
             dismissedBySwipeRightState = dismissedBySwipeRight,
             wasExpandedWhenDismissedState = wasExpandedWhenDismissed,
+            snapped = snapped,
         )
     }
 }
