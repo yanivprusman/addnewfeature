@@ -72,11 +72,17 @@ class DismissibleSheetState internal constructor(
     val dismissedBySwipeRight: Boolean get() = dismissedBySwipeRightState.value
     val wasExpandedWhenDismissed: Boolean get() = wasExpandedWhenDismissedState.value
 
-    /** True when the sheet has been hidden by any means (swipe-right or drag-down to Hidden). */
+    /** True when the sheet has been hidden by any means (swipe-right or drag-down to Hidden).
+     *  In snapped mode, also treats PartiallyExpanded as dismissed since peek height is 0
+     *  (visually identical to Hidden). */
     val isDismissed: Boolean
         get() = dismissedBySwipeRight ||
                 bottomSheetState.currentValue == SheetValue.Hidden ||
-                bottomSheetState.targetValue == SheetValue.Hidden
+                bottomSheetState.targetValue == SheetValue.Hidden ||
+                (snapped && (
+                    bottomSheetState.currentValue == SheetValue.PartiallyExpanded ||
+                    bottomSheetState.targetValue == SheetValue.PartiallyExpanded
+                ))
 
     /** Bring the sheet back to whichever expansion state it had at dismiss time. */
     internal suspend fun restore() {
@@ -106,14 +112,9 @@ fun rememberDismissibleSheetState(
     val bottomSheetState = rememberStandardBottomSheetState(
         initialValue = initialValue,
         skipHiddenState = skipHiddenState,
-        // When snapped, refuse to settle in PartiallyExpanded — the sheet
-        // collapses straight from Expanded to Hidden (and back) with no
-        // peek state in between.
-        confirmValueChange = if (snapped) {
-            { it != SheetValue.PartiallyExpanded }
-        } else {
-            { true }
-        },
+        // In snapped mode peek = 0, so PartiallyExpanded is visually identical
+        // to Hidden — allow all settles. (Earlier rejection caused drag-down
+        // to bounce back to Expanded.)
     )
     val sheetOffsetX = remember { Animatable(0f) }
     val dismissedBySwipeRight = remember { mutableStateOf(false) }
