@@ -136,6 +136,7 @@ fun DismissibleSheet(
     sheetShape: Shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     dragDownRestoreAlignment: Alignment = Alignment.BottomCenter,
     dragDownRestoreIcon: ImageVector = Icons.Default.KeyboardArrowUp,
+    dragDownRestoreOpacity: Float = sheetOpacity,
     sheetOrientation: SheetOrientation = SheetOrientation.AUTO,
     swipeRightEnabled: Boolean = true,
 ) {
@@ -158,6 +159,7 @@ fun DismissibleSheet(
             sheetShape = sheetShape,
             dragDownRestoreAlignment = dragDownRestoreAlignment,
             dragDownRestoreIcon = dragDownRestoreIcon,
+            dragDownRestoreOpacity = dragDownRestoreOpacity,
             swipeRightEnabled = swipeRightEnabled,
         )
     } else {
@@ -171,6 +173,7 @@ fun DismissibleSheet(
             sheetShape = sheetShape,
             dragDownRestoreAlignment = dragDownRestoreAlignment,
             dragDownRestoreIcon = dragDownRestoreIcon,
+            dragDownRestoreOpacity = dragDownRestoreOpacity,
             swipeRightEnabled = swipeRightEnabled,
         )
     }
@@ -194,6 +197,7 @@ private fun RightEdgeSheet(
     sheetShape: Shape,
     dragDownRestoreAlignment: Alignment,
     dragDownRestoreIcon: ImageVector,
+    dragDownRestoreOpacity: Float,
     swipeRightEnabled: Boolean,
 ) {
     val config = LocalConfiguration.current
@@ -232,6 +236,7 @@ private fun RightEdgeSheet(
                 sheetShape = sheetShape,
                 dragDownRestoreAlignment = dragDownRestoreAlignment,
                 dragDownRestoreIcon = dragDownRestoreIcon,
+                dragDownRestoreOpacity = dragDownRestoreOpacity,
                 swipeRightEnabled = swipeRightEnabled,
             )
         }
@@ -251,6 +256,7 @@ private fun Sheet(
     sheetShape: Shape,
     dragDownRestoreAlignment: Alignment,
     dragDownRestoreIcon: ImageVector,
+    dragDownRestoreOpacity: Float,
     swipeRightEnabled: Boolean = true,
 ) {
     val scope = rememberCoroutineScope()
@@ -353,7 +359,7 @@ private fun Sheet(
                                          else if (!dragDownIsTop) 16.dp
                                          else 0.dp,
                             ),
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = sheetOpacity),
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = dragDownRestoreOpacity),
                         elevation = FloatingActionButtonDefaults.elevation(4.dp),
                     ) {
                         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
