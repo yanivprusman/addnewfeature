@@ -128,9 +128,9 @@ fun FeedbackIssuesScreen(
                         if (versionName != null) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 val dimColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                val orange = Color(0xFFFF9800)
-                                val vColor = if (state.vStale) orange else dimColor
-                                val flColor = if (state.flStale) orange else dimColor
+                                val green = Color(0xFF4CAF50)
+                                val vColor = if (state.vStale) green else dimColor
+                                val flColor = if (state.flStale) green else dimColor
                                 Text(
                                     text = buildAnnotatedString {
                                         withStyle(SpanStyle(color = vColor)) { append(versionName) }
@@ -141,11 +141,12 @@ fun FeedbackIssuesScreen(
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                                 if (state.needsBuild || state.buildLoading) {
+                                    val green = Color(0xFF4CAF50)
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(6.dp))
-                                            .background(orange.copy(alpha = 0.12f))
+                                            .background(green.copy(alpha = 0.12f))
                                             .clickable(enabled = !state.buildLoading) {
                                                 viewModel.showUpdateDetails()
                                             }
@@ -156,13 +157,13 @@ fun FeedbackIssuesScreen(
                                                 CircularProgressIndicator(
                                                     modifier = Modifier.size(8.dp),
                                                     strokeWidth = 1.dp,
-                                                    color = orange,
+                                                    color = green,
                                                 )
                                                 Spacer(modifier = Modifier.width(4.dp))
                                                 Text(
                                                     text = "building…",
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = orange,
+                                                    color = green,
                                                     fontSize = 9.sp,
                                                 )
                                             }
@@ -174,7 +175,7 @@ fun FeedbackIssuesScreen(
                                             Text(
                                                 text = label,
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = orange,
+                                                color = green,
                                                 fontSize = 9.sp,
                                             )
                                         }
@@ -545,7 +546,7 @@ fun UpdateDetailsSheet(
             val apkDiffers = state.serverApkCommit != null && state.installedCommit != null && state.serverApkCommit != state.installedCommit
             VersionRow(
                 label = "Built APK",
-                version = if (state.newVersion != null && state.hasUpdate) "v${state.newVersion}" else null,
+                version = if (state.serverApkVersion != null) "v${state.serverApkVersion}" else null,
                 commit = state.serverApkCommit,
                 color = if (apkDiffers) green else defaultColor,
             )
@@ -644,7 +645,7 @@ fun UpdateDetailsSheet(
                     onClick = onBuildAndInstall,
                     modifier = Modifier.fillMaxWidth().height(44.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFF9800),
+                        containerColor = Color(0xFF4CAF50),
                     ),
                 ) {
                     Icon(
@@ -757,7 +758,7 @@ private fun ActionStep(
     onAction: () -> Unit,
 ) {
     val green = Color(0xFF4CAF50)
-    val orange = Color(0xFFFF9800)
+    val blue = Color(0xFF42A5F5)
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -770,7 +771,7 @@ private fun ActionStep(
                 .background(
                     when {
                         done -> green.copy(alpha = 0.15f)
-                        loading -> orange.copy(alpha = 0.15f)
+                        loading -> blue.copy(alpha = 0.15f)
                         else -> MaterialTheme.colorScheme.surfaceVariant
                     },
                 ),
@@ -787,7 +788,7 @@ private fun ActionStep(
                 CircularProgressIndicator(
                     modifier = Modifier.size(14.dp),
                     strokeWidth = 2.dp,
-                    color = orange,
+                    color = blue,
                 )
             } else {
                 Text(
