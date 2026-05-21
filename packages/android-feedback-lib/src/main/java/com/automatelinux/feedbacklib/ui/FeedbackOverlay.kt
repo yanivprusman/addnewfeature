@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -31,7 +32,8 @@ fun FeedbackOverlay(
                 onLongPress = onOpenFeedback ?: { launchFeedbackChat(context) },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 12.dp, bottom = 16.dp),
+                    .padding(end = 12.dp, bottom = 16.dp)
+                    .alpha(0.2f),
             )
         }
     }
