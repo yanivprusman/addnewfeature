@@ -555,7 +555,7 @@ fun UpdateDetailsSheet(
                 val flDiffers = state.serverFlCommit != null && state.serverFlCommit != state.installedFlCommit
                 VersionRow(
                     label = "Feedback Lib",
-                    version = if (state.flStale && state.newFlVersion != null) "FL${state.newFlVersion}" else null,
+                    version = if (state.flVersion != null) "FL${state.flVersion}" else null,
                     commit = state.serverFlCommit ?: state.installedFlCommit,
                     color = if (flDiffers) green else defaultColor,
                 )
