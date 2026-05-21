@@ -482,9 +482,8 @@ fun UpdateDetailsSheet(
     onBuildAndInstall: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val orange = Color(0xFFFF9800)
     val green = Color(0xFF4CAF50)
-    val dimColor = Color(0xFFAAAAAA)
+    val defaultColor = MaterialTheme.colorScheme.onSurface
 
     var showHelp by remember { mutableStateOf(false) }
 
@@ -533,47 +532,33 @@ fun UpdateDetailsSheet(
             Spacer(modifier = Modifier.height(8.dp))
 
             // Code (git) version
-            val gitMatchesInstalled = state.serverGitCommit != null && state.installedCommit != null && state.serverGitCommit == state.installedCommit
+            val gitDiffers = state.serverGitCommit != null && state.installedCommit != null && state.serverGitCommit != state.installedCommit
             VersionRow(
                 label = "Code (git)",
                 version = if (state.newVersion != null && state.needsBuild) "v${state.newVersion}" else null,
                 commit = state.serverGitCommit,
-                color = if (gitMatchesInstalled) green else orange,
+                color = if (gitDiffers) green else defaultColor,
             )
             Spacer(modifier = Modifier.height(8.dp))
 
             // Built APK version
-            val apkMatchesInstalled = state.serverApkCommit != null && state.installedCommit != null && state.serverApkCommit == state.installedCommit
+            val apkDiffers = state.serverApkCommit != null && state.installedCommit != null && state.serverApkCommit != state.installedCommit
             VersionRow(
                 label = "Built APK",
                 version = if (state.newVersion != null && state.hasUpdate) "v${state.newVersion}" else null,
                 commit = state.serverApkCommit,
-                color = if (apkMatchesInstalled) green else if (state.hasUpdate) orange else dimColor,
+                color = if (apkDiffers) green else defaultColor,
             )
 
-            if (state.flVersion != null) {
+            if (state.installedFlCommit != null) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Feedback Lib",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(90.dp),
-                    )
-                    Text(
-                        text = "FL${state.flVersion}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (state.flStale) orange else green,
-                    )
-                    if (state.flStale && state.newFlVersion != null) {
-                        Text(
-                            text = " → FL${state.newFlVersion}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = orange,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
+                val flDiffers = state.serverFlCommit != null && state.serverFlCommit != state.installedFlCommit
+                VersionRow(
+                    label = "Feedback Lib",
+                    version = if (state.flStale && state.newFlVersion != null) "FL${state.newFlVersion}" else null,
+                    commit = state.serverFlCommit ?: state.installedFlCommit,
+                    color = if (flDiffers) green else defaultColor,
+                )
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -702,7 +687,7 @@ private fun UpdateDetailsHelpDialog(onDismiss: () -> Unit) {
                     body = "The version of the feedback widget bundled in the installed app. Tracked separately because it's a shared library — it can update independently of the app's own code.",
                 )
                 Text(
-                    text = "Colors: green = matches installed, orange = action needed.",
+                    text = "Colors: green = differs from installed (update available), default = matches installed.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

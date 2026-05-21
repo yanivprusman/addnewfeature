@@ -39,6 +39,8 @@ data class FeedbackIssuesUiState(
     val newFlVersion: String? = null,
     val flVersion: String? = null,
     val flStale: Boolean = false,
+    val installedFlCommit: String? = null,
+    val serverFlCommit: String? = null,
     val vStale: Boolean = false,
     val installedCommit: String? = null,
     val serverGitCommit: String? = null,
@@ -330,6 +332,7 @@ class FeedbackIssuesViewModel @Inject constructor(
         val installedFlCommit = com.automatelinux.feedbacklib.BuildConfig.FEEDBACK_LIB_COMMIT
         val installedFlVersion = com.automatelinux.feedbacklib.BuildConfig.FEEDBACK_LIB_VERSION
         if (installedFlCommit.isBlank()) return
+        _uiState.update { it.copy(installedFlCommit = installedFlCommit, flVersion = installedFlVersion.toString()) }
         feedbackRepository.checkFeedbackLibVersion()
             .onSuccess { data ->
                 val serverCommit = data.feedbackLibCommit ?: return@onSuccess
@@ -343,8 +346,8 @@ class FeedbackIssuesViewModel @Inject constructor(
                         needsBuild = if (stale && !flAlreadyBuilt) true else it.needsBuild,
                         hasUpdate = if (stale && flAlreadyBuilt) true else it.hasUpdate,
                         newFlVersion = if (stale) serverVer else null,
-                        flVersion = installedFlVersion.toString(),
                         flStale = stale,
+                        serverFlCommit = serverCommit,
                     )
                 }
             }
