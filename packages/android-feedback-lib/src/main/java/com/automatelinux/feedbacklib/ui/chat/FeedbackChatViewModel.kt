@@ -434,19 +434,26 @@ class FeedbackChatViewModel @Inject constructor(
                 sessionId = sid,
                 tmuxSession = state.tmuxSession,
                 messages = state.messages.map { PersistedMessage(it.role, it.text, it.staleIssues) },
+                inputText = state.inputText.ifBlank { null },
+                directTitle = state.directTitle.ifBlank { null },
+                directDescription = state.directDescription.ifBlank { null },
             )
         )
     }
 
     fun persistOnPause() {
         val state = _uiState.value
-        if (state.messages.isEmpty()) return
+        val hasDraft = state.inputText.isNotBlank() || state.directTitle.isNotBlank() || state.directDescription.isNotBlank()
+        if (state.messages.isEmpty() && !hasDraft) return
         val sid = state.sessionId ?: state.resumeSessionId
         sessionStore.saveSync(
             PersistedSession(
                 sessionId = sid ?: PENDING_SESSION_SENTINEL,
                 tmuxSession = state.tmuxSession,
                 messages = state.messages.map { PersistedMessage(it.role, it.text, it.staleIssues) },
+                inputText = state.inputText.ifBlank { null },
+                directTitle = state.directTitle.ifBlank { null },
+                directDescription = state.directDescription.ifBlank { null },
             )
         )
     }
@@ -454,9 +461,17 @@ class FeedbackChatViewModel @Inject constructor(
     private fun restoreSession() {
         val persisted = sessionStore.load() ?: return
         val restoredMessages = persisted.messages.map { m -> ChatMessage(m.role, m.text, m.staleIssues) }
+        val restoredInput = persisted.inputText ?: ""
+        val restoredDirectTitle = persisted.directTitle ?: ""
+        val restoredDirectDesc = persisted.directDescription ?: ""
 
         if (persisted.sessionId == PENDING_SESSION_SENTINEL) {
-            _uiState.update { it.copy(messages = restoredMessages) }
+            _uiState.update { it.copy(
+                messages = restoredMessages,
+                inputText = restoredInput,
+                directTitle = restoredDirectTitle,
+                directDescription = restoredDirectDesc,
+            ) }
             return
         }
 
@@ -465,6 +480,9 @@ class FeedbackChatViewModel @Inject constructor(
                 it.copy(
                     resumeSessionId = persisted.sessionId,
                     messages = restoredMessages,
+                    inputText = restoredInput,
+                    directTitle = restoredDirectTitle,
+                    directDescription = restoredDirectDesc,
                 )
             }
             return
@@ -475,6 +493,9 @@ class FeedbackChatViewModel @Inject constructor(
                 sessionId = persisted.sessionId,
                 tmuxSession = persisted.tmuxSession,
                 messages = restoredMessages,
+                inputText = restoredInput,
+                directTitle = restoredDirectTitle,
+                directDescription = restoredDirectDesc,
                 restoringSession = true,
             )
         }

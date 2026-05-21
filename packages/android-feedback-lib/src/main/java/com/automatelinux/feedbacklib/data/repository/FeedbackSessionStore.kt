@@ -18,6 +18,9 @@ data class PersistedSession(
     val sessionId: String,
     val tmuxSession: String?,
     val messages: List<PersistedMessage>,
+    val inputText: String? = null,
+    val directTitle: String? = null,
+    val directDescription: String? = null,
 )
 
 @Singleton
