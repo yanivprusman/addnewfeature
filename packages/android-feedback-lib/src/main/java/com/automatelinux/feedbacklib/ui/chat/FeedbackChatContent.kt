@@ -120,12 +120,16 @@ fun FeedbackChatScreen(
                             Icon(Icons.AutoMirrored.Filled.List, contentDescription = "View Issues")
                         }
                     }
-                    if (!state.directMode && state.sessionId != null) {
+                    if (!state.directMode) {
                         IconButton(onClick = {
-                            viewModel.closeSession()
-                            onNavigateBack()
+                            if (state.sessionId != null) {
+                                viewModel.closeSession()
+                                onNavigateBack()
+                            } else {
+                                viewModel.newChat()
+                            }
                         }) {
-                            Icon(Icons.Filled.Close, contentDescription = "End Session")
+                            Icon(Icons.Filled.Close, contentDescription = if (state.sessionId != null) "End Session" else "Clear Chat")
                         }
                     }
                     if (!state.directMode) {
