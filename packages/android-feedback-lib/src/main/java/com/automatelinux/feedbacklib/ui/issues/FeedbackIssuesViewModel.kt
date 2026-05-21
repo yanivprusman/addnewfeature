@@ -304,15 +304,23 @@ class FeedbackIssuesViewModel @Inject constructor(
                     else -> null
                 }
                 _uiState.update {
-                    it.copy(
-                        hasUpdate = hasUpdate,
-                        needsBuild = appNeedsBuild,
-                        newVersion = newVersion,
-                        vStale = hasUpdate || appNeedsBuild,
-                        installedCommit = installedCommit.ifBlank { null },
-                        serverGitCommit = gitCommit.ifBlank { null },
-                        serverApkCommit = apkCommit.ifBlank { null },
-                    )
+                    if (it.buildLoading || it.installLoading) {
+                        it.copy(
+                            installedCommit = installedCommit.ifBlank { null },
+                            serverGitCommit = gitCommit.ifBlank { null },
+                            serverApkCommit = apkCommit.ifBlank { null },
+                        )
+                    } else {
+                        it.copy(
+                            hasUpdate = hasUpdate,
+                            needsBuild = appNeedsBuild,
+                            newVersion = newVersion,
+                            vStale = hasUpdate || appNeedsBuild,
+                            installedCommit = installedCommit.ifBlank { null },
+                            serverGitCommit = gitCommit.ifBlank { null },
+                            serverApkCommit = apkCommit.ifBlank { null },
+                        )
+                    }
                 }
             }
         checkFeedbackLibVersion()

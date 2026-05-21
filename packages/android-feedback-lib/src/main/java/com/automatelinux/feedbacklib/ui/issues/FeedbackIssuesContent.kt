@@ -619,6 +619,38 @@ fun UpdateDetailsSheet(
                 onAction = onInstall,
             )
 
+            if (state.error != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = state.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                            RoundedCornerShape(8.dp),
+                        )
+                        .padding(12.dp),
+                )
+            }
+
+            if (state.successMessage != null && state.error == null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = state.successMessage,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = green,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            green.copy(alpha = 0.1f),
+                            RoundedCornerShape(8.dp),
+                        )
+                        .padding(12.dp),
+                )
+            }
+
             if (state.needsBuild && !state.buildLoading && !state.installLoading) {
                 Spacer(modifier = Modifier.height(20.dp))
                 HorizontalDivider()
