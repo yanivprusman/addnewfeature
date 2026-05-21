@@ -936,6 +936,44 @@ fun IssueCard(
                 maxLines = if (expanded) Int.MAX_VALUE else 2,
             )
             if (expanded) {
+                if (issue.clarifierSessionId != null || !issue.claudeSessionIds.isNullOrEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Column {
+                        val dimColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        if (issue.clarifierSessionId != null) {
+                            Row {
+                                Text(
+                                    text = "clarifier: ",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = dimColor,
+                                    fontSize = 10.sp,
+                                )
+                                Text(
+                                    text = issue.clarifierSessionId.take(8),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF4CAF50).copy(alpha = 0.7f),
+                                    fontSize = 10.sp,
+                                )
+                            }
+                        }
+                        if (!issue.claudeSessionIds.isNullOrEmpty()) {
+                            Row {
+                                Text(
+                                    text = "fix: ",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = dimColor,
+                                    fontSize = 10.sp,
+                                )
+                                Text(
+                                    text = issue.claudeSessionIds.joinToString(" · ") { it.take(8) },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF42A5F5).copy(alpha = 0.7f),
+                                    fontSize = 10.sp,
+                                )
+                            }
+                        }
+                    }
+                }
                 if (issue.description.isNotBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
