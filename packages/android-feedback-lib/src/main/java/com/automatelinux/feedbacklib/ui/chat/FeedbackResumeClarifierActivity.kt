@@ -1,7 +1,9 @@
 package com.automatelinux.feedbacklib.ui.chat
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -34,6 +36,13 @@ class FeedbackResumeClarifierActivity : ComponentActivity() {
             }
     }
 
+    private fun findIssuesActivity(): String? =
+        try {
+            packageManager
+                .getPackageInfo(packageName, PackageManager.GET_ACTIVITIES)
+                .activities?.firstOrNull { it.name.endsWith("FeedbackIssuesActivity") }?.name
+        } catch (_: Exception) { null }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -64,6 +73,13 @@ class FeedbackResumeClarifierActivity : ComponentActivity() {
                     FeedbackChatScreen(
                         viewModel = viewModel,
                         onNavigateBack = { finish() },
+                        onNavigateToIssues = findIssuesActivity()?.let { activityName ->
+                            {
+                                startActivity(Intent().apply {
+                                    component = ComponentName(packageName, activityName)
+                                })
+                            }
+                        },
                     )
                 }
             }
