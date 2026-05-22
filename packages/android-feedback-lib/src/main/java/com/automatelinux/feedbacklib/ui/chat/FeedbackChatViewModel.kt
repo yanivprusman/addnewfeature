@@ -9,6 +9,7 @@ import com.automatelinux.feedbacklib.data.repository.FeedbackRepository
 import com.automatelinux.feedbacklib.data.repository.FeedbackSessionStore
 import com.automatelinux.feedbacklib.data.repository.PersistedMessage
 import com.automatelinux.feedbacklib.data.repository.PersistedSession
+import com.automatelinux.feedbacklib.data.repository.SessionSummary
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
@@ -31,8 +33,10 @@ class FeedbackChatViewModel @Inject constructor(
 
     private var healthCheckJob: Job? = null
     private var restoreJob: Job? = null
+    private var _currentStorageId: String? = null
 
     init {
+        sessionStore.migrateIfNeeded()
         restoreSession()
     }
 
@@ -258,8 +262,11 @@ class FeedbackChatViewModel @Inject constructor(
             viewModelScope.launch { feedbackRepository.closeSession(tmux) }
         }
         stopHealthCheck()
+        _currentStorageId?.let { sessionStore.removeMulti(it) }
+        _currentStorageId = null
+        sessionStore.setActiveSessionId(null)
         sessionStore.clear()
-        _uiState.value = FeedbackChatUiState(serverFound = true)
+        _uiState.value = FeedbackChatUiState(serverFound = true, savedSessions = sessionStore.getSessions())
     }
 
     fun refreshSession() {
@@ -299,18 +306,30 @@ class FeedbackChatViewModel @Inject constructor(
     }
 
     fun newChat() {
-        closeSession()
-        _uiState.value = FeedbackChatUiState(serverFound = true)
+        val state = _uiState.value
+        if (state.messages.isNotEmpty() || state.inputText.isNotBlank()) {
+            persistOnPause()
+        }
+        stopHealthCheck()
+        _currentStorageId = null
+        sessionStore.setActiveSessionId(null)
+        _uiState.value = FeedbackChatUiState(serverFound = true, savedSessions = sessionStore.getSessions())
     }
 
     fun resumeClarifierSession(clarifierSessionId: String, issue: Issue? = null) {
         restoreJob?.cancel()
         restoreJob = null
-        closeSession()
+        val state = _uiState.value
+        if (state.messages.isNotEmpty() || state.inputText.isNotBlank()) {
+            persistOnPause()
+        }
+        stopHealthCheck()
+        _currentStorageId = null
         _uiState.value = FeedbackChatUiState(
             serverFound = true,
             resumeSessionId = clarifierSessionId,
             restoringSession = true,
+            savedSessions = sessionStore.getSessions(),
             priorIssue = issue?.let {
                 PriorIssueContext(
                     issueNumber = it.issueNumber,
@@ -424,21 +443,79 @@ class FeedbackChatViewModel @Inject constructor(
         }
     }
 
+    // ── Multi-session management (#66) ─────────────────────────────────
+
+    fun toggleSessionSwitcher() {
+        refreshSessionList()
+        _uiState.update { it.copy(showSessionSwitcher = !it.showSessionSwitcher) }
+    }
+
+    fun hideSessionSwitcher() {
+        _uiState.update { it.copy(showSessionSwitcher = false) }
+    }
+
+    fun switchToSession(storageId: String) {
+        if (storageId == _currentStorageId) {
+            _uiState.update { it.copy(showSessionSwitcher = false) }
+            return
+        }
+        persistOnPause()
+        stopHealthCheck()
+        restoreJob?.cancel()
+
+        val persisted = sessionStore.loadMulti(storageId) ?: return
+        _currentStorageId = storageId
+        sessionStore.setActiveSessionId(storageId)
+
+        _uiState.value = FeedbackChatUiState(
+            serverFound = _uiState.value.serverFound,
+            savedSessions = sessionStore.getSessions(),
+            currentStorageId = storageId,
+        )
+        restoreFromPersisted(persisted)
+    }
+
+    fun deleteStoredSession(storageId: String) {
+        if (storageId == _currentStorageId) {
+            closeSession()
+            return
+        }
+        sessionStore.removeMulti(storageId)
+        refreshSessionList()
+    }
+
+    private fun updateSessionIndex(storageId: String, state: FeedbackChatUiState) {
+        val preview = state.messages.firstOrNull { it.role == "user" }?.text?.take(50)
+            ?: state.inputText.take(50).ifBlank { "New conversation" }
+        val sessions = sessionStore.getSessions().toMutableList()
+        val idx = sessions.indexOfFirst { it.id == storageId }
+        val summary = SessionSummary(storageId, preview, state.messages.size, System.currentTimeMillis())
+        if (idx >= 0) sessions[idx] = summary else sessions.add(0, summary)
+        sessionStore.saveSessions(sessions)
+    }
+
+    private fun refreshSessionList() {
+        _uiState.update { it.copy(savedSessions = sessionStore.getSessions(), currentStorageId = _currentStorageId) }
+    }
+
     // ── Session persistence (#26) ────────────────────────────────────────
 
     private fun persistSession() {
         val state = _uiState.value
         val sid = state.sessionId ?: state.resumeSessionId ?: return
-        sessionStore.save(
-            PersistedSession(
-                sessionId = sid,
-                tmuxSession = state.tmuxSession,
-                messages = state.messages.map { PersistedMessage(it.role, it.text, it.staleIssues) },
-                inputText = state.inputText.ifBlank { null },
-                directTitle = state.directTitle.ifBlank { null },
-                directDescription = state.directDescription.ifBlank { null },
-            )
-        )
+        val storageId = _currentStorageId ?: UUID.randomUUID().toString().also { _currentStorageId = it }
+
+        sessionStore.saveMulti(storageId, PersistedSession(
+            sessionId = sid,
+            tmuxSession = state.tmuxSession,
+            messages = state.messages.map { PersistedMessage(it.role, it.text, it.staleIssues) },
+            inputText = state.inputText.ifBlank { null },
+            directTitle = state.directTitle.ifBlank { null },
+            directDescription = state.directDescription.ifBlank { null },
+        ))
+        updateSessionIndex(storageId, state)
+        sessionStore.setActiveSessionId(storageId)
+        refreshSessionList()
     }
 
     fun persistOnPause() {
@@ -446,20 +523,34 @@ class FeedbackChatViewModel @Inject constructor(
         val hasDraft = state.inputText.isNotBlank() || state.directTitle.isNotBlank() || state.directDescription.isNotBlank()
         if (state.messages.isEmpty() && !hasDraft) return
         val sid = state.sessionId ?: state.resumeSessionId
-        sessionStore.saveSync(
-            PersistedSession(
-                sessionId = sid ?: PENDING_SESSION_SENTINEL,
-                tmuxSession = state.tmuxSession,
-                messages = state.messages.map { PersistedMessage(it.role, it.text, it.staleIssues) },
-                inputText = state.inputText.ifBlank { null },
-                directTitle = state.directTitle.ifBlank { null },
-                directDescription = state.directDescription.ifBlank { null },
-            )
-        )
+        val storageId = _currentStorageId ?: UUID.randomUUID().toString().also { _currentStorageId = it }
+
+        sessionStore.saveMultiSync(storageId, PersistedSession(
+            sessionId = sid ?: PENDING_SESSION_SENTINEL,
+            tmuxSession = state.tmuxSession,
+            messages = state.messages.map { PersistedMessage(it.role, it.text, it.staleIssues) },
+            inputText = state.inputText.ifBlank { null },
+            directTitle = state.directTitle.ifBlank { null },
+            directDescription = state.directDescription.ifBlank { null },
+        ))
+        updateSessionIndex(storageId, state)
+        sessionStore.setActiveSessionId(storageId)
     }
 
     private fun restoreSession() {
-        val persisted = sessionStore.load() ?: return
+        refreshSessionList()
+        val activeId = sessionStore.getActiveSessionId()
+        val persisted = if (activeId != null) {
+            _currentStorageId = activeId
+            sessionStore.loadMulti(activeId)
+        } else {
+            sessionStore.load()
+        } ?: return
+
+        restoreFromPersisted(persisted)
+    }
+
+    private fun restoreFromPersisted(persisted: PersistedSession) {
         val restoredMessages = persisted.messages.map { m -> ChatMessage(m.role, m.text, m.staleIssues) }
         val restoredInput = persisted.inputText ?: ""
         val restoredDirectTitle = persisted.directTitle ?: ""
@@ -471,6 +562,7 @@ class FeedbackChatViewModel @Inject constructor(
                 inputText = restoredInput,
                 directTitle = restoredDirectTitle,
                 directDescription = restoredDirectDesc,
+                currentStorageId = _currentStorageId,
             ) }
             return
         }
@@ -483,6 +575,7 @@ class FeedbackChatViewModel @Inject constructor(
                     inputText = restoredInput,
                     directTitle = restoredDirectTitle,
                     directDescription = restoredDirectDesc,
+                    currentStorageId = _currentStorageId,
                 )
             }
             return
@@ -497,6 +590,7 @@ class FeedbackChatViewModel @Inject constructor(
                 directTitle = restoredDirectTitle,
                 directDescription = restoredDirectDesc,
                 restoringSession = true,
+                currentStorageId = _currentStorageId,
             )
         }
         restoreJob = viewModelScope.launch {

@@ -1,6 +1,7 @@
 package com.automatelinux.feedbacklib.ui.chat
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,9 +27,11 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -40,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -47,6 +51,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.automatelinux.feedbacklib.FeedbackConfig
 import com.automatelinux.feedbacklib.data.model.FeedbackSubmitResult
+import com.automatelinux.feedbacklib.data.repository.SessionSummary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -147,9 +152,12 @@ fun FeedbackChatScreen(
                             }
                         }
                     }
-                    if (!state.directMode && state.messages.isNotEmpty()) {
-                        IconButton(onClick = viewModel::newChat) {
-                            Icon(Icons.Filled.Add, contentDescription = "New Chat")
+                    if (!state.directMode && (state.messages.isNotEmpty() || state.savedSessions.isNotEmpty())) {
+                        IconButton(onClick = {
+                            if (state.savedSessions.isEmpty()) viewModel.newChat()
+                            else viewModel.toggleSessionSwitcher()
+                        }) {
+                            Icon(Icons.Filled.Add, contentDescription = if (state.savedSessions.isEmpty()) "New Chat" else "Sessions")
                         }
                     }
                 },
@@ -282,6 +290,20 @@ fun FeedbackChatScreen(
             }
         }
     }
+
+    if (state.showSessionSwitcher) {
+        SessionSwitcherSheet(
+            sessions = state.savedSessions,
+            currentStorageId = state.currentStorageId,
+            onNewChat = {
+                viewModel.hideSessionSwitcher()
+                viewModel.newChat()
+            },
+            onSwitchSession = viewModel::switchToSession,
+            onDeleteSession = viewModel::deleteStoredSession,
+            onDismiss = viewModel::hideSessionSwitcher,
+        )
+    }
 }
 
 // ── Direct Issue Form (#30) ─────────────────────────────────────────────
@@ -392,6 +414,83 @@ fun ChatInputBar(
                     tint = if (sendEnabled) MaterialTheme.colorScheme.primary
                            else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+    }
+}
+
+// ── Session Switcher (#66) ──────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SessionSwitcherSheet(
+    sessions: List<SessionSummary>,
+    currentStorageId: String?,
+    onNewChat: () -> Unit,
+    onSwitchSession: (String) -> Unit,
+    onDeleteSession: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 32.dp),
+        ) {
+            Text(
+                "Sessions",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onNewChat)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(12.dp))
+                Text("New Chat", style = MaterialTheme.typography.bodyLarge)
+            }
+
+            if (sessions.isNotEmpty()) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+            }
+
+            sessions.forEach { session ->
+                val isActive = session.id == currentStorageId
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSwitchSession(session.id) }
+                        .background(if (isActive) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                        .padding(start = 16.dp, top = 4.dp, bottom = 4.dp, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            session.preview,
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            "${session.messageCount} messages",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(onClick = { onDeleteSession(session.id) }) {
+                        Icon(
+                            Icons.Filled.Close,
+                            contentDescription = "Delete session",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
             }
         }
     }
