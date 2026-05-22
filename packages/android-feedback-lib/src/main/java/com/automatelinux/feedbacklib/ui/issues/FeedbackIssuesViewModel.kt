@@ -49,6 +49,7 @@ data class FeedbackIssuesUiState(
     val serverGitCommit: String? = null,
     val serverApkCommit: String? = null,
     val serverApkVersion: String? = null,
+    val serverGitVersion: String? = null,
     val error: String? = null,
     val successMessage: String? = null,
     val batchFixTarget: BatchFixTarget? = null,
@@ -313,6 +314,7 @@ class FeedbackIssuesViewModel @Inject constructor(
                     else -> null
                 }
                 val apkVersionStr = if ((health.apkVersion ?: 0) > 0) health.apkVersion.toString() else null
+                val gitVersionStr = if ((health.gitVersion ?: 0) > 0) health.gitVersion.toString() else null
                 _uiState.update {
                     if (it.buildLoading || it.installLoading) {
                         it.copy(
@@ -320,6 +322,7 @@ class FeedbackIssuesViewModel @Inject constructor(
                             serverGitCommit = gitCommit.ifBlank { null },
                             serverApkCommit = apkCommit.ifBlank { null },
                             serverApkVersion = apkVersionStr,
+                            serverGitVersion = gitVersionStr,
                         )
                     } else {
                         it.copy(
@@ -331,6 +334,7 @@ class FeedbackIssuesViewModel @Inject constructor(
                             serverGitCommit = gitCommit.ifBlank { null },
                             serverApkCommit = apkCommit.ifBlank { null },
                             serverApkVersion = apkVersionStr,
+                            serverGitVersion = gitVersionStr,
                         )
                     }
                 }

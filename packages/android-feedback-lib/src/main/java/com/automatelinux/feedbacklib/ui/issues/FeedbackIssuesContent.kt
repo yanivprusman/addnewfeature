@@ -538,7 +538,7 @@ fun UpdateDetailsSheet(
             val gitDiffers = state.serverGitCommit != null && state.installedCommit != null && state.serverGitCommit != state.installedCommit
             VersionRow(
                 label = "Code (git)",
-                version = if (state.newVersion != null) "v${state.newVersion}" else null,
+                version = if (state.serverGitVersion != null) "v${state.serverGitVersion}" else null,
                 commit = state.serverGitCommit,
                 color = if (gitDiffers) green else defaultColor,
             )
