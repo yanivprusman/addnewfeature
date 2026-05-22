@@ -124,7 +124,7 @@ fun FeedbackIssuesScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Issues")
+                        Text("${viewModel.appName} Issues")
                         if (versionName != null) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 val dimColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.automatelinux.feedbacklib.data.model.FixIssueItem
 import com.automatelinux.feedbacklib.data.model.Issue
+import com.automatelinux.feedbacklib.FeedbackConfig
 import com.automatelinux.feedbacklib.data.repository.FeedbackRepository
 import com.automatelinux.feedbacklib.data.repository.FeedbackSessionStore
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -56,7 +57,10 @@ data class FeedbackIssuesUiState(
 class FeedbackIssuesViewModel @Inject constructor(
     private val feedbackRepository: FeedbackRepository,
     private val sessionStore: FeedbackSessionStore,
+    private val config: FeedbackConfig,
 ) : ViewModel() {
+
+    val appName: String = config.appName
 
     private val _uiState = MutableStateFlow(FeedbackIssuesUiState())
     val uiState: StateFlow<FeedbackIssuesUiState> = _uiState.asStateFlow()
