@@ -31,6 +31,8 @@ data class FeedbackIssuesUiState(
     val fixLoading: Boolean = false,
     val buildLoading: Boolean = false,
     val installLoading: Boolean = false,
+    val installPercent: Int = 0,
+    val installDetail: String? = null,
     val showSameVersionDialog: Boolean = false,
     val showUpdateDetails: Boolean = false,
     val hasUpdate: Boolean = false,
@@ -390,27 +392,51 @@ class FeedbackIssuesViewModel @Inject constructor(
         }
     }
 
+    private var progressJob: kotlinx.coroutines.Job? = null
+
     fun installFixedVersion(force: Boolean = false) {
-        _uiState.update { it.copy(installLoading = true, error = null, successMessage = null, showSameVersionDialog = false) }
+        _uiState.update { it.copy(installLoading = true, installPercent = 0, installDetail = null, error = null, successMessage = null, showSameVersionDialog = false) }
         sessionStore.markInstallStarted()
+        startProgressPolling()
         viewModelScope.launch {
             feedbackRepository.installApp(force = force)
                 .onSuccess { response ->
+                    stopProgressPolling()
                     sessionStore.clearInstallStarted()
                     sessionStore.clearBuiltFlCommit()
                     if (response.sameVersion == true && !force) {
-                        _uiState.update { it.copy(installLoading = false, showSameVersionDialog = true) }
+                        _uiState.update { it.copy(installLoading = false, installPercent = 0, installDetail = null, showSameVersionDialog = true) }
                     } else {
-                        _uiState.update { it.copy(installLoading = false, hasUpdate = false, successMessage = "Installed — restarting…", restartPending = true) }
+                        _uiState.update { it.copy(installLoading = false, installPercent = 100, installDetail = null, hasUpdate = false, successMessage = "Installed — restarting…", restartPending = true) }
                     }
                 }
                 .onFailure { e ->
+                    stopProgressPolling()
                     sessionStore.clearInstallStarted()
                     _uiState.update {
-                        it.copy(installLoading = false, error = e.message ?: "Install failed")
+                        it.copy(installLoading = false, installPercent = 0, installDetail = null, error = e.message ?: "Install failed")
                     }
                 }
         }
+    }
+
+    private fun startProgressPolling() {
+        progressJob?.cancel()
+        progressJob = viewModelScope.launch {
+            while (true) {
+                delay(800)
+                feedbackRepository.getInstallProgress()
+                    .onSuccess { p ->
+                        val pct = p.percent ?: 0
+                        _uiState.update { it.copy(installPercent = pct, installDetail = p.detail) }
+                    }
+            }
+        }
+    }
+
+    private fun stopProgressPolling() {
+        progressJob?.cancel()
+        progressJob = null
     }
 
     fun buildAndInstall() {

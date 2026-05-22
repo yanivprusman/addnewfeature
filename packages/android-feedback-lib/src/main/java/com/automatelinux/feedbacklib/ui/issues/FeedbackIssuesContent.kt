@@ -194,13 +194,15 @@ fun FeedbackIssuesScreen(
                                         if (state.installLoading) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 CircularProgressIndicator(
-                                                    modifier = Modifier.size(8.dp),
-                                                    strokeWidth = 1.dp,
+                                                    progress = { state.installPercent / 100f },
+                                                    modifier = Modifier.size(10.dp),
+                                                    strokeWidth = 1.5.dp,
                                                     color = MaterialTheme.colorScheme.primary,
+                                                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                                                 )
                                                 Spacer(modifier = Modifier.width(4.dp))
                                                 Text(
-                                                    text = "installing…",
+                                                    text = if (state.installPercent > 0) "${state.installPercent}%" else "installing…",
                                                     style = MaterialTheme.typography.labelSmall,
                                                     color = MaterialTheme.colorScheme.primary,
                                                     fontSize = 9.sp,
@@ -592,6 +594,7 @@ fun UpdateDetailsSheet(
                 step = 2,
                 title = "Install on device",
                 description = when {
+                    state.installLoading && state.installPercent > 0 -> "Installing… ${state.installPercent}%"
                     state.installLoading -> "Installing…"
                     state.needsBuild -> "Build first, then install"
                     state.hasUpdate && state.newVersion != null -> "v${state.newVersion} ready to install"

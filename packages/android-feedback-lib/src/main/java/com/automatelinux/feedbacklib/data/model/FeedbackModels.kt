@@ -133,6 +133,16 @@ data class InstallAppResponse(
     @SerializedName("availableVersion") val availableVersion: String? = null,
 )
 
+data class InstallProgressRequest(
+    val action: String = "installProgress",
+)
+
+data class InstallProgressResponse(
+    val stage: String? = null,
+    val percent: Int? = null,
+    val detail: String? = null,
+)
+
 data class FixIssuesResponse(
     val ok: Boolean? = null,
     @SerializedName("claudeSessionId") val claudeSessionId: String? = null,

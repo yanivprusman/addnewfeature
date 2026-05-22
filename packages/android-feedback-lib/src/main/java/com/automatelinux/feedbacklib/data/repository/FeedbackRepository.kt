@@ -168,6 +168,10 @@ class FeedbackRepository @Inject constructor(
         ))
     }
 
+    suspend fun getInstallProgress(): Result<InstallProgressResponse> = apiCall {
+        api.installProgress(InstallProgressRequest())
+    }
+
     suspend fun getSessionHistory(sessionId: String): Result<SessionHistoryResponse> = apiCall {
         api.getSessionHistory(sessionId)
     }
