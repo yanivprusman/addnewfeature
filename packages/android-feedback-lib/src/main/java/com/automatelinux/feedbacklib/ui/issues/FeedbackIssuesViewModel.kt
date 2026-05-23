@@ -298,7 +298,7 @@ class FeedbackIssuesViewModel @Inject constructor(
         }
     }
 
-    private suspend fun checkVersions() {
+    private suspend fun checkVersions(justBuilt: Boolean = false) {
         feedbackRepository.checkHealth()
             .onSuccess { health ->
                 val installedCommit = Regex("\\(([^)]+)\\)").find(
@@ -339,10 +339,10 @@ class FeedbackIssuesViewModel @Inject constructor(
                     }
                 }
             }
-        checkFeedbackLibVersion()
+        checkFeedbackLibVersion(justBuilt)
     }
 
-    private suspend fun checkFeedbackLibVersion() {
+    private suspend fun checkFeedbackLibVersion(justBuilt: Boolean = false) {
         val installedFlCommit = com.automatelinux.feedbacklib.BuildConfig.FEEDBACK_LIB_COMMIT
         val installedFlVersion = com.automatelinux.feedbacklib.BuildConfig.FEEDBACK_LIB_VERSION
         if (installedFlCommit.isBlank()) return
@@ -352,6 +352,9 @@ class FeedbackIssuesViewModel @Inject constructor(
                 val serverCommit = data.feedbackLibCommit ?: return@onSuccess
                 val serverVer = data.feedbackLibVersion?.toString()
                 latestServerFlCommit = serverCommit
+                if (justBuilt) {
+                    sessionStore.saveBuiltFlCommit(serverCommit)
+                }
                 val builtFlCommit = sessionStore.getBuiltFlCommit()
                 val effectiveFlCommit = builtFlCommit ?: installedFlCommit
                 val needsRebuild = serverCommit != effectiveFlCommit
@@ -372,9 +375,8 @@ class FeedbackIssuesViewModel @Inject constructor(
         viewModelScope.launch {
             feedbackRepository.buildApp()
                 .onSuccess {
-                    latestServerFlCommit?.let { sessionStore.saveBuiltFlCommit(it) }
                     _uiState.update { it.copy(buildLoading = false, needsBuild = false, hasUpdate = true, successMessage = "Build complete", flNeedsBuild = false) }
-                    checkVersions()
+                    checkVersions(justBuilt = true)
                     onComplete()
                 }
                 .onFailure { e ->
@@ -388,9 +390,8 @@ class FeedbackIssuesViewModel @Inject constructor(
         viewModelScope.launch {
             feedbackRepository.cleanBuildApp()
                 .onSuccess {
-                    latestServerFlCommit?.let { sessionStore.saveBuiltFlCommit(it) }
                     _uiState.update { it.copy(buildLoading = false, needsBuild = false, hasUpdate = true, successMessage = "Clean build complete", flNeedsBuild = false) }
-                    checkVersions()
+                    checkVersions(justBuilt = true)
                 }
                 .onFailure { e ->
                     _uiState.update { it.copy(buildLoading = false, buildFailed = true, error = e.message ?: "Clean build failed") }
