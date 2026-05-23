@@ -429,6 +429,9 @@ class FeedbackIssuesViewModel @Inject constructor(
     private fun startProgressPolling() {
         progressJob?.cancel()
         progressJob = viewModelScope.launch {
+            var lastPercent = -1
+            var staleTicks = 0
+            val maxStaleTicks = 25 // ~30s at 1.2s interval
             while (true) {
                 delay(1200)
                 feedbackRepository.getInstallProgress()
@@ -436,22 +439,33 @@ class FeedbackIssuesViewModel @Inject constructor(
                         val pct = p.percent ?: 0
                         val stage = p.stage ?: ""
                         _uiState.update { it.copy(installPercent = pct, installDetail = p.detail) }
-                        when (stage) {
-                            "done" -> {
+                        if (pct == lastPercent) staleTicks++ else { staleTicks = 0; lastPercent = pct }
+                        when {
+                            stage == "done" -> {
                                 stopProgressPolling()
                                 sessionStore.clearInstallStarted()
                                 sessionStore.clearBuiltFlCommit()
                                 _uiState.update { it.copy(installLoading = false, installPercent = 100, installDetail = null, hasUpdate = false, successMessage = "Installed — restarting…", restartPending = true) }
                             }
-                            "error" -> {
+                            stage == "error" -> {
                                 stopProgressPolling()
                                 sessionStore.clearInstallStarted()
                                 _uiState.update { it.copy(installLoading = false, error = "Install failed: ${p.detail ?: "unknown error"}") }
                             }
+                            staleTicks >= maxStaleTicks -> {
+                                stopProgressPolling()
+                                sessionStore.clearInstallStarted()
+                                _uiState.update { it.copy(installLoading = false, error = "Install stalled at ${pct}% ($stage)") }
+                            }
                         }
                     }
                     .onFailure {
-                        // Poll failure is transient — keep polling
+                        staleTicks++
+                        if (staleTicks >= maxStaleTicks) {
+                            stopProgressPolling()
+                            sessionStore.clearInstallStarted()
+                            _uiState.update { it.copy(installLoading = false, error = "Install progress unreachable") }
+                        }
                     }
             }
         }
