@@ -536,11 +536,14 @@ fun UpdateDetailsSheet(
 
             // Code (git) version
             val gitDiffers = state.serverGitCommit != null && state.installedCommit != null && state.serverGitCommit != state.installedCommit
+            val installedVersion = versionName.replace(Regex("\\s*\\([^)]+\\)"), "")
             VersionRow(
                 label = "Code (git)",
-                version = if (state.serverGitVersion != null) "v${state.serverGitVersion}" else null,
-                commit = state.serverGitCommit,
-                color = if (gitDiffers) green else defaultColor,
+                version = if (gitDiffers) installedVersion else if (state.serverGitVersion != null) "v${state.serverGitVersion}" else null,
+                commit = if (gitDiffers) state.installedCommit else state.serverGitCommit,
+                color = defaultColor,
+                newVersion = if (gitDiffers && state.serverGitVersion != null) "v${state.serverGitVersion}" else null,
+                newCommit = if (gitDiffers) state.serverGitCommit else null,
             )
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -548,9 +551,11 @@ fun UpdateDetailsSheet(
             val apkDiffers = state.serverApkCommit != null && state.installedCommit != null && state.serverApkCommit != state.installedCommit
             VersionRow(
                 label = "Built APK",
-                version = if (state.serverApkVersion != null) "v${state.serverApkVersion}" else null,
-                commit = state.serverApkCommit,
-                color = if (apkDiffers) green else defaultColor,
+                version = if (apkDiffers) installedVersion else if (state.serverApkVersion != null) "v${state.serverApkVersion}" else null,
+                commit = if (apkDiffers) state.installedCommit else state.serverApkCommit,
+                color = defaultColor,
+                newVersion = if (apkDiffers && state.serverApkVersion != null) "v${state.serverApkVersion}" else null,
+                newCommit = if (apkDiffers) state.serverApkCommit else null,
             )
 
             if (state.installedFlCommit != null) {
@@ -559,8 +564,10 @@ fun UpdateDetailsSheet(
                 VersionRow(
                     label = "Feedback Lib",
                     version = if (state.flVersion != null) "FL${state.flVersion}" else null,
-                    commit = state.serverFlCommit ?: state.installedFlCommit,
-                    color = if (flDiffers) green else defaultColor,
+                    commit = state.installedFlCommit,
+                    color = defaultColor,
+                    newVersion = if (flDiffers && state.newFlVersion != null) "FL${state.newFlVersion}" else null,
+                    newCommit = if (flDiffers) state.serverFlCommit else null,
                 )
             }
 
@@ -691,7 +698,7 @@ private fun UpdateDetailsHelpDialog(onDismiss: () -> Unit) {
                     body = "The version of the feedback widget bundled in the installed app. Tracked separately because it's a shared library — it can update independently of the app's own code.",
                 )
                 Text(
-                    text = "Colors: green = differs from installed (update available), default = matches installed.",
+                    text = "When an update is available, an arrow shows the transition: current → new (in green).",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -722,7 +729,10 @@ private fun VersionRow(
     version: String?,
     commit: String?,
     color: Color,
+    newVersion: String? = null,
+    newCommit: String? = null,
 ) {
+    val green = Color(0xFF4CAF50)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = label,
@@ -739,12 +749,35 @@ private fun VersionRow(
             )
             Spacer(modifier = Modifier.width(6.dp))
         }
-        if (commit != null) {
+        if (commit != null && newVersion == null) {
             Text(
                 text = "(${commit.take(8)})",
                 style = MaterialTheme.typography.bodySmall,
                 color = color.copy(alpha = 0.7f),
             )
+        }
+        if (newVersion != null) {
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "→",
+                style = MaterialTheme.typography.bodyMedium,
+                color = green,
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = newVersion,
+                style = MaterialTheme.typography.bodyMedium,
+                color = green,
+                fontWeight = FontWeight.SemiBold,
+            )
+            if (newCommit != null) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "(${newCommit.take(8)})",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = green.copy(alpha = 0.7f),
+                )
+            }
         }
     }
 }

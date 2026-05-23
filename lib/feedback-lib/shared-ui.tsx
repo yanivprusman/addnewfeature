@@ -78,15 +78,18 @@ export function StaleIssueList({ issues, isDark, label, onResend, onSubmitStale,
         const isActivated = activated.has(issue.title);
         const isSubmitting = submittingTitle === issue.title;
         return (
-        <div data-id={`stale-issue-item-${j}`} key={j} className={`flex items-start gap-2 p-2 ${isActivated ? `rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors` : ''}`}>
+        <div data-id={`stale-issue-item-${j}`} key={j} className={`flex items-start gap-2 p-2 rounded-lg ${isDark ? 'hover:bg-slate-600' : 'hover:bg-slate-100'} transition-colors`}>
           <input data-id={`stale-issue-checkbox-${j}`} type="checkbox" checked disabled className={`mt-0.5 w-4 h-4 rounded border-slate-300 text-indigo-600 ${isActivated ? '' : 'opacity-60'}`} />
-          <div data-id={`stale-issue-content-${j}`} className={`flex-1 min-w-0 ${isActivated ? '' : 'opacity-60'}`}>
+          <div
+            data-id={`stale-issue-content-${j}`}
+            className={`flex-1 min-w-0 cursor-pointer ${isActivated ? '' : 'opacity-60'}`}
+            onMouseDown={(e) => { mouseRef.current = { x: e.clientX, y: e.clientY }; }}
+            onClick={(e) => { const s = mouseRef.current; if (s && (Math.abs(e.clientX - s.x) > 3 || Math.abs(e.clientY - s.y) > 3)) return; if (window.getSelection()?.toString()) return; setExpanded(prev => ({ ...prev, [j]: !prev[j] })); }}
+          >
             <p data-id={`stale-issue-title-${j}`} className={`text-sm font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{issue.title}</p>
             <p
               data-id={`stale-issue-description-${j}`}
-              className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} ${expanded[j] ? '' : 'line-clamp-2'} cursor-pointer whitespace-pre-wrap`}
-              onMouseDown={(e) => { mouseRef.current = { x: e.clientX, y: e.clientY }; }}
-              onClick={(e) => { const s = mouseRef.current; if (s && (Math.abs(e.clientX - s.x) > 3 || Math.abs(e.clientY - s.y) > 3)) return; if (window.getSelection()?.toString()) return; setExpanded(prev => ({ ...prev, [j]: !prev[j] })); }}
+              className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'} ${expanded[j] ? '' : 'line-clamp-2'} whitespace-pre-wrap mt-1`}
             >
               {issue.description}
             </p>
