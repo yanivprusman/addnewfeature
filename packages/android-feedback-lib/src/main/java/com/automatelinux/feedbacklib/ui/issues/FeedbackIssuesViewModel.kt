@@ -401,24 +401,24 @@ class FeedbackIssuesViewModel @Inject constructor(
     fun installFixedVersion(force: Boolean = false) {
         _uiState.update { it.copy(installLoading = true, installPercent = 0, installDetail = null, error = null, successMessage = null, showSameVersionDialog = false) }
         sessionStore.markInstallStarted()
-        startProgressPolling()
         viewModelScope.launch {
             feedbackRepository.installApp(force = force)
                 .onSuccess { response ->
-                    stopProgressPolling()
-                    sessionStore.clearInstallStarted()
-                    sessionStore.clearBuiltFlCommit()
                     if (response.sameVersion == true && !force) {
+                        sessionStore.clearInstallStarted()
                         _uiState.update { it.copy(installLoading = false, installPercent = 0, installDetail = null, showSameVersionDialog = true) }
+                    } else if (response.started == true) {
+                        startProgressPolling()
                     } else {
+                        sessionStore.clearInstallStarted()
+                        sessionStore.clearBuiltFlCommit()
                         _uiState.update { it.copy(installLoading = false, installPercent = 100, installDetail = null, hasUpdate = false, successMessage = "Installed — restarting…", restartPending = true) }
                     }
                 }
                 .onFailure { e ->
-                    stopProgressPolling()
                     sessionStore.clearInstallStarted()
                     _uiState.update {
-                        it.copy(installLoading = false, installPercent = 0, installDetail = null, error = e.message ?: "Install failed")
+                        it.copy(installLoading = false, error = e.message ?: "Install failed")
                     }
                 }
         }
@@ -428,11 +428,28 @@ class FeedbackIssuesViewModel @Inject constructor(
         progressJob?.cancel()
         progressJob = viewModelScope.launch {
             while (true) {
-                delay(800)
+                delay(1200)
                 feedbackRepository.getInstallProgress()
                     .onSuccess { p ->
                         val pct = p.percent ?: 0
+                        val stage = p.stage ?: ""
                         _uiState.update { it.copy(installPercent = pct, installDetail = p.detail) }
+                        when (stage) {
+                            "done" -> {
+                                stopProgressPolling()
+                                sessionStore.clearInstallStarted()
+                                sessionStore.clearBuiltFlCommit()
+                                _uiState.update { it.copy(installLoading = false, installPercent = 100, installDetail = null, hasUpdate = false, successMessage = "Installed — restarting…", restartPending = true) }
+                            }
+                            "error" -> {
+                                stopProgressPolling()
+                                sessionStore.clearInstallStarted()
+                                _uiState.update { it.copy(installLoading = false, error = "Install failed: ${p.detail ?: "unknown error"}") }
+                            }
+                        }
+                    }
+                    .onFailure {
+                        // Poll failure is transient — keep polling
                     }
             }
         }

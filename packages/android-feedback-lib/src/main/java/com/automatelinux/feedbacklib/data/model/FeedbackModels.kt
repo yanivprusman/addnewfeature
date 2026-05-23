@@ -129,6 +129,7 @@ data class InstallAppRequest(
 data class InstallAppResponse(
     val ok: Boolean? = null,
     val installed: Boolean? = null,
+    val started: Boolean? = null,
     @SerializedName("sameVersion") val sameVersion: Boolean? = null,
     @SerializedName("availableVersion") val availableVersion: String? = null,
 )
