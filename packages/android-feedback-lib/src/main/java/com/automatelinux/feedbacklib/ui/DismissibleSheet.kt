@@ -137,6 +137,7 @@ fun DismissibleSheet(
     dragDownRestoreAlignment: Alignment = Alignment.BottomCenter,
     dragDownRestoreIcon: ImageVector = Icons.Default.KeyboardArrowUp,
     dragDownRestoreOpacity: Float = sheetOpacity,
+    showRestoreButton: Boolean = true,
     sheetOrientation: SheetOrientation = SheetOrientation.AUTO,
     swipeRightEnabled: Boolean = true,
 ) {
@@ -160,6 +161,7 @@ fun DismissibleSheet(
             dragDownRestoreAlignment = dragDownRestoreAlignment,
             dragDownRestoreIcon = dragDownRestoreIcon,
             dragDownRestoreOpacity = dragDownRestoreOpacity,
+            showRestoreButton = showRestoreButton,
             swipeRightEnabled = swipeRightEnabled,
         )
     } else {
@@ -174,6 +176,7 @@ fun DismissibleSheet(
             dragDownRestoreAlignment = dragDownRestoreAlignment,
             dragDownRestoreIcon = dragDownRestoreIcon,
             dragDownRestoreOpacity = dragDownRestoreOpacity,
+            showRestoreButton = showRestoreButton,
             swipeRightEnabled = swipeRightEnabled,
         )
     }
@@ -198,6 +201,7 @@ private fun RightEdgeSheet(
     dragDownRestoreAlignment: Alignment,
     dragDownRestoreIcon: ImageVector,
     dragDownRestoreOpacity: Float,
+    showRestoreButton: Boolean,
     swipeRightEnabled: Boolean,
 ) {
     val config = LocalConfiguration.current
@@ -237,6 +241,7 @@ private fun RightEdgeSheet(
                 dragDownRestoreAlignment = dragDownRestoreAlignment,
                 dragDownRestoreIcon = dragDownRestoreIcon,
                 dragDownRestoreOpacity = dragDownRestoreOpacity,
+                showRestoreButton = showRestoreButton,
                 swipeRightEnabled = swipeRightEnabled,
             )
         }
@@ -257,6 +262,7 @@ private fun Sheet(
     dragDownRestoreAlignment: Alignment,
     dragDownRestoreIcon: ImageVector,
     dragDownRestoreOpacity: Float,
+    showRestoreButton: Boolean = true,
     swipeRightEnabled: Boolean = true,
 ) {
     val scope = rememberCoroutineScope()
@@ -341,7 +347,7 @@ private fun Sheet(
             Box(modifier = Modifier.fillMaxSize()) {
                 content(padding)
 
-                if (state.isDismissed) {
+                if (state.isDismissed && showRestoreButton) {
                     val dragDownIsTop = dragDownRestoreAlignment == Alignment.TopCenter
                     SmallFloatingActionButton(
                         onClick = { scope.launch { state.restore() } },
