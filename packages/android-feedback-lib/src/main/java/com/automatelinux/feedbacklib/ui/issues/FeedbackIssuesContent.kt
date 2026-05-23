@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
@@ -486,6 +487,7 @@ fun UpdateDetailsSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val green = Color(0xFF4CAF50)
+    val amber = Color(0xFFFF9800)
     val defaultColor = MaterialTheme.colorScheme.onSurface
 
     var showHelp by remember { mutableStateOf(false) }
@@ -530,32 +532,29 @@ fun UpdateDetailsSheet(
                 label = "Installed",
                 version = versionName.replace(Regex("\\s*\\([^)]+\\)"), ""),
                 commit = state.installedCommit,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = defaultColor,
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Code (git) version
-            val gitDiffers = state.serverGitCommit != null && state.installedCommit != null && state.serverGitCommit != state.installedCommit
-            val installedVersion = versionName.replace(Regex("\\s*\\([^)]+\\)"), "")
+            // Code (git) — amber dot when code is ahead of built APK
+            val codeAheadOfApk = state.serverGitCommit != null && state.serverApkCommit != null && state.serverGitCommit != state.serverApkCommit
             VersionRow(
                 label = "Code (git)",
-                version = if (gitDiffers) installedVersion else if (state.serverGitVersion != null) "v${state.serverGitVersion}" else null,
-                commit = if (gitDiffers) state.installedCommit else state.serverGitCommit,
+                version = if (state.serverGitVersion != null) "v${state.serverGitVersion}" else null,
+                commit = state.serverGitCommit,
                 color = defaultColor,
-                newVersion = if (gitDiffers && state.serverGitVersion != null) "v${state.serverGitVersion}" else null,
-                newCommit = if (gitDiffers) state.serverGitCommit else null,
+                statusDot = if (codeAheadOfApk) amber else null,
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Built APK version
-            val apkDiffers = state.serverApkCommit != null && state.installedCommit != null && state.serverApkCommit != state.installedCommit
+            // Built APK — green dot when APK is ahead of installed
+            val apkAheadOfInstalled = state.serverApkCommit != null && state.installedCommit != null && state.serverApkCommit != state.installedCommit
             VersionRow(
                 label = "Built APK",
-                version = if (apkDiffers) installedVersion else if (state.serverApkVersion != null) "v${state.serverApkVersion}" else null,
-                commit = if (apkDiffers) state.installedCommit else state.serverApkCommit,
+                version = if (state.serverApkVersion != null) "v${state.serverApkVersion}" else null,
+                commit = state.serverApkCommit,
                 color = defaultColor,
-                newVersion = if (apkDiffers && state.serverApkVersion != null) "v${state.serverApkVersion}" else null,
-                newCommit = if (apkDiffers) state.serverApkCommit else null,
+                statusDot = if (apkAheadOfInstalled) green else null,
             )
 
             if (state.installedFlCommit != null) {
@@ -566,8 +565,8 @@ fun UpdateDetailsSheet(
                     version = if (state.flVersion != null) "FL${state.flVersion}" else null,
                     commit = state.installedFlCommit,
                     color = defaultColor,
-                    newVersion = if (flDiffers && state.newFlVersion != null) "FL${state.newFlVersion}" else null,
-                    newCommit = if (flDiffers) state.serverFlCommit else null,
+                    statusDot = if (flDiffers) amber else null,
+                    statusText = if (flDiffers && state.newFlVersion != null) "→ FL${state.newFlVersion}" else null,
                 )
             }
 
@@ -683,24 +682,19 @@ private fun UpdateDetailsHelpDialog(onDismiss: () -> Unit) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 HelpEntry(
                     title = "Installed",
-                    body = "The version currently running on this device. This is your baseline — everything else is compared against it.",
+                    body = "The version currently running on this device.",
                 )
                 HelpEntry(
                     title = "Code (git)",
-                    body = "The latest commit pushed to the server. If this differs from Installed, new code is available that hasn't been built into an APK yet.",
+                    body = "The latest commit pushed to the server. An amber dot means the code is ahead of the built APK — a build is needed.",
                 )
                 HelpEntry(
                     title = "Built APK",
-                    body = "The APK sitting on the server, ready to install. If this matches Code but differs from Installed, there's a new build waiting. If it differs from Code, a build is needed first.",
+                    body = "The APK sitting on the server. A green dot means the APK is newer than what's installed — ready to install.",
                 )
                 HelpEntry(
                     title = "Feedback Lib",
-                    body = "The version of the feedback widget bundled in the installed app. Tracked separately because it's a shared library — it can update independently of the app's own code.",
-                )
-                Text(
-                    text = "When an update is available, an arrow shows the transition: current → new (in green).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    body = "The feedback widget bundled in the installed app. An amber dot means a newer version is available on the server.",
                 )
             }
         },
@@ -729,10 +723,9 @@ private fun VersionRow(
     version: String?,
     commit: String?,
     color: Color,
-    newVersion: String? = null,
-    newCommit: String? = null,
+    statusDot: Color? = null,
+    statusText: String? = null,
 ) {
-    val green = Color(0xFF4CAF50)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = label,
@@ -749,33 +742,26 @@ private fun VersionRow(
             )
             Spacer(modifier = Modifier.width(6.dp))
         }
-        if (commit != null && newVersion == null) {
+        if (commit != null) {
             Text(
                 text = "(${commit.take(8)})",
                 style = MaterialTheme.typography.bodySmall,
                 color = color.copy(alpha = 0.7f),
             )
         }
-        if (newVersion != null) {
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = "→",
-                style = MaterialTheme.typography.bodyMedium,
-                color = green,
+        if (statusDot != null) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(statusDot, CircleShape),
             )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = newVersion,
-                style = MaterialTheme.typography.bodyMedium,
-                color = green,
-                fontWeight = FontWeight.SemiBold,
-            )
-            if (newCommit != null) {
-                Spacer(modifier = Modifier.width(6.dp))
+            if (statusText != null) {
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "(${newCommit.take(8)})",
+                    text = statusText,
                     style = MaterialTheme.typography.bodySmall,
-                    color = green.copy(alpha = 0.7f),
+                    color = statusDot,
                 )
             }
         }

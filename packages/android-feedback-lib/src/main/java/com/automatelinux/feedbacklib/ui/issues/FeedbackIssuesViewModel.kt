@@ -374,6 +374,7 @@ class FeedbackIssuesViewModel @Inject constructor(
                 .onSuccess {
                     latestServerFlCommit?.let { sessionStore.saveBuiltFlCommit(it) }
                     _uiState.update { it.copy(buildLoading = false, needsBuild = false, hasUpdate = true, successMessage = "Build complete", flStale = false) }
+                    checkVersions()
                     onComplete()
                 }
                 .onFailure { e ->
@@ -389,6 +390,7 @@ class FeedbackIssuesViewModel @Inject constructor(
                 .onSuccess {
                     latestServerFlCommit?.let { sessionStore.saveBuiltFlCommit(it) }
                     _uiState.update { it.copy(buildLoading = false, needsBuild = false, hasUpdate = true, successMessage = "Clean build complete", flStale = false) }
+                    checkVersions()
                 }
                 .onFailure { e ->
                     _uiState.update { it.copy(buildLoading = false, buildFailed = true, error = e.message ?: "Clean build failed") }
