@@ -43,6 +43,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -399,7 +405,20 @@ fun ChatInputBar(
                 onValueChange = onInputChange,
                 placeholder = { Text(placeholder) },
                 maxLines = 5,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown &&
+                            event.key == Key.Enter &&
+                            event.isShiftPressed &&
+                            sendEnabled
+                        ) {
+                            onSend()
+                            true
+                        } else {
+                            false
+                        }
+                    },
                 shape = RoundedCornerShape(20.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
