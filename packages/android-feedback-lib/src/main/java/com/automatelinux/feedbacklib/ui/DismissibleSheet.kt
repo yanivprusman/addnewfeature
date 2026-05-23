@@ -138,6 +138,7 @@ fun DismissibleSheet(
     dragDownRestoreIcon: ImageVector = Icons.Default.KeyboardArrowUp,
     dragDownRestoreOpacity: Float = sheetOpacity,
     showRestoreButton: Boolean = true,
+    onRestoreClick: (() -> Unit)? = null,
     sheetOrientation: SheetOrientation = SheetOrientation.AUTO,
     swipeRightEnabled: Boolean = true,
 ) {
@@ -162,6 +163,7 @@ fun DismissibleSheet(
             dragDownRestoreIcon = dragDownRestoreIcon,
             dragDownRestoreOpacity = dragDownRestoreOpacity,
             showRestoreButton = showRestoreButton,
+            onRestoreClick = onRestoreClick,
             swipeRightEnabled = swipeRightEnabled,
         )
     } else {
@@ -177,6 +179,7 @@ fun DismissibleSheet(
             dragDownRestoreIcon = dragDownRestoreIcon,
             dragDownRestoreOpacity = dragDownRestoreOpacity,
             showRestoreButton = showRestoreButton,
+            onRestoreClick = onRestoreClick,
             swipeRightEnabled = swipeRightEnabled,
         )
     }
@@ -202,6 +205,7 @@ private fun RightEdgeSheet(
     dragDownRestoreIcon: ImageVector,
     dragDownRestoreOpacity: Float,
     showRestoreButton: Boolean,
+    onRestoreClick: (() -> Unit)?,
     swipeRightEnabled: Boolean,
 ) {
     val config = LocalConfiguration.current
@@ -242,6 +246,7 @@ private fun RightEdgeSheet(
                 dragDownRestoreIcon = dragDownRestoreIcon,
                 dragDownRestoreOpacity = dragDownRestoreOpacity,
                 showRestoreButton = showRestoreButton,
+                onRestoreClick = onRestoreClick,
                 swipeRightEnabled = swipeRightEnabled,
             )
         }
@@ -263,6 +268,7 @@ private fun Sheet(
     dragDownRestoreIcon: ImageVector,
     dragDownRestoreOpacity: Float,
     showRestoreButton: Boolean = true,
+    onRestoreClick: (() -> Unit)? = null,
     swipeRightEnabled: Boolean = true,
 ) {
     val scope = rememberCoroutineScope()
@@ -350,7 +356,7 @@ private fun Sheet(
                 if (state.isDismissed && showRestoreButton) {
                     val dragDownIsTop = dragDownRestoreAlignment == Alignment.TopCenter
                     SmallFloatingActionButton(
-                        onClick = { scope.launch { state.restore() } },
+                        onClick = { onRestoreClick?.invoke() ?: scope.launch { state.restore() } },
                         modifier = Modifier
                             .align(
                                 if (state.dismissedBySwipeRight && state.wasExpandedWhenDismissed) AbsoluteAlignment.CenterRight
