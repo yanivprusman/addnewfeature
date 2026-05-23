@@ -131,7 +131,7 @@ fun FeedbackIssuesScreen(
                                 val dimColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                                 val green = Color(0xFF4CAF50)
                                 val vColor = if (state.vStale) green else dimColor
-                                val flColor = if (state.flStale) green else dimColor
+                                val flColor = if (state.newFlVersion != null) green else dimColor
                                 Text(
                                     text = buildAnnotatedString {
                                         withStyle(SpanStyle(color = vColor)) { append(versionName) }
@@ -560,12 +560,17 @@ fun UpdateDetailsSheet(
             if (state.installedFlCommit != null) {
                 Spacer(modifier = Modifier.height(8.dp))
                 val flDiffers = state.serverFlCommit != null && state.serverFlCommit != state.installedFlCommit
+                val flDot = when {
+                    state.flNeedsBuild -> amber
+                    flDiffers -> green
+                    else -> null
+                }
                 VersionRow(
                     label = "Feedback Lib",
                     version = if (state.flVersion != null) "FL${state.flVersion}" else null,
                     commit = state.installedFlCommit,
                     color = defaultColor,
-                    statusDot = if (flDiffers) amber else null,
+                    statusDot = flDot,
                     statusText = if (flDiffers && state.newFlVersion != null) "→ FL${state.newFlVersion}" else null,
                 )
             }
@@ -575,7 +580,7 @@ fun UpdateDetailsSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Step 1: Build
-            val wantsBuild = state.needsBuild || (state.flStale && !state.buildLoading)
+            val wantsBuild = state.needsBuild || (state.flNeedsBuild && !state.buildLoading)
             val buildDone = !wantsBuild && !state.buildLoading
             ActionStep(
                 step = 1,
@@ -584,7 +589,7 @@ fun UpdateDetailsSheet(
                     state.buildLoading -> "Building…"
                     state.needsBuild && state.newVersion != null -> "New code available → v${state.newVersion}"
                     state.needsBuild -> "Code and APK are out of sync"
-                    state.flStale -> "Feedback Lib updated → rebuild needed"
+                    state.flNeedsBuild -> "Feedback Lib updated → rebuild needed"
                     else -> "APK is up to date with code"
                 },
                 done = buildDone,
