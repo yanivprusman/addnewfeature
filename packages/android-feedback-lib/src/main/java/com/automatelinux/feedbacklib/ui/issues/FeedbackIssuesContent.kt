@@ -575,7 +575,8 @@ fun UpdateDetailsSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Step 1: Build
-            val buildDone = !state.needsBuild && !state.buildLoading
+            val wantsBuild = state.needsBuild || (state.flStale && !state.buildLoading)
+            val buildDone = !wantsBuild && !state.buildLoading
             ActionStep(
                 step = 1,
                 title = "Build APK",
@@ -583,26 +584,27 @@ fun UpdateDetailsSheet(
                     state.buildLoading -> "Building…"
                     state.needsBuild && state.newVersion != null -> "New code available → v${state.newVersion}"
                     state.needsBuild -> "Code and APK are out of sync"
+                    state.flStale -> "Feedback Lib updated → rebuild needed"
                     else -> "APK is up to date with code"
                 },
                 done = buildDone,
                 loading = state.buildLoading,
                 actionLabel = if (state.buildFailed) "Clean & Rebuild" else "Build",
-                showAction = state.needsBuild && !state.buildLoading,
+                showAction = wantsBuild && !state.buildLoading,
                 onAction = if (state.buildFailed) onCleanBuild else onBuild,
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
             // Step 2: Install
-            val installDone = !state.hasUpdate && !state.installLoading && !state.needsBuild
+            val installDone = !state.hasUpdate && !state.installLoading && !wantsBuild
             ActionStep(
                 step = 2,
                 title = "Install on device",
                 description = when {
                     state.installLoading && state.installPercent > 0 -> "Installing… ${state.installPercent}%"
                     state.installLoading -> "Installing…"
-                    state.needsBuild -> "Build first, then install"
+                    wantsBuild -> "Build first, then install"
                     state.hasUpdate && state.newVersion != null -> "v${state.newVersion} ready to install"
                     state.hasUpdate -> "New APK ready to install"
                     else -> "Device is up to date"
@@ -610,7 +612,7 @@ fun UpdateDetailsSheet(
                 done = installDone,
                 loading = state.installLoading,
                 actionLabel = "Install",
-                showAction = state.hasUpdate && !state.needsBuild && !state.installLoading,
+                showAction = state.hasUpdate && !wantsBuild && !state.installLoading,
                 onAction = onInstall,
             )
 
