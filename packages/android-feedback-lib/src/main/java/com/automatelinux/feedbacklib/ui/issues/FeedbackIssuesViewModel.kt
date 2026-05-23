@@ -358,11 +358,11 @@ class FeedbackIssuesViewModel @Inject constructor(
                 val builtFlCommit = sessionStore.getBuiltFlCommit()
                 val effectiveFlCommit = builtFlCommit ?: installedFlCommit
                 val needsRebuild = serverCommit != effectiveFlCommit
+                val flDiffers = serverCommit != installedFlCommit
                 _uiState.update {
                     it.copy(
-                        needsBuild = if (needsRebuild) true else it.needsBuild,
                         hasUpdate = if (!needsRebuild && installedFlCommit != effectiveFlCommit) true else it.hasUpdate,
-                        newFlVersion = if (serverCommit != installedFlCommit) serverVer else null,
+                        newFlVersion = if (flDiffers) (serverVer ?: serverCommit.take(7)) else null,
                         flNeedsBuild = needsRebuild,
                         serverFlCommit = serverCommit,
                     )
