@@ -255,10 +255,8 @@ fun FeedbackChatScreen(
                         item {
                             IssueCardsSection(
                                 issues = state.proposedIssues!!,
-                                checked = state.checkedIssues,
-                                onToggle = viewModel::toggleIssueChecked,
-                                onSubmit = viewModel::submitSelectedIssues,
-                                isSubmitting = state.isSubmitting,
+                                onSubmitOne = viewModel::submitOneIssue,
+                                submittingIndex = state.submittingIndex,
                             )
                         }
                     }

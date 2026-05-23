@@ -18,8 +18,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -44,12 +42,9 @@ import com.automatelinux.feedbacklib.data.model.FeedbackSubmitResult
 @Composable
 fun IssueCardsSection(
     issues: List<FeedbackIssue>,
-    checked: List<Boolean>,
-    onToggle: (Int) -> Unit,
-    onSubmit: () -> Unit,
-    isSubmitting: Boolean,
+    onSubmitOne: (Int) -> Unit,
+    submittingIndex: Int?,
 ) {
-    val selectedCount = checked.count { it }
     val expanded = remember { mutableStateMapOf<Int, Boolean>() }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -74,15 +69,7 @@ fun IssueCardsSection(
                         .animateContentSize(),
                     verticalAlignment = Alignment.Top,
                 ) {
-                    Checkbox(
-                        checked = checked.getOrElse(index) { false },
-                        onCheckedChange = { onToggle(index) },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = MaterialTheme.colorScheme.primary,
-                            uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        ),
-                    )
-                    Column(modifier = Modifier.weight(1f).padding(top = 8.dp)) {
+                    Column(modifier = Modifier.weight(1f).padding(top = 4.dp)) {
                         Text(
                             text = issue.title,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -108,23 +95,23 @@ fun IssueCardsSection(
                             }
                         }
                     }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = { onSubmitOne(index) },
+                        enabled = submittingIndex == null,
+                        modifier = Modifier.height(32.dp),
+                    ) {
+                        if (submittingIndex == index) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        } else {
+                            Text("Submit", fontSize = 12.sp)
+                        }
+                    }
                 }
-            }
-        }
-
-        Button(
-            onClick = onSubmit,
-            enabled = !isSubmitting && selectedCount > 0,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            if (isSubmitting) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                )
-            } else {
-                Text("Submit Selected ($selectedCount)")
             }
         }
     }
@@ -137,6 +124,9 @@ fun StaleIssuesSection(
     issues: List<FeedbackIssue>,
     onSubmit: (FeedbackIssue) -> Unit,
 ) {
+    val activated = remember { mutableStateMapOf<String, Boolean>() }
+    val submittingTitle = remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -150,6 +140,10 @@ fun StaleIssuesSection(
             modifier = Modifier.alpha(0.6f),
         )
         issues.forEach { issue ->
+            val isActivated = activated[issue.title] == true
+            val isSubmitting = submittingTitle.value == issue.title
+            val contentAlpha = if (isActivated) 1f else 0.6f
+
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
@@ -162,7 +156,7 @@ fun StaleIssuesSection(
                         .padding(8.dp),
                     verticalAlignment = Alignment.Top,
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.weight(1f).alpha(contentAlpha)) {
                         Text(
                             text = issue.title,
                             color = MaterialTheme.colorScheme.onSurface,
@@ -182,11 +176,31 @@ fun StaleIssuesSection(
                         }
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    TextButton(
-                        onClick = { onSubmit(issue) },
-                        modifier = Modifier.height(32.dp),
-                    ) {
-                        Text("Submit", fontSize = 12.sp)
+                    if (isActivated) {
+                        TextButton(
+                            onClick = {
+                                submittingTitle.value = issue.title
+                                onSubmit(issue)
+                            },
+                            enabled = submittingTitle.value == null,
+                            modifier = Modifier.height(32.dp),
+                        ) {
+                            if (isSubmitting) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            } else {
+                                Text("Submit", fontSize = 12.sp)
+                            }
+                        }
+                    } else {
+                        TextButton(
+                            onClick = { activated[issue.title] = true },
+                            modifier = Modifier.height(32.dp),
+                        ) {
+                            Text("Re-send", fontSize = 12.sp)
+                        }
                     }
                 }
             }

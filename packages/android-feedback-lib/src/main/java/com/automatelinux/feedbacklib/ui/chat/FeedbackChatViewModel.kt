@@ -70,7 +70,6 @@ class FeedbackChatViewModel @Inject constructor(
                 error = null,
                 lastSendFailed = false,
                 proposedIssues = null,
-                checkedIssues = emptyList(),
                 submitResults = null,
                 showPostSubmitPrompt = false,
             )
@@ -98,7 +97,6 @@ class FeedbackChatViewModel @Inject constructor(
                         resumeSessionId = null,
                         priorIssue = null,
                         proposedIssues = data.issues,
-                        checkedIssues = data.issues?.map { true } ?: emptyList(),
                         hookWarning = data.hookWarning ?: it.hookWarning,
                         isSending = false,
                     )
@@ -163,7 +161,6 @@ class FeedbackChatViewModel @Inject constructor(
                         resumeSessionId = null,
                         priorIssue = null,
                         proposedIssues = data.issues,
-                        checkedIssues = data.issues?.map { true } ?: emptyList(),
                         hookWarning = data.hookWarning ?: it.hookWarning,
                         isSending = false,
                     )
@@ -179,46 +176,39 @@ class FeedbackChatViewModel @Inject constructor(
         }
     }
 
-    fun toggleIssueChecked(index: Int) {
-        _uiState.update {
-            val mutable = it.checkedIssues.toMutableList()
-            if (index in mutable.indices) mutable[index] = !mutable[index]
-            it.copy(checkedIssues = mutable)
-        }
-    }
-
-    fun submitSelectedIssues() {
+    fun submitOneIssue(index: Int) {
         val state = _uiState.value
         val issues = state.proposedIssues ?: return
-        val selected = issues.filterIndexed { i, _ -> state.checkedIssues.getOrElse(i) { false } }
-        if (selected.isEmpty()) return
+        val issue = issues.getOrNull(index) ?: return
+        if (state.submittingIndex != null) return
 
-        _uiState.update { it.copy(isSubmitting = true, error = null) }
+        _uiState.update { it.copy(submittingIndex = index, error = null) }
 
         val screenContext = feedbackRepository.getScreenContext()
 
         viewModelScope.launch {
             feedbackRepository.submitIssues(
-                selected,
+                listOf(issue),
                 state.sessionId,
                 pagePath = screenContext,
                 pageContext = screenContext,
             )
                 .onSuccess { data ->
                     _uiState.update {
+                        val remaining = it.proposedIssues?.toMutableList()
+                        remaining?.removeAt(index)
                         it.copy(
-                            submitResults = data.results,
-                            proposedIssues = null,
-                            checkedIssues = emptyList(),
-                            isSubmitting = false,
-                            showPostSubmitPrompt = true,
+                            submitResults = (it.submitResults ?: emptyList()) + data.results,
+                            proposedIssues = remaining?.ifEmpty { null },
+                            submittingIndex = null,
+                            showPostSubmitPrompt = remaining.isNullOrEmpty(),
                         )
                     }
                     persistSession()
                 }
                 .onFailure { e ->
                     _uiState.update {
-                        it.copy(error = e.message ?: "Failed to submit issues", isSubmitting = false)
+                        it.copy(error = e.message ?: "Failed to submit issue", submittingIndex = null)
                     }
                 }
         }
