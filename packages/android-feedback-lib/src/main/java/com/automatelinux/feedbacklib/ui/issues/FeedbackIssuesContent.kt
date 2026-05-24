@@ -525,7 +525,50 @@ fun UpdateDetailsSheet(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
+
+            val summaryParts = buildString {
+                append(versionName.replace(Regex("\\s*\\([^)]+\\)"), ""))
+                val commit = state.installedCommit
+                if (!commit.isNullOrEmpty()) append(" (${commit.take(7)})")
+                if (state.flVersion != null) append(" FL${state.flVersion}")
+            }
+            val updateBadge = when {
+                state.needsBuild -> {
+                    val parts = mutableListOf<String>()
+                    if (state.newVersion != null) parts += "v${state.newVersion}"
+                    if (state.newFlVersion != null) parts += "FL${state.newFlVersion}"
+                    if (parts.isNotEmpty()) "build → ${parts.joinToString(" · ")}" else "build needed"
+                }
+                state.hasUpdate -> if (state.newVersion != null) "update → v${state.newVersion}" else "update available"
+                else -> null
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 16.dp),
+            ) {
+                Text(
+                    text = summaryParts,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                )
+                if (updateBadge != null) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    val badgeColor = if (state.needsBuild) Color(0xFF4CAF50) else MaterialTheme.colorScheme.primary
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(badgeColor.copy(alpha = 0.12f))
+                            .padding(horizontal = 6.dp, vertical = 1.dp),
+                    ) {
+                        Text(
+                            text = updateBadge,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = badgeColor,
+                            fontSize = 9.sp,
+                        )
+                    }
+                }
+            }
 
             // Installed version
             VersionRow(
