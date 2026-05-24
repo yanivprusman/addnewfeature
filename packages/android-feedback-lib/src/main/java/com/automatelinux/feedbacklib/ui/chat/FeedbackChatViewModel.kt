@@ -575,6 +575,9 @@ class FeedbackChatViewModel @Inject constructor(
                     currentStorageId = _currentStorageId,
                 )
             }
+            if (restoredIssues == null) {
+                fetchProposedIssuesFromServer(persisted.sessionId)
+            }
             return
         }
 
@@ -607,6 +610,20 @@ class FeedbackChatViewModel @Inject constructor(
                 }
                 persistSession()
             }
+        }
+    }
+
+    private fun fetchProposedIssuesFromServer(sessionId: String) {
+        viewModelScope.launch {
+            feedbackRepository.getSessionHistory(sessionId)
+                .onSuccess { data ->
+                    if (data.found && data.messages.isNotEmpty()) {
+                        val last = data.messages.last()
+                        if (last.role == "assistant" && !last.staleIssues.isNullOrEmpty()) {
+                            _uiState.update { it.copy(proposedIssues = last.staleIssues) }
+                        }
+                    }
+                }
         }
     }
 
