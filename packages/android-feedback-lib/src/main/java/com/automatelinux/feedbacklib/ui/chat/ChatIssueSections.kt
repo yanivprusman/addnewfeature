@@ -125,6 +125,7 @@ fun StaleIssuesSection(
     onSubmit: (FeedbackIssue) -> Unit,
 ) {
     val activated = remember { mutableStateMapOf<String, Boolean>() }
+    val expanded = remember { mutableStateMapOf<String, Boolean>() }
     val submittingTitle = remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
 
     Column(
@@ -142,6 +143,7 @@ fun StaleIssuesSection(
         issues.forEach { issue ->
             val isActivated = activated[issue.title] == true
             val isSubmitting = submittingTitle.value == issue.title
+            val isExpanded = expanded[issue.title] == true
             val contentAlpha = if (isActivated) 1f else 0.6f
 
             Card(
@@ -149,11 +151,13 @@ fun StaleIssuesSection(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                 ),
                 shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.clickable { expanded[issue.title] = !isExpanded },
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(8.dp),
+                        .padding(8.dp)
+                        .animateContentSize(),
                     verticalAlignment = Alignment.Top,
                 ) {
                     Column(modifier = Modifier.weight(1f).alpha(contentAlpha)) {
@@ -165,14 +169,23 @@ fun StaleIssuesSection(
                         )
                         if (issue.description.isNotBlank()) {
                             Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = issue.description,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                fontSize = 11.sp,
-                            )
+                            if (isExpanded) {
+                                Text(
+                                    text = issue.description,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontSize = 11.sp,
+                                )
+                            } else {
+                                Text(
+                                    text = issue.description,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    fontSize = 11.sp,
+                                )
+                            }
                         }
                     }
                     Spacer(modifier = Modifier.width(8.dp))
