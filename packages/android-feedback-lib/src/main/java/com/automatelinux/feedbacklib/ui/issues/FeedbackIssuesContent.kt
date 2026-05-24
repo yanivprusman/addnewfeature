@@ -601,21 +601,30 @@ fun UpdateDetailsSheet(
             )
 
             if (state.installedFlCommit != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                val flDiffers = state.serverFlCommit != null && state.serverFlCommit != state.installedFlCommit
-                val flDot = when {
-                    state.flNeedsBuild -> amber
-                    flDiffers -> green
-                    else -> null
-                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Feedback Lib",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                )
+                Spacer(modifier = Modifier.height(6.dp))
                 VersionRow(
-                    label = "Feedback Lib",
+                    label = "Installed",
                     version = if (state.flVersion != null) "FL${state.flVersion}" else null,
                     commit = state.installedFlCommit,
                     color = defaultColor,
-                    statusDot = flDot,
-                    statusText = if (flDiffers && state.newFlVersion != null) "→ FL${state.newFlVersion}" else null,
                 )
+                if (state.serverFlCommit != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val flDiffers = state.serverFlCommit != state.installedFlCommit
+                    VersionRow(
+                        label = "Latest",
+                        version = if (state.newFlVersion != null) "FL${state.newFlVersion}" else if (state.flVersion != null) "FL${state.flVersion}" else null,
+                        commit = state.serverFlCommit,
+                        color = defaultColor,
+                        statusDot = if (flDiffers) amber else null,
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(20.dp))
