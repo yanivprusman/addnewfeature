@@ -696,7 +696,7 @@ fun UpdateDetailsSheet(
                 )
             }
 
-            if (state.needsBuild && !state.buildLoading && !state.installLoading) {
+            if ((state.needsBuild || state.flNeedsBuild) && !state.buildLoading && !state.installLoading) {
                 Spacer(modifier = Modifier.height(20.dp))
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(16.dp))
