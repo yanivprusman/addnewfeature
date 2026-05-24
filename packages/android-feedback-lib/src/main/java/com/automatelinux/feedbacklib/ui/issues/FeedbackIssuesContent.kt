@@ -141,7 +141,7 @@ fun FeedbackIssuesScreen(
                                     },
                                     style = MaterialTheme.typography.bodySmall,
                                 )
-                                if (state.needsBuild || state.buildLoading) {
+                                if (state.needsBuild || state.flNeedsBuild || state.buildLoading) {
                                     val green = Color(0xFF4CAF50)
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Box(
