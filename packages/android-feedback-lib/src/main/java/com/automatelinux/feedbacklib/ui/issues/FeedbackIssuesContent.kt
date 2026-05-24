@@ -251,6 +251,49 @@ fun FeedbackIssuesScreen(
                             }
                         }
                     }
+                    val hasInProgress = state.issues.any { it.status == "in_progress" }
+                    if (hasInProgress || state.autoInstallEnabled) {
+                        val blue = Color(0xFF42A5F5)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(
+                                    if (state.autoInstallEnabled) blue.copy(alpha = 0.15f)
+                                    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                )
+                                .clickable(enabled = !state.buildLoading && !state.installLoading) {
+                                    viewModel.toggleAutoInstall()
+                                }
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (state.autoInstallEnabled) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(10.dp),
+                                        strokeWidth = 1.5.dp,
+                                        color = blue,
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    val remaining = state.autoInstallTrackedIds.count { id ->
+                                        state.issues.any { it.issueNumber == id && it.status == "in_progress" }
+                                    }
+                                    Text(
+                                        text = "Auto ($remaining)",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = blue,
+                                        fontSize = 11.sp,
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Auto",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 11.sp,
+                                    )
+                                }
+                            }
+                        }
+                    }
                     IconButton(onClick = viewModel::refresh) {
                         Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
                     }

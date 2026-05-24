@@ -54,6 +54,8 @@ data class FeedbackIssuesUiState(
     val successMessage: String? = null,
     val batchFixTarget: BatchFixTarget? = null,
     val restartPending: Boolean = false,
+    val autoInstallEnabled: Boolean = false,
+    val autoInstallTrackedIds: Set<Int> = emptySet(),
 )
 
 @HiltViewModel
@@ -77,6 +79,7 @@ class FeedbackIssuesViewModel @Inject constructor(
         viewModelScope.launch {
             fetchIssues(initial = true)
             checkVersions()
+            restoreAutoInstall()
         }
     }
 
@@ -499,6 +502,79 @@ class FeedbackIssuesViewModel @Inject constructor(
 
     fun dismissSuccess() {
         _uiState.update { it.copy(successMessage = null) }
+    }
+
+    private var autoInstallJob: kotlinx.coroutines.Job? = null
+
+    private fun restoreAutoInstall() {
+        val tracked = sessionStore.getAutoInstallTracked()
+        if (tracked.isNotEmpty()) {
+            _uiState.update { it.copy(autoInstallEnabled = true, autoInstallTrackedIds = tracked) }
+            startAutoInstallPolling(tracked)
+        }
+    }
+
+    fun toggleAutoInstall() {
+        val state = _uiState.value
+        if (state.autoInstallEnabled) {
+            disableAutoInstall()
+            return
+        }
+        val inProgressIds = state.issues
+            .filter { it.status == "in_progress" }
+            .map { it.issueNumber }
+            .toSet()
+        if (inProgressIds.isEmpty()) {
+            _uiState.update { it.copy(error = "No in-progress issues to track") }
+            return
+        }
+        sessionStore.setAutoInstallTracked(inProgressIds)
+        _uiState.update { it.copy(autoInstallEnabled = true, autoInstallTrackedIds = inProgressIds) }
+        startAutoInstallPolling(inProgressIds)
+    }
+
+    private fun disableAutoInstall() {
+        autoInstallJob?.cancel()
+        autoInstallJob = null
+        sessionStore.clearAutoInstallTracked()
+        _uiState.update { it.copy(autoInstallEnabled = false, autoInstallTrackedIds = emptySet()) }
+    }
+
+    private fun startAutoInstallPolling(trackedIds: Set<Int>) {
+        autoInstallJob?.cancel()
+        autoInstallJob = viewModelScope.launch {
+            while (true) {
+                delay(5000)
+                feedbackRepository.listIssues()
+                    .onSuccess { all ->
+                        val filtered = all.filter { it.labels.contains("user-reported") }
+                        val sorted = filtered.sortedWith(
+                            compareBy<Issue> { it.status == "closed" }
+                                .thenByDescending {
+                                    if (it.status == "closed") it.updatedAt else it.createdAt
+                                },
+                        )
+                        _uiState.update { it.copy(issues = sorted) }
+
+                        val tracked = filtered.filter { trackedIds.contains(it.issueNumber) }
+                        if (tracked.isEmpty()) {
+                            disableAutoInstall()
+                            return@launch
+                        }
+                        if (tracked.any { it.status == "regression" }) {
+                            disableAutoInstall()
+                            _uiState.update { it.copy(error = "Auto-install cancelled — regression detected") }
+                            return@launch
+                        }
+                        if (tracked.all { it.status == "review" || it.status == "closed" }) {
+                            disableAutoInstall()
+                            _uiState.update { it.copy(successMessage = "All fixes ready — building & installing…") }
+                            buildAndInstall()
+                            return@launch
+                        }
+                    }
+            }
+        }
     }
 }
 

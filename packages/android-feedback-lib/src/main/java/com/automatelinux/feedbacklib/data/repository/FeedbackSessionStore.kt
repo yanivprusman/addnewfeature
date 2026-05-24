@@ -155,4 +155,20 @@ class FeedbackSessionStore @Inject constructor(
     fun clearBuiltFlCommit() {
         prefs.edit().remove("built_fl_commit_${config.appName}").apply()
     }
+
+    fun setAutoInstallTracked(issueNumbers: Set<Int>) {
+        prefs.edit().putStringSet(
+            "auto_install_tracked_${config.appName}",
+            issueNumbers.map { it.toString() }.toSet(),
+        ).apply()
+    }
+
+    fun getAutoInstallTracked(): Set<Int> {
+        return prefs.getStringSet("auto_install_tracked_${config.appName}", null)
+            ?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet()
+    }
+
+    fun clearAutoInstallTracked() {
+        prefs.edit().remove("auto_install_tracked_${config.appName}").apply()
+    }
 }
