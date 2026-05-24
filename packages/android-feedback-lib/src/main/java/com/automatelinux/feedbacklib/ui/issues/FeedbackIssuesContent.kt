@@ -140,6 +140,7 @@ fun FeedbackIssuesScreen(
                                         }
                                     },
                                     style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.clickable { viewModel.showUpdateDetails() },
                                 )
                                 if (state.needsBuild || state.flNeedsBuild || state.buildLoading) {
                                     val green = Color(0xFF4CAF50)
