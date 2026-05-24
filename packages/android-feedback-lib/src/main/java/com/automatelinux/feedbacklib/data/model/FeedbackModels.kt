@@ -205,6 +205,7 @@ data class FeedbackLibVersionResponse(
 data class SessionHistoryMessage(
     val role: String,
     val text: String,
+    val staleIssues: List<FeedbackIssue>? = null,
 )
 
 data class SessionHistoryResponse(

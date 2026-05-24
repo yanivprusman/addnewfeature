@@ -3,8 +3,10 @@ package com.automatelinux.feedbacklib.ui.chat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.automatelinux.feedbacklib.FeedbackConfig
+import com.automatelinux.feedbacklib.data.model.FeedbackIssue
 import com.automatelinux.feedbacklib.data.model.Issue
 import com.automatelinux.feedbacklib.data.model.PriorIssueContext
+import com.automatelinux.feedbacklib.data.model.SessionHistoryMessage
 import com.automatelinux.feedbacklib.data.repository.FeedbackRepository
 import com.automatelinux.feedbacklib.data.repository.FeedbackSessionStore
 import com.automatelinux.feedbacklib.data.repository.PersistedMessage
@@ -272,8 +274,8 @@ class FeedbackChatViewModel @Inject constructor(
             feedbackRepository.getSessionHistory(sid)
                 .onSuccess { data ->
                     if (data.found && data.messages.isNotEmpty()) {
-                        val msgs = data.messages.map { m -> ChatMessage(m.role, m.text) }
-                        _uiState.update { it.copy(messages = msgs, restoringSession = false) }
+                        val (msgs, issues) = extractMessagesAndProposedIssues(data.messages)
+                        _uiState.update { it.copy(messages = msgs, proposedIssues = issues, restoringSession = false) }
                         persistSession()
                     } else {
                         _uiState.update { it.copy(restoringSession = false) }
@@ -334,9 +336,11 @@ class FeedbackChatViewModel @Inject constructor(
             feedbackRepository.getSessionHistory(clarifierSessionId)
                 .onSuccess { data ->
                     if (data.found && data.messages.isNotEmpty()) {
+                        val (msgs, issues) = extractMessagesAndProposedIssues(data.messages)
                         _uiState.update {
                             it.copy(
-                                messages = data.messages.map { m -> ChatMessage(m.role, m.text) },
+                                messages = msgs,
+                                proposedIssues = issues,
                                 restoringSession = false,
                             )
                         }
@@ -502,7 +506,6 @@ class FeedbackChatViewModel @Inject constructor(
             inputText = state.inputText.ifBlank { null },
             directTitle = state.directTitle.ifBlank { null },
             directDescription = state.directDescription.ifBlank { null },
-            proposedIssues = state.proposedIssues?.ifEmpty { null },
         ))
         updateSessionIndex(storageId, state)
         sessionStore.setActiveSessionId(storageId)
@@ -523,7 +526,6 @@ class FeedbackChatViewModel @Inject constructor(
             inputText = state.inputText.ifBlank { null },
             directTitle = state.directTitle.ifBlank { null },
             directDescription = state.directDescription.ifBlank { null },
-            proposedIssues = state.proposedIssues?.ifEmpty { null },
         ))
         updateSessionIndex(storageId, state)
         sessionStore.setActiveSessionId(storageId)
@@ -543,11 +545,11 @@ class FeedbackChatViewModel @Inject constructor(
     }
 
     private fun restoreFromPersisted(persisted: PersistedSession) {
-        val restoredMessages = persisted.messages.map { m -> ChatMessage(m.role, m.text, m.staleIssues) }
+        val allMessages = persisted.messages.map { m -> ChatMessage(m.role, m.text, m.staleIssues) }
+        val (restoredMessages, restoredIssues) = extractProposedIssuesFromChat(allMessages)
         val restoredInput = persisted.inputText ?: ""
         val restoredDirectTitle = persisted.directTitle ?: ""
         val restoredDirectDesc = persisted.directDescription ?: ""
-        val restoredIssues = persisted.proposedIssues
 
         if (persisted.sessionId == PENDING_SESSION_SENTINEL) {
             _uiState.update { it.copy(
@@ -653,6 +655,35 @@ class FeedbackChatViewModel @Inject constructor(
                 .replace(jsonBlockRegex, "")
                 .replace(rawJsonArrayRegex, "")
                 .trim()
+        }
+
+        fun extractMessagesAndProposedIssues(
+            history: List<SessionHistoryMessage>,
+        ): Pair<List<ChatMessage>, List<FeedbackIssue>?> {
+            if (history.isEmpty()) return Pair(emptyList(), null)
+            val last = history.last()
+            val proposedIssues = if (last.role == "assistant") last.staleIssues?.ifEmpty { null } else null
+            val msgs = if (proposedIssues != null) {
+                history.dropLast(1).map { ChatMessage(it.role, it.text, it.staleIssues) } +
+                    ChatMessage(last.role, last.text)
+            } else {
+                history.map { ChatMessage(it.role, it.text, it.staleIssues) }
+            }
+            return Pair(msgs, proposedIssues)
+        }
+
+        fun extractProposedIssuesFromChat(
+            messages: List<ChatMessage>,
+        ): Pair<List<ChatMessage>, List<FeedbackIssue>?> {
+            if (messages.isEmpty()) return Pair(emptyList(), null)
+            val last = messages.last()
+            val proposedIssues = if (last.role == "assistant") last.staleIssues?.ifEmpty { null } else null
+            val msgs = if (proposedIssues != null) {
+                messages.dropLast(1) + last.copy(staleIssues = null)
+            } else {
+                messages
+            }
+            return Pair(msgs, proposedIssues)
         }
     }
 }
