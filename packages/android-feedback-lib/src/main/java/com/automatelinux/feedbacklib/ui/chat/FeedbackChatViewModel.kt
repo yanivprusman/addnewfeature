@@ -617,11 +617,22 @@ class FeedbackChatViewModel @Inject constructor(
         viewModelScope.launch {
             feedbackRepository.getSessionHistory(sessionId)
                 .onSuccess { data ->
-                    if (data.found && data.messages.isNotEmpty()) {
-                        val last = data.messages.last()
-                        if (last.role == "assistant" && !last.staleIssues.isNullOrEmpty()) {
-                            _uiState.update { it.copy(proposedIssues = last.staleIssues) }
+                    if (!data.found || data.messages.isEmpty()) return@onSuccess
+                    val (serverMsgs, proposedIssues) = extractMessagesAndProposedIssues(data.messages)
+                    val staleByText = serverMsgs
+                        .filter { it.role == "assistant" && !it.staleIssues.isNullOrEmpty() }
+                        .associateBy({ it.text.take(80) }, { it.staleIssues!! })
+                    _uiState.update { state ->
+                        val enriched = state.messages.map { local ->
+                            if (local.role == "assistant" && local.staleIssues == null) {
+                                val match = staleByText[local.text.take(80)]
+                                if (match != null) local.copy(staleIssues = match) else local
+                            } else local
                         }
+                        state.copy(
+                            messages = enriched,
+                            proposedIssues = proposedIssues ?: state.proposedIssues,
+                        )
                     }
                 }
         }
