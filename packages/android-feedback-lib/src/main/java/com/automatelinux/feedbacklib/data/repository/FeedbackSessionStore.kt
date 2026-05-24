@@ -21,6 +21,7 @@ data class PersistedSession(
     val inputText: String? = null,
     val directTitle: String? = null,
     val directDescription: String? = null,
+    val proposedIssues: List<com.automatelinux.feedbacklib.data.model.FeedbackIssue>? = null,
 )
 
 data class SessionSummary(

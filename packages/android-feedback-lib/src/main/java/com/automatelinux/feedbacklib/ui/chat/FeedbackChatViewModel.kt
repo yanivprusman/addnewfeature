@@ -502,6 +502,7 @@ class FeedbackChatViewModel @Inject constructor(
             inputText = state.inputText.ifBlank { null },
             directTitle = state.directTitle.ifBlank { null },
             directDescription = state.directDescription.ifBlank { null },
+            proposedIssues = state.proposedIssues?.ifEmpty { null },
         ))
         updateSessionIndex(storageId, state)
         sessionStore.setActiveSessionId(storageId)
@@ -522,6 +523,7 @@ class FeedbackChatViewModel @Inject constructor(
             inputText = state.inputText.ifBlank { null },
             directTitle = state.directTitle.ifBlank { null },
             directDescription = state.directDescription.ifBlank { null },
+            proposedIssues = state.proposedIssues?.ifEmpty { null },
         ))
         updateSessionIndex(storageId, state)
         sessionStore.setActiveSessionId(storageId)
@@ -545,6 +547,7 @@ class FeedbackChatViewModel @Inject constructor(
         val restoredInput = persisted.inputText ?: ""
         val restoredDirectTitle = persisted.directTitle ?: ""
         val restoredDirectDesc = persisted.directDescription ?: ""
+        val restoredIssues = persisted.proposedIssues
 
         if (persisted.sessionId == PENDING_SESSION_SENTINEL) {
             _uiState.update { it.copy(
@@ -552,6 +555,7 @@ class FeedbackChatViewModel @Inject constructor(
                 inputText = restoredInput,
                 directTitle = restoredDirectTitle,
                 directDescription = restoredDirectDesc,
+                proposedIssues = restoredIssues,
                 currentStorageId = _currentStorageId,
             ) }
             return
@@ -565,6 +569,7 @@ class FeedbackChatViewModel @Inject constructor(
                     inputText = restoredInput,
                     directTitle = restoredDirectTitle,
                     directDescription = restoredDirectDesc,
+                    proposedIssues = restoredIssues,
                     currentStorageId = _currentStorageId,
                 )
             }
@@ -579,6 +584,7 @@ class FeedbackChatViewModel @Inject constructor(
                 inputText = restoredInput,
                 directTitle = restoredDirectTitle,
                 directDescription = restoredDirectDesc,
+                proposedIssues = restoredIssues,
                 restoringSession = true,
                 currentStorageId = _currentStorageId,
             )
