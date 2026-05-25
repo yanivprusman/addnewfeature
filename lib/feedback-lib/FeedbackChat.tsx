@@ -883,6 +883,20 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
                 <span className={`absolute inset-0 ${loading ? 'bg-amber-400' : 'bg-green-400'} rounded-full`} />
               </span>
               {loading ? labels.thinking : labels.sessionActive}
+              {(sessionId || resumeId) && (
+                <button
+                  data-id="copy-session-id"
+                  className="ml-1 font-mono opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
+                  title={sessionId || resumeId || ''}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(sessionId || resumeId || '');
+                    const el = e.currentTarget;
+                    el.textContent = '✓';
+                    setTimeout(() => { el.textContent = (sessionId || resumeId || '').slice(0, 8); }, 1000);
+                  }}
+                >{(sessionId || resumeId || '').slice(0, 8)}</button>
+              )}
             </span>
           )}
         </div>
