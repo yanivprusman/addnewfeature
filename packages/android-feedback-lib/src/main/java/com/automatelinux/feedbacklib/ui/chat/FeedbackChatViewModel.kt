@@ -295,7 +295,7 @@ class FeedbackChatViewModel @Inject constructor(
     private suspend fun resumeDeadSession(sid: String) {
         val screenContext = feedbackRepository.getScreenContext()
         feedbackRepository.sendMessage(
-            message = "(session resumed)",
+            message = "The user clicked refresh to resume this session. Briefly acknowledge the prior conversation context and ask if they want to continue or start a new topic.",
             resumeSessionId = sid,
             pagePath = screenContext,
             pageContext = screenContext,

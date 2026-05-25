@@ -122,7 +122,7 @@ fun FeedbackChatScreen(
                                 )
                                 Text(
                                     " ${sid.take(8)}",
-                                    color = (if (isActive) Color(0xFF4CAF50) else Color(0xFFFFA726)).copy(alpha = 0.6f),
+                                    color = if (isActive) Color(0xFF4CAF50) else Color(0xFFFFA726),
                                     style = MaterialTheme.typography.bodySmall,
                                     fontFamily = FontFamily.Monospace,
                                     modifier = Modifier.clickable {
