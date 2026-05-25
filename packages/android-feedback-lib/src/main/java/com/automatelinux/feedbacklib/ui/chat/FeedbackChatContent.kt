@@ -111,26 +111,25 @@ fun FeedbackChatScreen(
                 title = {
                     Column {
                         Text(if (state.directMode) "New Issue" else title)
-                        if (!state.directMode && state.sessionId != null) {
+                        val sid = state.sessionId ?: state.resumeSessionId
+                        if (!state.directMode && sid != null) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
+                                val isActive = state.sessionId != null
                                 Text(
-                                    "Session active",
-                                    color = Color(0xFF4CAF50),
+                                    if (isActive) "Session active" else "Session paused",
+                                    color = if (isActive) Color(0xFF4CAF50) else Color(0xFFFFA726),
                                     style = MaterialTheme.typography.bodySmall,
                                 )
-                                val sid = state.sessionId ?: state.resumeSessionId
-                                if (sid != null) {
-                                    Text(
-                                        " ${sid.take(8)}",
-                                        color = Color(0xFF4CAF50).copy(alpha = 0.6f),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontFamily = FontFamily.Monospace,
-                                        modifier = Modifier.clickable {
-                                            clipboardManager.setText(AnnotatedString(sid))
-                                            Toast.makeText(context, "Session ID copied", Toast.LENGTH_SHORT).show()
-                                        },
-                                    )
-                                }
+                                Text(
+                                    " ${sid.take(8)}",
+                                    color = (if (isActive) Color(0xFF4CAF50) else Color(0xFFFFA726)).copy(alpha = 0.6f),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.clickable {
+                                        clipboardManager.setText(AnnotatedString(sid))
+                                        Toast.makeText(context, "Session ID copied", Toast.LENGTH_SHORT).show()
+                                    },
+                                )
                             }
                         }
                     }
