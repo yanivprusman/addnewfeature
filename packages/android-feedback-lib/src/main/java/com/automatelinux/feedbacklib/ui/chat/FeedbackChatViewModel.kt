@@ -277,32 +277,50 @@ class FeedbackChatViewModel @Inject constructor(
                 .onSuccess { data ->
                     if (data.found && data.messages.isNotEmpty()) {
                         val (msgs, issues) = extractMessagesAndProposedIssues(data.messages)
-                        _uiState.update { it.copy(
-                            messages = msgs,
-                            proposedIssues = issues,
-                            resumeSessionId = sid,
-                            restoringSession = false,
-                        ) }
+                        _uiState.update { it.copy(messages = msgs, proposedIssues = issues) }
                         persistSession()
-                    } else {
-                        _uiState.update { it.copy(restoringSession = false) }
                     }
                 }
-                .onFailure { e ->
-                    _uiState.update { it.copy(restoringSession = false, error = e.message ?: "Refresh failed") }
-                }
             val tmux = state.tmuxSession ?: sessionStore.load()?.tmuxSession
-            if (tmux != null) {
-                val alive = feedbackRepository.checkSessionAlive(tmux)
-                if (alive) {
-                    _uiState.update { it.copy(sessionId = sid, tmuxSession = tmux) }
-                    startHealthCheck(tmux)
-                } else {
-                    _uiState.update { it.copy(resumeSessionId = sid, sessionId = null, tmuxSession = null) }
-                }
-            } else if (state.sessionId == null) {
-                _uiState.update { it.copy(resumeSessionId = sid) }
+            val alive = tmux != null && feedbackRepository.checkSessionAlive(tmux)
+            if (alive) {
+                _uiState.update { it.copy(sessionId = sid, tmuxSession = tmux, restoringSession = false) }
+                startHealthCheck(tmux!!)
+            } else {
+                resumeDeadSession(sid)
             }
+        }
+    }
+
+    private suspend fun resumeDeadSession(sid: String) {
+        val screenContext = feedbackRepository.getScreenContext()
+        feedbackRepository.sendMessage(
+            message = "(session resumed)",
+            resumeSessionId = sid,
+            pagePath = screenContext,
+            pageContext = screenContext,
+        ).onSuccess { data ->
+            val displayText = stripJsonBlocks(data.response)
+            _uiState.update {
+                it.copy(
+                    messages = it.messages + ChatMessage("assistant", displayText),
+                    sessionId = data.sessionId,
+                    tmuxSession = data.tmuxSession,
+                    resumeSessionId = null,
+                    proposedIssues = data.issues,
+                    restoringSession = false,
+                )
+            }
+            persistSession()
+            startHealthCheck(data.tmuxSession)
+        }.onFailure { e ->
+            _uiState.update { it.copy(
+                resumeSessionId = sid,
+                sessionId = null,
+                tmuxSession = null,
+                restoringSession = false,
+                error = e.message ?: "Resume failed",
+            ) }
         }
     }
 
