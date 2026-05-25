@@ -1,5 +1,6 @@
 package com.automatelinux.feedbacklib.ui.chat
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -49,6 +50,10 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -72,6 +77,8 @@ fun FeedbackChatScreen(
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
     val title = config?.title ?: "Issue Clarifier"
     val greeting = config?.greeting ?: "Hi! Describe your issue or idea and I'll help you create a clear report."
     val placeholder = config?.inputPlaceholder ?: "Describe your issue or idea..."
@@ -105,11 +112,26 @@ fun FeedbackChatScreen(
                     Column {
                         Text(if (state.directMode) "New Issue" else title)
                         if (!state.directMode && state.sessionId != null) {
-                            Text(
-                                "Session active",
-                                color = Color(0xFF4CAF50),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "Session active",
+                                    color = Color(0xFF4CAF50),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                val sid = state.sessionId ?: state.resumeSessionId
+                                if (sid != null) {
+                                    Text(
+                                        " ${sid.take(8)}",
+                                        color = Color(0xFF4CAF50).copy(alpha = 0.6f),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontFamily = FontFamily.Monospace,
+                                        modifier = Modifier.clickable {
+                                            clipboardManager.setText(AnnotatedString(sid))
+                                            Toast.makeText(context, "Session ID copied", Toast.LENGTH_SHORT).show()
+                                        },
+                                    )
+                                }
+                            }
                         }
                     }
                 },
