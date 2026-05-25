@@ -112,11 +112,9 @@ fun FeedbackChatScreen(
                         Text(if (state.directMode) "New Issue" else title)
                         val sid = state.sessionId ?: state.resumeSessionId
                         if (!state.directMode && sid != null) {
-                            val isActive = state.sessionId != null
-                            val label = if (isActive) "Active" else "Paused"
                             Text(
-                                "$label · ${sid.take(8)}",
-                                color = if (isActive) Color(0xFF4CAF50) else Color(0xFFFFA726),
+                                sid.take(8),
+                                color = if (state.sessionId != null) Color(0xFF4CAF50) else Color(0xFFFFA726),
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.clickable {
                                     clipboardManager.setText(AnnotatedString(sid))
