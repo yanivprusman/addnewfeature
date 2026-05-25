@@ -263,7 +263,9 @@ class FeedbackChatViewModel @Inject constructor(
 
     fun refreshSession() {
         val state = _uiState.value
-        val sid = state.sessionId ?: sessionStore.load()?.sessionId?.takeIf { it != PENDING_SESSION_SENTINEL }
+        val sid = state.sessionId
+            ?: state.resumeSessionId
+            ?: sessionStore.load()?.sessionId?.takeIf { it != PENDING_SESSION_SENTINEL }
         if (sid == null) {
             _uiState.update { it.copy(error = "No session to refresh") }
             return
@@ -275,7 +277,12 @@ class FeedbackChatViewModel @Inject constructor(
                 .onSuccess { data ->
                     if (data.found && data.messages.isNotEmpty()) {
                         val (msgs, issues) = extractMessagesAndProposedIssues(data.messages)
-                        _uiState.update { it.copy(messages = msgs, proposedIssues = issues, restoringSession = false) }
+                        _uiState.update { it.copy(
+                            messages = msgs,
+                            proposedIssues = issues,
+                            resumeSessionId = sid,
+                            restoringSession = false,
+                        ) }
                         persistSession()
                     } else {
                         _uiState.update { it.copy(restoringSession = false) }
@@ -293,6 +300,8 @@ class FeedbackChatViewModel @Inject constructor(
                 } else {
                     _uiState.update { it.copy(resumeSessionId = sid, sessionId = null, tmuxSession = null) }
                 }
+            } else if (state.sessionId == null) {
+                _uiState.update { it.copy(resumeSessionId = sid) }
             }
         }
     }
