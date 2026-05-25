@@ -53,7 +53,6 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -113,24 +112,17 @@ fun FeedbackChatScreen(
                         Text(if (state.directMode) "New Issue" else title)
                         val sid = state.sessionId ?: state.resumeSessionId
                         if (!state.directMode && sid != null) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                val isActive = state.sessionId != null
-                                Text(
-                                    if (isActive) "Session active" else "Session paused",
-                                    color = if (isActive) Color(0xFF4CAF50) else Color(0xFFFFA726),
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                                Text(
-                                    " ${sid.take(8)}",
-                                    color = if (isActive) Color(0xFF4CAF50) else Color(0xFFFFA726),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontFamily = FontFamily.Monospace,
-                                    modifier = Modifier.clickable {
-                                        clipboardManager.setText(AnnotatedString(sid))
-                                        Toast.makeText(context, "Session ID copied", Toast.LENGTH_SHORT).show()
-                                    },
-                                )
-                            }
+                            val isActive = state.sessionId != null
+                            val label = if (isActive) "Active" else "Paused"
+                            Text(
+                                "$label · ${sid.take(8)}",
+                                color = if (isActive) Color(0xFF4CAF50) else Color(0xFFFFA726),
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.clickable {
+                                    clipboardManager.setText(AnnotatedString(sid))
+                                    Toast.makeText(context, "Session ID copied", Toast.LENGTH_SHORT).show()
+                                },
+                            )
                         }
                     }
                 },
