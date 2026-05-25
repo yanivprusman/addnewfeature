@@ -293,21 +293,15 @@ class FeedbackChatViewModel @Inject constructor(
     }
 
     private suspend fun resumeDeadSession(sid: String) {
-        val screenContext = feedbackRepository.getScreenContext()
         feedbackRepository.sendMessage(
-            message = "The user clicked refresh to resume this session. Briefly acknowledge the prior conversation context and ask if they want to continue or start a new topic.",
+            message = " ",
             resumeSessionId = sid,
-            pagePath = screenContext,
-            pageContext = screenContext,
         ).onSuccess { data ->
-            val displayText = stripJsonBlocks(data.response)
             _uiState.update {
                 it.copy(
-                    messages = it.messages + ChatMessage("assistant", displayText),
                     sessionId = data.sessionId,
                     tmuxSession = data.tmuxSession,
                     resumeSessionId = null,
-                    proposedIssues = data.issues,
                     restoringSession = false,
                 )
             }
