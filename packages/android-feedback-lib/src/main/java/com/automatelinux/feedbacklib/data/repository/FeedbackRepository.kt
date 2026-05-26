@@ -179,4 +179,6 @@ class FeedbackRepository @Inject constructor(
     suspend fun checkHealth(): Result<HealthResponse> = apiCall { api.getHealth() }
 
     suspend fun checkFeedbackLibVersion(): Result<FeedbackLibVersionResponse> = apiCall { api.getFeedbackLibVersion() }
+
+    suspend fun getCommitLog(from: String): Result<CommitLogResponse> = apiCall { api.getCommitLog(from) }
 }

@@ -150,7 +150,7 @@ fun FeedbackIssuesScreen(
                                             .clip(RoundedCornerShape(6.dp))
                                             .background(green.copy(alpha = 0.12f))
                                             .clickable(enabled = !state.buildLoading) {
-                                                viewModel.showUpdateDetails()
+                                                viewModel.showCommitLog()
                                             }
                                             .padding(horizontal = 6.dp, vertical = 1.dp),
                                     ) {
@@ -189,7 +189,7 @@ fun FeedbackIssuesScreen(
                                             .clip(RoundedCornerShape(6.dp))
                                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
                                             .clickable(enabled = !state.installLoading) {
-                                                viewModel.showUpdateDetails()
+                                                viewModel.showCommitLog()
                                             }
                                             .padding(horizontal = 6.dp, vertical = 1.dp),
                                     ) {
@@ -514,6 +514,15 @@ fun FeedbackIssuesScreen(
             onCleanBuild = { viewModel.cleanBuildApp() },
             onInstall = { viewModel.installFixedVersion(force = true) },
             onBuildAndInstall = { viewModel.buildAndInstall() },
+            onShowCommitLog = { viewModel.showCommitLog() },
+        )
+    }
+
+    if (state.showCommitLog) {
+        CommitLogDialog(
+            commits = state.commitLog,
+            loading = state.commitLogLoading,
+            onDismiss = { viewModel.dismissCommitLog() },
         )
     }
 }
@@ -528,6 +537,7 @@ fun UpdateDetailsSheet(
     onCleanBuild: () -> Unit,
     onInstall: () -> Unit,
     onBuildAndInstall: () -> Unit,
+    onShowCommitLog: () -> Unit = {},
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val green = Color(0xFF4CAF50)
@@ -602,6 +612,7 @@ fun UpdateDetailsSheet(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
                             .background(badgeColor.copy(alpha = 0.12f))
+                            .clickable { onShowCommitLog() }
                             .padding(horizontal = 6.dp, vertical = 1.dp),
                     ) {
                         Text(
@@ -799,6 +810,50 @@ private fun UpdateDetailsHelpDialog(onDismiss: () -> Unit) {
                     title = "Feedback Lib",
                     body = "The feedback widget bundled in the installed app. An amber dot means a newer version is available on the server.",
                 )
+            }
+        },
+    )
+}
+
+@Composable
+private fun CommitLogDialog(
+    commits: List<com.automatelinux.feedbacklib.data.model.CommitEntry>,
+    loading: Boolean,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        },
+        title = { Text("What's New") },
+        text = {
+            if (loading) {
+                Box(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                }
+            } else if (commits.isEmpty()) {
+                Text("No new commits found.", style = MaterialTheme.typography.bodyMedium)
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(commits) { entry ->
+                        Row {
+                            Text(
+                                text = entry.hash,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.width(56.dp),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = entry.message,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
             }
         },
     )

@@ -202,6 +202,15 @@ data class FeedbackLibVersionResponse(
     val feedbackLibVersion: Int? = null,
 )
 
+data class CommitEntry(
+    val hash: String,
+    val message: String,
+)
+
+data class CommitLogResponse(
+    val commits: List<CommitEntry> = emptyList(),
+)
+
 data class SessionHistoryMessage(
     val role: String,
     val text: String,

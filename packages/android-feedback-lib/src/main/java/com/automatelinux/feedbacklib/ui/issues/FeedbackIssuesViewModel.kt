@@ -2,6 +2,7 @@ package com.automatelinux.feedbacklib.ui.issues
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.automatelinux.feedbacklib.data.model.CommitEntry
 import com.automatelinux.feedbacklib.data.model.FixIssueItem
 import com.automatelinux.feedbacklib.data.model.Issue
 import com.automatelinux.feedbacklib.FeedbackConfig
@@ -56,6 +57,9 @@ data class FeedbackIssuesUiState(
     val restartPending: Boolean = false,
     val autoInstallEnabled: Boolean = false,
     val autoInstallTrackedIds: Set<Int> = emptySet(),
+    val commitLog: List<CommitEntry> = emptyList(),
+    val commitLogLoading: Boolean = false,
+    val showCommitLog: Boolean = false,
 )
 
 @HiltViewModel
@@ -502,6 +506,25 @@ class FeedbackIssuesViewModel @Inject constructor(
 
     fun dismissSuccess() {
         _uiState.update { it.copy(successMessage = null) }
+    }
+
+    fun showCommitLog() {
+        val state = _uiState.value
+        val from = state.installedCommit ?: return
+        _uiState.update { it.copy(showCommitLog = true, commitLogLoading = true) }
+        viewModelScope.launch {
+            feedbackRepository.getCommitLog(from)
+                .onSuccess { resp ->
+                    _uiState.update { it.copy(commitLog = resp.commits, commitLogLoading = false) }
+                }
+                .onFailure {
+                    _uiState.update { it.copy(commitLogLoading = false) }
+                }
+        }
+    }
+
+    fun dismissCommitLog() {
+        _uiState.update { it.copy(showCommitLog = false) }
     }
 
     private var autoInstallJob: kotlinx.coroutines.Job? = null
