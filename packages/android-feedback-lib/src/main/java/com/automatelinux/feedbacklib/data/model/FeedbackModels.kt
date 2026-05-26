@@ -197,18 +197,15 @@ data class HealthResponse(
     val apkVersion: Int? = null,
 )
 
-data class FeedbackLibVersionResponse(
-    val feedbackLibCommit: String? = null,
-    val feedbackLibVersion: Int? = null,
-)
-
 data class CommitEntry(
     val hash: String,
     val message: String,
 )
 
-data class CommitLogResponse(
-    val commits: List<CommitEntry> = emptyList(),
+data class FeedbackLibVersionResponse(
+    val feedbackLibCommit: String? = null,
+    val feedbackLibVersion: Int? = null,
+    val commits: List<CommitEntry>? = null,
 )
 
 data class SessionHistoryMessage(

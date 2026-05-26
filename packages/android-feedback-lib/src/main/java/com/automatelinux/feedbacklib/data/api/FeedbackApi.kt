@@ -84,11 +84,8 @@ interface FeedbackApi {
     @GET("api/health")
     suspend fun getHealth(): Response<HealthResponse>
 
-    @GET("api/feedback/commits")
-    suspend fun getCommitLog(
-        @Query("from") from: String,
-    ): Response<CommitLogResponse>
-
     @GET("api/feedback/version")
-    suspend fun getFeedbackLibVersion(): Response<FeedbackLibVersionResponse>
+    suspend fun getFeedbackLibVersion(
+        @Query("from") from: String? = null,
+    ): Response<FeedbackLibVersionResponse>
 }

@@ -515,7 +515,7 @@ class FeedbackIssuesViewModel @Inject constructor(
         viewModelScope.launch {
             feedbackRepository.getCommitLog(from)
                 .onSuccess { resp ->
-                    _uiState.update { it.copy(commitLog = resp.commits, commitLogLoading = false) }
+                    _uiState.update { it.copy(commitLog = resp.commits ?: emptyList(), commitLogLoading = false) }
                 }
                 .onFailure {
                     _uiState.update { it.copy(commitLogLoading = false) }
