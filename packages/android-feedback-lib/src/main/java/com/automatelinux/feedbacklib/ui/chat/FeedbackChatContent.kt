@@ -110,6 +110,15 @@ fun FeedbackChatScreen(
                 title = {
                     Column {
                         Text(if (state.directMode) "New Issue" else title)
+                        if (!state.directMode) {
+                            config?.appName?.let { name ->
+                                Text(
+                                    name,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                                )
+                            }
+                        }
                         val sid = state.sessionId ?: state.resumeSessionId
                         if (!state.directMode && sid != null) {
                             Text(

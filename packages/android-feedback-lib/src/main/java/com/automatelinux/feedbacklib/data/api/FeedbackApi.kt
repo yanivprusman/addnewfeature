@@ -82,7 +82,9 @@ interface FeedbackApi {
     ): Response<SessionHistoryResponse>
 
     @GET("api/health")
-    suspend fun getHealth(): Response<HealthResponse>
+    suspend fun getHealth(
+        @Query("app") app: String? = null,
+    ): Response<HealthResponse>
 
     @GET("api/feedback/version")
     suspend fun getFeedbackLibVersion(

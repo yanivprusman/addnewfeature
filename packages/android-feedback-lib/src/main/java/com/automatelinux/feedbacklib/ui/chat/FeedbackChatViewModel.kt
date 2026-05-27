@@ -263,11 +263,16 @@ class FeedbackChatViewModel @Inject constructor(
 
     fun refreshSession() {
         val state = _uiState.value
+        if (state.isSending) return
         val sid = state.sessionId
             ?: state.resumeSessionId
             ?: sessionStore.load()?.sessionId?.takeIf { it != PENDING_SESSION_SENTINEL }
         if (sid == null) {
-            _uiState.update { it.copy(error = "No session to refresh") }
+            if (state.lastSendFailed) {
+                retryLastMessage()
+            } else {
+                _uiState.update { it.copy(error = "No session to refresh") }
+            }
             return
         }
 

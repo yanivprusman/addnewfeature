@@ -176,7 +176,7 @@ class FeedbackRepository @Inject constructor(
         api.getSessionHistory(sessionId)
     }
 
-    suspend fun checkHealth(): Result<HealthResponse> = apiCall { api.getHealth() }
+    suspend fun checkHealth(): Result<HealthResponse> = apiCall { api.getHealth(app = config.appName) }
 
     suspend fun checkFeedbackLibVersion(): Result<FeedbackLibVersionResponse> = apiCall { api.getFeedbackLibVersion() }
 
