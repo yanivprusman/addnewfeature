@@ -455,6 +455,11 @@ class FeedbackIssuesViewModel @Inject constructor(
                                 sessionStore.clearBuiltFlCommit()
                                 _uiState.update { it.copy(installLoading = false, installPercent = 100, installDetail = null, hasUpdate = false, successMessage = "Installed — restarting…", restartPending = true) }
                             }
+                            stage == "cancelled" -> {
+                                stopProgressPolling()
+                                sessionStore.clearInstallStarted()
+                                _uiState.update { it.copy(installLoading = false, installPercent = 0, installDetail = null, error = "Install cancelled") }
+                            }
                             stage == "error" -> {
                                 stopProgressPolling()
                                 sessionStore.clearInstallStarted()
@@ -482,6 +487,15 @@ class FeedbackIssuesViewModel @Inject constructor(
     private fun stopProgressPolling() {
         progressJob?.cancel()
         progressJob = null
+    }
+
+    fun cancelInstall() {
+        viewModelScope.launch {
+            feedbackRepository.cancelInstall()
+            stopProgressPolling()
+            sessionStore.clearInstallStarted()
+            _uiState.update { it.copy(installLoading = false, installPercent = 0, installDetail = null, error = "Install cancelled") }
+        }
     }
 
     fun buildAndInstall() {

@@ -139,6 +139,15 @@ data class InstallProgressRequest(
     val action: String = "installProgress",
 )
 
+data class CancelInstallRequest(
+    val action: String = "cancelInstall",
+)
+
+data class CancelInstallResponse(
+    val ok: Boolean? = null,
+    val cancelled: Boolean? = null,
+)
+
 data class InstallProgressResponse(
     val stage: String? = null,
     val percent: Int? = null,

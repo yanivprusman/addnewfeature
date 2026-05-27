@@ -50,6 +50,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -513,6 +514,7 @@ fun FeedbackIssuesScreen(
             onBuild = { viewModel.buildApp() },
             onCleanBuild = { viewModel.cleanBuildApp() },
             onInstall = { viewModel.installFixedVersion(force = true) },
+            onCancelInstall = { viewModel.cancelInstall() },
             onBuildAndInstall = { viewModel.buildAndInstall() },
             onShowCommitLog = { viewModel.showCommitLog() },
         )
@@ -536,6 +538,7 @@ fun UpdateDetailsSheet(
     onBuild: () -> Unit,
     onCleanBuild: () -> Unit,
     onInstall: () -> Unit,
+    onCancelInstall: () -> Unit,
     onBuildAndInstall: () -> Unit,
     onShowCommitLog: () -> Unit = {},
 ) {
@@ -726,6 +729,8 @@ fun UpdateDetailsSheet(
                 actionLabel = "Install",
                 showAction = state.hasUpdate && !wantsBuild && !state.installLoading,
                 onAction = onInstall,
+                cancelLabel = if (state.installLoading) "Cancel" else null,
+                onCancel = onCancelInstall,
             )
 
             if (state.error != null) {
@@ -936,6 +941,8 @@ private fun ActionStep(
     actionLabel: String,
     showAction: Boolean,
     onAction: () -> Unit,
+    cancelLabel: String? = null,
+    onCancel: (() -> Unit)? = null,
 ) {
     val green = Color(0xFF4CAF50)
     val blue = Color(0xFF42A5F5)
@@ -1001,6 +1008,19 @@ private fun ActionStep(
                 modifier = Modifier.height(36.dp),
             ) {
                 Text(actionLabel)
+            }
+        }
+        if (cancelLabel != null && onCancel != null) {
+            Spacer(modifier = Modifier.width(8.dp))
+            OutlinedButton(
+                onClick = onCancel,
+                modifier = Modifier.height(36.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error,
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+            ) {
+                Text(cancelLabel)
             }
         }
     }
