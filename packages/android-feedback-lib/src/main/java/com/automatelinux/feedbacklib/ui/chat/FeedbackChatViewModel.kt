@@ -279,6 +279,7 @@ class FeedbackChatViewModel @Inject constructor(
         if (state.isSending || state.restoringSession) return
         val sid = state.sessionId
             ?: state.resumeSessionId
+            ?: state.clarifierSessionId
             ?: sessionStore.load()?.sessionId?.takeIf { it != PENDING_SESSION_SENTINEL }
         if (sid == null) {
             if (state.pendingRequestId != null) {
@@ -291,14 +292,16 @@ class FeedbackChatViewModel @Inject constructor(
             return
         }
 
-        _uiState.update { it.copy(restoringSession = true) }
+        _uiState.update { it.copy(restoringSession = true, error = null, lastSendFailed = false) }
         viewModelScope.launch {
+            var historyHasResponse = false
             feedbackRepository.getSessionHistory(sid)
                 .onSuccess { data ->
                     if (data.found && data.messages.isNotEmpty()) {
                         val (msgs, issues) = extractMessagesAndProposedIssues(data.messages)
                         _uiState.update { it.copy(messages = msgs, proposedIssues = issues) }
                         persistSession()
+                        historyHasResponse = msgs.lastOrNull()?.role == "assistant"
                     }
                 }
             val tmux = state.tmuxSession ?: sessionStore.load()?.tmuxSession
@@ -306,6 +309,11 @@ class FeedbackChatViewModel @Inject constructor(
             if (alive) {
                 _uiState.update { it.copy(sessionId = sid, tmuxSession = tmux, restoringSession = false) }
                 startHealthCheck(tmux!!)
+            } else if (historyHasResponse) {
+                // Claude already responded — don't send a blank resume message.
+                // Just set resumeSessionId so the next user message triggers the resume.
+                _uiState.update { it.copy(resumeSessionId = sid, sessionId = null, tmuxSession = null, restoringSession = false) }
+                persistSession()
             } else {
                 resumeDeadSession(sid)
             }
