@@ -182,6 +182,14 @@ class FeedbackRepository @Inject constructor(
         api.cancelInstall(CancelInstallRequest())
     }
 
+    suspend fun pauseInstall(): Result<PauseResumeInstallResponse> = apiCall {
+        api.pauseInstall(PauseInstallRequest())
+    }
+
+    suspend fun resumeInstall(): Result<PauseResumeInstallResponse> = apiCall {
+        api.resumeInstall(ResumeInstallRequest())
+    }
+
     suspend fun getSessionHistory(sessionId: String): Result<SessionHistoryResponse> = apiCall {
         api.getSessionHistory(sessionId)
     }

@@ -148,10 +148,25 @@ data class CancelInstallResponse(
     val cancelled: Boolean? = null,
 )
 
+data class PauseInstallRequest(
+    val action: String = "pauseInstall",
+)
+
+data class ResumeInstallRequest(
+    val action: String = "resumeInstall",
+)
+
+data class PauseResumeInstallResponse(
+    val ok: Boolean? = null,
+    val paused: Boolean? = null,
+    val sent: Boolean? = null,
+)
+
 data class InstallProgressResponse(
     val stage: String? = null,
     val percent: Int? = null,
     val detail: String? = null,
+    val paused: Boolean? = null,
 )
 
 data class FixIssuesResponse(

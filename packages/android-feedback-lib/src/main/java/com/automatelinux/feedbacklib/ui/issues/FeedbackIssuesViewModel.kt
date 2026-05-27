@@ -34,6 +34,7 @@ data class FeedbackIssuesUiState(
     val installLoading: Boolean = false,
     val installPercent: Int = 0,
     val installDetail: String? = null,
+    val installPaused: Boolean = false,
     val showSameVersionDialog: Boolean = false,
     val showUpdateDetails: Boolean = false,
     val hasUpdate: Boolean = false,
@@ -446,8 +447,10 @@ class FeedbackIssuesViewModel @Inject constructor(
                     .onSuccess { p ->
                         val pct = p.percent ?: 0
                         val stage = p.stage ?: ""
-                        _uiState.update { it.copy(installPercent = pct, installDetail = p.detail) }
-                        if (pct == lastPercent) staleTicks++ else { staleTicks = 0; lastPercent = pct }
+                        val paused = p.paused == true
+                        _uiState.update { it.copy(installPercent = pct, installDetail = p.detail, installPaused = paused) }
+                        if (paused) { staleTicks = 0 }
+                        else if (pct == lastPercent) staleTicks++ else { staleTicks = 0; lastPercent = pct }
                         when {
                             stage == "done" -> {
                                 stopProgressPolling()
@@ -494,7 +497,20 @@ class FeedbackIssuesViewModel @Inject constructor(
             feedbackRepository.cancelInstall()
             stopProgressPolling()
             sessionStore.clearInstallStarted()
-            _uiState.update { it.copy(installLoading = false, installPercent = 0, installDetail = null, error = "Install cancelled") }
+            _uiState.update { it.copy(installLoading = false, installPaused = false, installPercent = 0, installDetail = null, error = "Install cancelled") }
+        }
+    }
+
+    fun togglePauseInstall() {
+        val paused = _uiState.value.installPaused
+        viewModelScope.launch {
+            if (paused) {
+                feedbackRepository.resumeInstall()
+                _uiState.update { it.copy(installPaused = false) }
+            } else {
+                feedbackRepository.pauseInstall()
+                _uiState.update { it.copy(installPaused = true) }
+            }
         }
     }
 

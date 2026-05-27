@@ -515,6 +515,7 @@ fun FeedbackIssuesScreen(
             onCleanBuild = { viewModel.cleanBuildApp() },
             onInstall = { viewModel.installFixedVersion(force = true) },
             onCancelInstall = { viewModel.cancelInstall() },
+            onPauseInstall = { viewModel.togglePauseInstall() },
             onBuildAndInstall = { viewModel.buildAndInstall() },
             onShowCommitLog = { viewModel.showCommitLog() },
         )
@@ -539,6 +540,7 @@ fun UpdateDetailsSheet(
     onCleanBuild: () -> Unit,
     onInstall: () -> Unit,
     onCancelInstall: () -> Unit,
+    onPauseInstall: () -> Unit,
     onBuildAndInstall: () -> Unit,
     onShowCommitLog: () -> Unit = {},
 ) {
@@ -717,6 +719,7 @@ fun UpdateDetailsSheet(
                 step = 2,
                 title = "Install on device",
                 description = when {
+                    state.installPaused && state.installPercent > 0 -> "Paused at ${state.installPercent}%"
                     state.installLoading && state.installPercent > 0 -> "Installing… ${state.installPercent}%"
                     state.installLoading -> "Installing…"
                     wantsBuild -> "Build first, then install"
@@ -725,10 +728,12 @@ fun UpdateDetailsSheet(
                     else -> "Device is up to date"
                 },
                 done = installDone,
-                loading = state.installLoading,
+                loading = state.installLoading && !state.installPaused,
                 actionLabel = "Install",
                 showAction = state.hasUpdate && !wantsBuild && !state.installLoading,
                 onAction = onInstall,
+                pauseLabel = if (state.installLoading) (if (state.installPaused) "Resume" else "Pause") else null,
+                onPause = onPauseInstall,
                 cancelLabel = if (state.installLoading) "Cancel" else null,
                 onCancel = onCancelInstall,
             )
@@ -941,6 +946,8 @@ private fun ActionStep(
     actionLabel: String,
     showAction: Boolean,
     onAction: () -> Unit,
+    pauseLabel: String? = null,
+    onPause: (() -> Unit)? = null,
     cancelLabel: String? = null,
     onCancel: (() -> Unit)? = null,
 ) {
@@ -1008,6 +1015,15 @@ private fun ActionStep(
                 modifier = Modifier.height(36.dp),
             ) {
                 Text(actionLabel)
+            }
+        }
+        if (pauseLabel != null && onPause != null) {
+            Spacer(modifier = Modifier.width(8.dp))
+            OutlinedButton(
+                onClick = onPause,
+                modifier = Modifier.height(36.dp),
+            ) {
+                Text(pauseLabel)
             }
         }
         if (cancelLabel != null && onCancel != null) {
