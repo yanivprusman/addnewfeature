@@ -22,6 +22,7 @@ data class PersistedSession(
     val directTitle: String? = null,
     val directDescription: String? = null,
     val pendingRequestId: String? = null,
+    val clarifierSessionId: String? = null,
 )
 
 data class SessionSummary(

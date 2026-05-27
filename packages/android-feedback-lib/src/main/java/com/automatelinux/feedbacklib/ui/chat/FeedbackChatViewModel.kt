@@ -66,6 +66,8 @@ class FeedbackChatViewModel @Inject constructor(
             add(ChatMessage("user", text))
         }
 
+        val newClarifierId = if (state.sessionId == null && state.clarifierSessionId == null)
+            UUID.randomUUID().toString() else null
         val requestId = if (state.sessionId == null) UUID.randomUUID().toString() else null
 
         _uiState.update {
@@ -75,6 +77,7 @@ class FeedbackChatViewModel @Inject constructor(
                 isSending = true,
                 error = null,
                 lastSendFailed = false,
+                clarifierSessionId = newClarifierId ?: it.clarifierSessionId,
                 pendingRequestId = requestId,
                 proposedIssues = null,
                 submitResults = null,
@@ -95,6 +98,7 @@ class FeedbackChatViewModel @Inject constructor(
                 pageContext = screenContext,
                 priorIssue = current.priorIssue,
                 requestId = requestId,
+                clarifierSessionId = current.clarifierSessionId,
             ).onSuccess { data ->
                 val displayText = stripJsonBlocks(data.response)
                 _uiState.update {
@@ -161,6 +165,7 @@ class FeedbackChatViewModel @Inject constructor(
                 pagePath = screenContext,
                 pageContext = screenContext,
                 priorIssue = current.priorIssue,
+                clarifierSessionId = current.clarifierSessionId,
             ).onSuccess { data ->
                 val displayText = stripJsonBlocks(data.response)
                 _uiState.update {
@@ -596,6 +601,7 @@ class FeedbackChatViewModel @Inject constructor(
             inputText = state.inputText.ifBlank { null },
             directTitle = state.directTitle.ifBlank { null },
             directDescription = state.directDescription.ifBlank { null },
+            clarifierSessionId = state.clarifierSessionId,
         ))
         updateSessionIndex(storageId, state)
         sessionStore.setActiveSessionId(storageId)
@@ -617,6 +623,7 @@ class FeedbackChatViewModel @Inject constructor(
             directTitle = state.directTitle.ifBlank { null },
             directDescription = state.directDescription.ifBlank { null },
             pendingRequestId = if (sid == null) state.pendingRequestId else null,
+            clarifierSessionId = state.clarifierSessionId,
         ))
         updateSessionIndex(storageId, state)
         sessionStore.setActiveSessionId(storageId)
@@ -651,6 +658,7 @@ class FeedbackChatViewModel @Inject constructor(
                 proposedIssues = restoredIssues,
                 currentStorageId = _currentStorageId,
                 pendingRequestId = persisted.pendingRequestId,
+                clarifierSessionId = persisted.clarifierSessionId,
             ) }
             if (persisted.pendingRequestId != null) {
                 recoverPendingSession(persisted.pendingRequestId)
@@ -668,6 +676,7 @@ class FeedbackChatViewModel @Inject constructor(
                     directDescription = restoredDirectDesc,
                     proposedIssues = restoredIssues,
                     currentStorageId = _currentStorageId,
+                    clarifierSessionId = persisted.clarifierSessionId,
                 )
             }
             if (restoredIssues == null) {
@@ -687,6 +696,7 @@ class FeedbackChatViewModel @Inject constructor(
                 proposedIssues = restoredIssues,
                 restoringSession = true,
                 currentStorageId = _currentStorageId,
+                clarifierSessionId = persisted.clarifierSessionId,
             )
         }
         restoreJob = viewModelScope.launch {

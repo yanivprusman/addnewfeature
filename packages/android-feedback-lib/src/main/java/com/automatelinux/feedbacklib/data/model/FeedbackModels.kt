@@ -45,6 +45,7 @@ data class FeedbackMessageRequest(
     val platform: String? = null,
     @SerializedName("priorIssue") val priorIssue: PriorIssueContext? = null,
     @SerializedName("requestId") val requestId: String? = null,
+    @SerializedName("clarifierSessionId") val clarifierSessionId: String? = null,
 )
 
 data class FeedbackSubmitRequest(

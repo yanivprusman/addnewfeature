@@ -33,6 +33,7 @@ class FeedbackRepository @Inject constructor(
         pageContext: String? = null,
         priorIssue: PriorIssueContext? = null,
         requestId: String? = null,
+        clarifierSessionId: String? = null,
     ): Result<FeedbackMessageResponse> = apiCall {
         api.sendFeedbackMessage(
             FeedbackMessageRequest(
@@ -46,6 +47,7 @@ class FeedbackRepository @Inject constructor(
                 platform = platformString,
                 priorIssue = priorIssue,
                 requestId = requestId,
+                clarifierSessionId = clarifierSessionId,
             )
         )
     }
