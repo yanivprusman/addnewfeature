@@ -30,6 +30,8 @@ class FeedbackChatViewModel @Inject constructor(
     private val config: FeedbackConfig,
 ) : ViewModel() {
 
+    val appName: String = config.appName
+
     private val _uiState = MutableStateFlow(FeedbackChatUiState())
     val uiState: StateFlow<FeedbackChatUiState> = _uiState.asStateFlow()
 
