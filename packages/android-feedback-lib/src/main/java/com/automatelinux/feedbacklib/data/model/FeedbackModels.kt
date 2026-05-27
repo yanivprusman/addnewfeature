@@ -44,6 +44,7 @@ data class FeedbackMessageRequest(
     val pageContext: String? = null,
     val platform: String? = null,
     @SerializedName("priorIssue") val priorIssue: PriorIssueContext? = null,
+    @SerializedName("requestId") val requestId: String? = null,
 )
 
 data class FeedbackSubmitRequest(
@@ -206,6 +207,12 @@ data class FeedbackLibVersionResponse(
     val feedbackLibCommit: String? = null,
     val feedbackLibVersion: Int? = null,
     val commits: List<CommitEntry>? = null,
+)
+
+data class SessionByRequestResponse(
+    val found: Boolean,
+    @SerializedName("sessionId") val sessionId: String? = null,
+    @SerializedName("tmuxSession") val tmuxSession: String? = null,
 )
 
 data class SessionHistoryMessage(

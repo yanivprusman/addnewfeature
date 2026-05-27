@@ -32,6 +32,7 @@ data class FeedbackChatUiState(
     val showPostSubmitPrompt: Boolean = false,
     val restoringSession: Boolean = false,
     val lastSendFailed: Boolean = false,
+    val pendingRequestId: String? = null,
     val priorIssue: PriorIssueContext? = null,
     val savedSessions: List<SessionSummary> = emptyList(),
     val showSessionSwitcher: Boolean = false,

@@ -75,6 +75,11 @@ interface FeedbackApi {
         @Body request: InstallProgressRequest,
     ): Response<InstallProgressResponse>
 
+    @GET("api/feedback/session-by-request")
+    suspend fun getSessionByRequestId(
+        @Query("requestId") requestId: String,
+    ): Response<SessionByRequestResponse>
+
     @GET("api/feedback/session-history")
     suspend fun getSessionHistory(
         @Query("sessionId") sessionId: String,

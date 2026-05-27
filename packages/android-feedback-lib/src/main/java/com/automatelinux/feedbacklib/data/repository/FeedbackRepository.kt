@@ -32,6 +32,7 @@ class FeedbackRepository @Inject constructor(
         pagePath: String? = null,
         pageContext: String? = null,
         priorIssue: PriorIssueContext? = null,
+        requestId: String? = null,
     ): Result<FeedbackMessageResponse> = apiCall {
         api.sendFeedbackMessage(
             FeedbackMessageRequest(
@@ -44,8 +45,13 @@ class FeedbackRepository @Inject constructor(
                 pageContext = pageContext,
                 platform = platformString,
                 priorIssue = priorIssue,
+                requestId = requestId,
             )
         )
+    }
+
+    suspend fun recoverSessionByRequestId(requestId: String): Result<SessionByRequestResponse> = apiCall {
+        api.getSessionByRequestId(requestId)
     }
 
     suspend fun submitIssues(

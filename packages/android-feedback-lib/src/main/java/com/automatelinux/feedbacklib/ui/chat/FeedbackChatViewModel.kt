@@ -66,6 +66,8 @@ class FeedbackChatViewModel @Inject constructor(
             add(ChatMessage("user", text))
         }
 
+        val requestId = if (state.sessionId == null) UUID.randomUUID().toString() else null
+
         _uiState.update {
             it.copy(
                 messages = newMessages,
@@ -73,6 +75,7 @@ class FeedbackChatViewModel @Inject constructor(
                 isSending = true,
                 error = null,
                 lastSendFailed = false,
+                pendingRequestId = requestId,
                 proposedIssues = null,
                 submitResults = null,
                 showPostSubmitPrompt = false,
@@ -91,6 +94,7 @@ class FeedbackChatViewModel @Inject constructor(
                 pagePath = screenContext,
                 pageContext = screenContext,
                 priorIssue = current.priorIssue,
+                requestId = requestId,
             ).onSuccess { data ->
                 val displayText = stripJsonBlocks(data.response)
                 _uiState.update {
@@ -100,6 +104,7 @@ class FeedbackChatViewModel @Inject constructor(
                         tmuxSession = data.tmuxSession,
                         resumeSessionId = null,
                         priorIssue = null,
+                        pendingRequestId = null,
                         proposedIssues = data.issues,
                         hookWarning = data.hookWarning ?: it.hookWarning,
                         isSending = false,
@@ -117,6 +122,7 @@ class FeedbackChatViewModel @Inject constructor(
                             sessionId = null,
                             tmuxSession = null,
                             priorIssue = null,
+                            pendingRequestId = null,
                             isSending = false,
                         )
                     }
@@ -265,12 +271,14 @@ class FeedbackChatViewModel @Inject constructor(
 
     fun refreshSession() {
         val state = _uiState.value
-        if (state.isSending) return
+        if (state.isSending || state.restoringSession) return
         val sid = state.sessionId
             ?: state.resumeSessionId
             ?: sessionStore.load()?.sessionId?.takeIf { it != PENDING_SESSION_SENTINEL }
         if (sid == null) {
-            if (state.lastSendFailed) {
+            if (state.pendingRequestId != null) {
+                recoverPendingSession(state.pendingRequestId)
+            } else if (state.lastSendFailed) {
                 retryLastMessage()
             } else {
                 _uiState.update { it.copy(error = "No session to refresh") }
@@ -322,6 +330,60 @@ class FeedbackChatViewModel @Inject constructor(
                 restoringSession = false,
                 error = e.message ?: "Resume failed",
             ) }
+        }
+    }
+
+    private fun recoverPendingSession(requestId: String) {
+        _uiState.update { it.copy(restoringSession = true) }
+        restoreJob = viewModelScope.launch {
+            feedbackRepository.recoverSessionByRequestId(requestId)
+                .onSuccess { data ->
+                    if (data.found && data.sessionId != null) {
+                        _uiState.update {
+                            it.copy(
+                                sessionId = data.sessionId,
+                                tmuxSession = data.tmuxSession,
+                                resumeSessionId = null,
+                                pendingRequestId = null,
+                                restoringSession = false,
+                            )
+                        }
+                        persistSession()
+                        fetchProposedIssuesFromServer(data.sessionId)
+                        if (data.tmuxSession != null) {
+                            val alive = feedbackRepository.checkSessionAlive(data.tmuxSession)
+                            if (alive) {
+                                startHealthCheck(data.tmuxSession)
+                            } else {
+                                _uiState.update {
+                                    it.copy(
+                                        resumeSessionId = data.sessionId,
+                                        sessionId = null,
+                                        tmuxSession = null,
+                                    )
+                                }
+                                persistSession()
+                            }
+                        }
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                restoringSession = false,
+                                lastSendFailed = it.messages.any { m -> m.role == "user" },
+                                pendingRequestId = null,
+                            )
+                        }
+                    }
+                }
+                .onFailure {
+                    _uiState.update {
+                        it.copy(
+                            restoringSession = false,
+                            lastSendFailed = it.messages.any { m -> m.role == "user" },
+                            pendingRequestId = null,
+                        )
+                    }
+                }
         }
     }
 
@@ -554,6 +616,7 @@ class FeedbackChatViewModel @Inject constructor(
             inputText = state.inputText.ifBlank { null },
             directTitle = state.directTitle.ifBlank { null },
             directDescription = state.directDescription.ifBlank { null },
+            pendingRequestId = if (sid == null) state.pendingRequestId else null,
         ))
         updateSessionIndex(storageId, state)
         sessionStore.setActiveSessionId(storageId)
@@ -580,7 +643,6 @@ class FeedbackChatViewModel @Inject constructor(
         val restoredDirectDesc = persisted.directDescription ?: ""
 
         if (persisted.sessionId == PENDING_SESSION_SENTINEL) {
-            val hasUnsentMessage = restoredMessages.any { it.role == "user" }
             _uiState.update { it.copy(
                 messages = restoredMessages,
                 inputText = restoredInput,
@@ -588,10 +650,10 @@ class FeedbackChatViewModel @Inject constructor(
                 directDescription = restoredDirectDesc,
                 proposedIssues = restoredIssues,
                 currentStorageId = _currentStorageId,
-                lastSendFailed = hasUnsentMessage,
+                pendingRequestId = persisted.pendingRequestId,
             ) }
-            if (hasUnsentMessage) {
-                viewModelScope.launch { retryLastMessage() }
+            if (persisted.pendingRequestId != null) {
+                recoverPendingSession(persisted.pendingRequestId)
             }
             return
         }
