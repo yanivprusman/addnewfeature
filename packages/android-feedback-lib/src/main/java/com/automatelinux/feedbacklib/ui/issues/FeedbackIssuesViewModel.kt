@@ -540,7 +540,7 @@ class FeedbackIssuesViewModel @Inject constructor(
 
     fun showCommitLog() {
         val state = _uiState.value
-        val from = state.installedCommit ?: return
+        val from = state.installedFlCommit ?: return
         _uiState.update { it.copy(showCommitLog = true, commitLogLoading = true) }
         viewModelScope.launch {
             feedbackRepository.getCommitLog(from)
