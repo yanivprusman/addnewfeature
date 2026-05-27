@@ -580,6 +580,7 @@ class FeedbackChatViewModel @Inject constructor(
         val restoredDirectDesc = persisted.directDescription ?: ""
 
         if (persisted.sessionId == PENDING_SESSION_SENTINEL) {
+            val hasUnsentMessage = restoredMessages.any { it.role == "user" }
             _uiState.update { it.copy(
                 messages = restoredMessages,
                 inputText = restoredInput,
@@ -587,7 +588,11 @@ class FeedbackChatViewModel @Inject constructor(
                 directDescription = restoredDirectDesc,
                 proposedIssues = restoredIssues,
                 currentStorageId = _currentStorageId,
+                lastSendFailed = hasUnsentMessage,
             ) }
+            if (hasUnsentMessage) {
+                viewModelScope.launch { retryLastMessage() }
+            }
             return
         }
 
