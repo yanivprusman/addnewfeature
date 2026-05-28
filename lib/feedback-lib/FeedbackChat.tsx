@@ -535,37 +535,76 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
     setMessages(prev => prev.length === 0 ? [{ role: "assistant", text: labels.greeting }] : prev);
   }, [labels.greeting]);
 
-  const handleRefresh = useCallback(() => {
+  const handleRefresh = useCallback(async () => {
     setRefreshState('spinning');
     const finish = (result: 'found' | 'empty') => {
       setRefreshState(result);
       setTimeout(() => setRefreshState('idle'), 1500);
     };
-    const stored = sessionStorage.getItem(storageKey);
-    if (stored) {
-      try {
-        const data: PersistedSession = JSON.parse(stored);
-        if (data.messages?.length > 0) setMessages([...data.messages]);
-        if (data.issues?.length) setIssues([...data.issues]);
-        if (data.submittedIssueTitles?.length) setSubmittedIssueTitles([...data.submittedIssueTitles]);
-        if (data.sessionId && data.tmuxSession) {
-          backend.getSessionStatus(data.tmuxSession)
-            .then(r => { if (r.alive) { setSessionId(data.sessionId); setTmuxSession(data.tmuxSession); } else { setResumeId(data.sessionId); } })
-            .catch(() => { setResumeId(data.sessionId); })
-            .finally(() => finish('found'));
-        } else if (data.sessionId) {
-          setResumeId(data.sessionId);
-          finish('found');
-        } else {
-          finish('empty');
-        }
-      } catch {
-        finish('empty');
+
+    const sid = sessionId || resumeId;
+    if (!sid) {
+      const stored = sessionStorage.getItem(storageKey);
+      if (stored) {
+        try {
+          const data: PersistedSession = JSON.parse(stored);
+          if (data.sessionId) {
+            setResumeId(data.sessionId);
+          }
+        } catch {}
       }
+    }
+
+    const effectiveSid = sid || (() => {
+      try {
+        const data: PersistedSession = JSON.parse(sessionStorage.getItem(storageKey) || '{}');
+        return data.sessionId || null;
+      } catch { return null; }
+    })();
+
+    if (!effectiveSid) {
+      finish('empty');
       return;
     }
-    finish('empty');
-  }, [storageKey, backend]);
+
+    try {
+      const history = await backend.getSessionHistory(effectiveSid, appOverride);
+      if (history.found && history.messages.length > 0) {
+        setMessages(history.messages as Message[]);
+        const lastMsg = history.messages[history.messages.length - 1];
+        if (lastMsg.staleIssues?.length) {
+          setIssues(lastMsg.staleIssues as ChatIssue[]);
+        }
+      }
+
+      const storedTmux = tmuxSession || (() => {
+        try {
+          const data: PersistedSession = JSON.parse(sessionStorage.getItem(storageKey) || '{}');
+          return data.tmuxSession || null;
+        } catch { return null; }
+      })();
+
+      if (storedTmux) {
+        try {
+          const r = await backend.getSessionStatus(storedTmux);
+          if (r.alive) {
+            setSessionId(effectiveSid);
+            setTmuxSession(storedTmux);
+          } else {
+            setResumeId(effectiveSid);
+          }
+        } catch {
+          setResumeId(effectiveSid);
+        }
+      } else {
+        setResumeId(effectiveSid);
+      }
+
+      finish(history.found && history.messages.length > 0 ? 'found' : 'empty');
+    } catch {
+      finish('empty');
+    }
+  }, [storageKey, backend, sessionId, resumeId, tmuxSession, appOverride]);
 
   // Register the current handleOpen into the module-scope callback so the
   // document-level contextmenu listener can invoke it. Done during render
