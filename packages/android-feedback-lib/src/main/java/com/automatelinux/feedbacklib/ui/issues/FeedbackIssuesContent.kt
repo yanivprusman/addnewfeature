@@ -523,7 +523,9 @@ fun FeedbackIssuesScreen(
 
     if (state.showCommitLog) {
         CommitLogDialog(
-            commits = state.commitLog,
+            appName = viewModel.appName,
+            appCommits = state.appCommitLog,
+            flCommits = state.flCommitLog,
             loading = state.commitLogLoading,
             onDismiss = { viewModel.dismissCommitLog() },
         )
@@ -827,7 +829,9 @@ private fun UpdateDetailsHelpDialog(onDismiss: () -> Unit) {
 
 @Composable
 private fun CommitLogDialog(
-    commits: List<com.automatelinux.feedbacklib.data.model.CommitEntry>,
+    appName: String,
+    appCommits: List<com.automatelinux.feedbacklib.data.model.CommitEntry>,
+    flCommits: List<com.automatelinux.feedbacklib.data.model.CommitEntry>,
     loading: Boolean,
     onDismiss: () -> Unit,
 ) {
@@ -842,31 +846,52 @@ private fun CommitLogDialog(
                 Box(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                 }
-            } else if (commits.isEmpty()) {
+            } else if (appCommits.isEmpty() && flCommits.isEmpty()) {
                 Text("No new commits found.", style = MaterialTheme.typography.bodyMedium)
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(commits) { entry ->
-                        Row {
-                            Text(
-                                text = entry.hash,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.width(56.dp),
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = entry.message,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
+                    if (appCommits.isNotEmpty()) {
+                        item { CommitSectionHeader(appName) }
+                        items(appCommits) { entry -> CommitRow(entry) }
+                    }
+                    if (flCommits.isNotEmpty()) {
+                        item { CommitSectionHeader("Feedback Lib") }
+                        items(flCommits) { entry -> CommitRow(entry) }
                     }
                 }
             }
         },
     )
+}
+
+@Composable
+private fun CommitSectionHeader(label: String) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp),
+    )
+}
+
+@Composable
+private fun CommitRow(entry: com.automatelinux.feedbacklib.data.model.CommitEntry) {
+    Row {
+        Text(
+            text = entry.hash,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.width(56.dp),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = entry.message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
 }
 
 @Composable

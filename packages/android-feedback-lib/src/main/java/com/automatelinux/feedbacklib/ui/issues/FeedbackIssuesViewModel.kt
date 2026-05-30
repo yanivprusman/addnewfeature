@@ -58,7 +58,8 @@ data class FeedbackIssuesUiState(
     val restartPending: Boolean = false,
     val autoInstallEnabled: Boolean = false,
     val autoInstallTrackedIds: Set<Int> = emptySet(),
-    val commitLog: List<CommitEntry> = emptyList(),
+    val flCommitLog: List<CommitEntry> = emptyList(),
+    val appCommitLog: List<CommitEntry> = emptyList(),
     val commitLogLoading: Boolean = false,
     val showCommitLog: Boolean = false,
 )
@@ -540,12 +541,20 @@ class FeedbackIssuesViewModel @Inject constructor(
 
     fun showCommitLog() {
         val state = _uiState.value
-        val from = state.installedFlCommit ?: return
+        val flFrom = state.installedFlCommit
+        val appFrom = state.installedCommit
+        if (flFrom == null && appFrom == null) return
         _uiState.update { it.copy(showCommitLog = true, commitLogLoading = true) }
         viewModelScope.launch {
-            feedbackRepository.getCommitLog(from)
+            feedbackRepository.getCommitLog(flFrom = flFrom, appFrom = appFrom)
                 .onSuccess { resp ->
-                    _uiState.update { it.copy(commitLog = resp.commits ?: emptyList(), commitLogLoading = false) }
+                    _uiState.update {
+                        it.copy(
+                            appCommitLog = resp.appCommits ?: emptyList(),
+                            flCommitLog = resp.flCommits ?: emptyList(),
+                            commitLogLoading = false,
+                        )
+                    }
                 }
                 .onFailure {
                     _uiState.update { it.copy(commitLogLoading = false) }

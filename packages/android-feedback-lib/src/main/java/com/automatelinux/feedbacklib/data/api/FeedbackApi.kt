@@ -109,5 +109,7 @@ interface FeedbackApi {
     @GET("api/feedback/version")
     suspend fun getFeedbackLibVersion(
         @Query("from") from: String? = null,
+        @Query("appFrom") appFrom: String? = null,
+        @Query("app") app: String? = null,
     ): Response<FeedbackLibVersionResponse>
 }

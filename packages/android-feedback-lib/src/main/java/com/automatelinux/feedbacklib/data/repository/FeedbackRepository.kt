@@ -237,5 +237,6 @@ class FeedbackRepository @Inject constructor(
 
     suspend fun checkFeedbackLibVersion(): Result<FeedbackLibVersionResponse> = apiCall { api.getFeedbackLibVersion() }
 
-    suspend fun getCommitLog(from: String): Result<FeedbackLibVersionResponse> = apiCall { api.getFeedbackLibVersion(from = from) }
+    suspend fun getCommitLog(flFrom: String?, appFrom: String?): Result<FeedbackLibVersionResponse> =
+        apiCall { api.getFeedbackLibVersion(from = flFrom, appFrom = appFrom, app = config.appName) }
 }

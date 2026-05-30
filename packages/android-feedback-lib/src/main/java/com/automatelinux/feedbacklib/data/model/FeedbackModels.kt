@@ -235,7 +235,8 @@ data class CommitEntry(
 data class FeedbackLibVersionResponse(
     val feedbackLibCommit: String? = null,
     val feedbackLibVersion: Int? = null,
-    val commits: List<CommitEntry>? = null,
+    val flCommits: List<CommitEntry>? = null,
+    val appCommits: List<CommitEntry>? = null,
 )
 
 data class SessionByRequestResponse(
