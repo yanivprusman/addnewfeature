@@ -2,6 +2,7 @@ package com.automatelinux.feedbacklib.data.repository
 
 import android.content.Context
 import android.os.Build
+import android.provider.Settings
 import com.automatelinux.feedbacklib.FeedbackConfig
 import com.automatelinux.feedbacklib.data.api.FeedbackApi
 import com.automatelinux.feedbacklib.data.model.*
@@ -160,6 +161,21 @@ class FeedbackRepository @Inject constructor(
         } catch (_: Exception) { "?" }
     }
 
+    /**
+     * Stable per-device identity sent with install requests so the server can
+     * route the new APK back to THIS physical phone — not whichever device
+     * happens to be first on USB. `Build.SERIAL` is useless here (returns
+     * "unknown" for non-system apps since Android 10), so we use ANDROID_ID,
+     * which the server can also read per-device via `adb shell settings get
+     * secure android_id` to build the id->serial map.
+     */
+    @Suppress("HardwareIds")
+    val deviceId: String? by lazy {
+        try {
+            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+        } catch (_: Exception) { null }
+    }
+
     suspend fun buildApp(): Result<BuildAppResponse> = apiCall {
         api.buildApp(BuildAppRequest(app = config.appName))
     }
@@ -173,6 +189,7 @@ class FeedbackRepository @Inject constructor(
             app = config.appName,
             currentVersion = versionName,
             force = if (force) true else null,
+            deviceId = deviceId,
         ))
     }
 
