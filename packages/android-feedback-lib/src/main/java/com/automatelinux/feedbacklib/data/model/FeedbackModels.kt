@@ -126,6 +126,10 @@ data class InstallAppRequest(
     val app: String,
     @SerializedName("currentVersion") val currentVersion: String? = null,
     val force: Boolean? = null,
+    // Stable ANDROID_ID of the phone that pressed install, so the server installs
+    // the new APK back to THIS device (preferring USB transport) instead of
+    // guessing the first USB device. Optional/back-compat: older clients omit it.
+    @SerializedName("deviceId") val deviceId: String? = null,
 )
 
 data class InstallAppResponse(
