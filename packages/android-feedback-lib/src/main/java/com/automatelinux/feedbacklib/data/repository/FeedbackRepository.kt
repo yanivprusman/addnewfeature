@@ -164,15 +164,35 @@ class FeedbackRepository @Inject constructor(
     /**
      * Stable per-device identity sent with install requests so the server can
      * route the new APK back to THIS physical phone — not whichever device
-     * happens to be first on USB. `Build.SERIAL` is useless here (returns
-     * "unknown" for non-system apps since Android 10), so we use ANDROID_ID,
-     * which the server can also read per-device via `adb shell settings get
-     * secure android_id` to build the id->serial map.
+     * happens to be first on USB.
+     *
+     * The id is persisted once and mirrored into the app sandbox at
+     * `filesDir/feedback_device_id`. The launcher reads it back per-device with
+     * `adb -s <serial> shell run-as <pkg> cat files/feedback_device_id` (the dev
+     * build is debuggable) and matches it against this value — so both sides
+     * compare the exact same string. We deliberately do NOT rely on the server
+     * reading `adb shell settings get secure android_id`: on Android 8+ the app's
+     * `Settings.Secure.ANDROID_ID` is a per-signing-key SSAID that does not equal
+     * the value adb returns, which made the old android_id match silently fail.
      */
     @Suppress("HardwareIds")
     val deviceId: String? by lazy {
         try {
-            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+            val prefs = context.getSharedPreferences("feedbacklib_device", Context.MODE_PRIVATE)
+            val existing = prefs.getString("id", null)
+            val id = if (!existing.isNullOrBlank()) existing else {
+                val androidId = try {
+                    Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+                } catch (_: Exception) { null }
+                // ANDROID_ID makes the id human-recognizable; reject only the known
+                // buggy emulator constant. Otherwise generate a random stable id.
+                val generated = if (!androidId.isNullOrBlank() && androidId != "9774d56d682e549c") androidId
+                                else java.util.UUID.randomUUID().toString().replace("-", "")
+                prefs.edit().putString("id", generated).apply()
+                generated
+            }
+            try { java.io.File(context.filesDir, "feedback_device_id").writeText(id) } catch (_: Exception) {}
+            id
         } catch (_: Exception) { null }
     }
 
