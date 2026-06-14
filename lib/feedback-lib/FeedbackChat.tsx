@@ -876,7 +876,7 @@ function FeedbackChatInner({ backend, lang, labels: labelOverrides, accentClass,
         }}
         title={labels.button}
       >
-        <span data-id="feedback-bubble-icon" className={`w-full h-full ${accent} text-white rounded-full shadow-lg flex items-center justify-center opacity-50 pointer-events-none border-2 border-indigo-400/50 transition-colors`}>
+        <span data-id="feedback-bubble-icon" className={`w-full h-full ${accent} text-white rounded-full shadow-[0_0_12px_rgba(99,102,241,0.5)] flex items-center justify-center opacity-80 pointer-events-none border-2 border-indigo-400/60 transition-colors`}>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>

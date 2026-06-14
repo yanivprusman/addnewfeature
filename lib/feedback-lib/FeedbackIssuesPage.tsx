@@ -29,6 +29,12 @@ export function FeedbackIssuesPage({ backend, maintenancePrompts = [], lang, lab
   const systemDark = useSystemDark();
   const isDark = colorScheme === "dark" || (colorScheme !== "light" && systemDark);
 
+  useEffect(() => {
+    const prev = document.body.style.backgroundColor;
+    document.body.style.backgroundColor = isDark ? "rgb(15 23 42)" : "rgb(255 255 255)";
+    return () => { document.body.style.backgroundColor = prev; };
+  }, [isDark]);
+
   const resolvedInitialApp = initialAppName ?? (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('app') : null);
   const [appName, setAppName] = useState<string | null>(resolvedInitialApp);
   const [issues, setIssues] = useState<Issue[]>([]);
