@@ -10,7 +10,10 @@ android {
         create("dev") {
             dimension = "mode"
             applicationIdSuffix = ".dev"
-            buildConfigField("boolean", "FEEDBACK_ENABLED", "true")
+            // -PdemoRecording=true hides the feedback FAB for professional demo
+            // capture (emulator recordings) while keeping the dev backend.
+            val demoRecording = providers.gradleProperty("demoRecording").orNull == "true"
+            buildConfigField("boolean", "FEEDBACK_ENABLED", if (demoRecording) "false" else "true")
             manifestPlaceholders["appNameSuffix"] = " Dev"
         }
         create("prod") {
