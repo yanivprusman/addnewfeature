@@ -23,9 +23,11 @@ fun FeedbackOverlay(
 ) {
     Box(modifier = modifier) {
         content()
-        VersionSnackbar(
-            modifier = Modifier.align(Alignment.TopCenter),
-        )
+        if (showFab) {
+            VersionSnackbar(
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
+        }
         if (showFab) {
             val context = LocalContext.current
             FeedbackFab(
