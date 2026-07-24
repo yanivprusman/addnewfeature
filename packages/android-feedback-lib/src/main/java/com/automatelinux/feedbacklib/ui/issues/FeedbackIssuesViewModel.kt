@@ -315,7 +315,12 @@ class FeedbackIssuesViewModel @Inject constructor(
                 )?.groupValues?.get(1) ?: ""
                 val gitCommit = health.gitCommit ?: ""
                 val apkCommit = health.apkCommit ?: ""
-                val appNeedsBuild = gitCommit.isNotBlank() && apkCommit.isNotBlank() && gitCommit != apkCommit
+                // No APK on the server is NOT "up to date" — if the code differs from
+                // what's installed, a build is required to produce one.
+                val appNeedsBuild = gitCommit.isNotBlank() && when {
+                    apkCommit.isNotBlank() -> gitCommit != apkCommit
+                    else -> installedCommit.isNotBlank() && gitCommit != installedCommit
+                }
                 val hasUpdate = apkCommit.isNotBlank() && installedCommit.isNotBlank() && apkCommit != installedCommit
                 val newVersion = when {
                     hasUpdate && (health.apkVersion ?: 0) > 0 -> health.apkVersion.toString()
