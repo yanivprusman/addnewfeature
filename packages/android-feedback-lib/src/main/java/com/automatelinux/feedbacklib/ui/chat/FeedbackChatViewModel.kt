@@ -321,15 +321,31 @@ class FeedbackChatViewModel @Inject constructor(
     }
 
     private suspend fun resumeDeadSession(sid: String) {
+        // Reached only when the session died BEFORE Claude answered, so the user is
+        // still waiting for a reply. Re-send their last (unanswered) message to the
+        // resumed session and show the response — never a blank " ", which the server
+        // rejects with "Message is required" (silently breaking refresh).
+        val pending = _uiState.value.messages
+            .lastOrNull { it.role == "user" }?.text?.takeIf { it.isNotBlank() }
+        if (pending == null) {
+            // Nothing to re-ask — just arm the resume for the user's next message.
+            _uiState.update {
+                it.copy(resumeSessionId = sid, sessionId = null, tmuxSession = null, restoringSession = false)
+            }
+            return
+        }
         feedbackRepository.sendMessage(
-            message = " ",
+            message = pending,
             resumeSessionId = sid,
         ).onSuccess { data ->
+            val displayText = stripJsonBlocks(data.response)
             _uiState.update {
                 it.copy(
+                    messages = it.messages + ChatMessage("assistant", displayText),
                     sessionId = data.sessionId,
                     tmuxSession = data.tmuxSession,
                     resumeSessionId = null,
+                    proposedIssues = data.issues,
                     restoringSession = false,
                 )
             }
