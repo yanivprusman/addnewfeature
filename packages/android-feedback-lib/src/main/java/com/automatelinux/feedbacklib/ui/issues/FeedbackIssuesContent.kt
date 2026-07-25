@@ -641,17 +641,6 @@ fun UpdateDetailsSheet(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Code (git) — amber dot when code is ahead of built APK
-            val codeAheadOfApk = state.serverGitCommit != null && state.serverApkCommit != null && state.serverGitCommit != state.serverApkCommit
-            VersionRow(
-                label = "Code (git)",
-                version = if (state.serverGitVersion != null) "v${state.serverGitVersion}" else null,
-                commit = state.serverGitCommit,
-                color = defaultColor,
-                statusDot = if (codeAheadOfApk) amber else null,
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
             // Built APK — green dot when APK is ahead of installed
             val apkAheadOfInstalled = state.serverApkCommit != null && state.installedCommit != null && state.serverApkCommit != state.installedCommit
             VersionRow(
@@ -660,6 +649,17 @@ fun UpdateDetailsSheet(
                 commit = state.serverApkCommit,
                 color = defaultColor,
                 statusDot = if (apkAheadOfInstalled) green else null,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Latest (git) — amber dot when code is ahead of built APK
+            val codeAheadOfApk = state.serverGitCommit != null && state.serverApkCommit != null && state.serverGitCommit != state.serverApkCommit
+            VersionRow(
+                label = "Latest",
+                version = if (state.serverGitVersion != null) "v${state.serverGitVersion}" else null,
+                commit = state.serverGitCommit,
+                color = defaultColor,
+                statusDot = if (codeAheadOfApk) amber else null,
             )
 
             if (state.installedFlCommit != null) {
@@ -811,12 +811,12 @@ private fun UpdateDetailsHelpDialog(onDismiss: () -> Unit) {
                     body = "The version currently running on this device.",
                 )
                 HelpEntry(
-                    title = "Code (git)",
-                    body = "The latest commit pushed to the server. An amber dot means the code is ahead of the built APK — a build is needed.",
-                )
-                HelpEntry(
                     title = "Built APK",
                     body = "The APK sitting on the server. A green dot means the APK is newer than what's installed — ready to install.",
+                )
+                HelpEntry(
+                    title = "Latest",
+                    body = "The newest code pushed to the server (git). An amber dot means it's ahead of the built APK — a build is needed.",
                 )
                 HelpEntry(
                     title = "Feedback Lib",
