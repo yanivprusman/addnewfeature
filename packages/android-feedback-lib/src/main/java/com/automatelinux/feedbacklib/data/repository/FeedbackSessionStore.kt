@@ -23,6 +23,10 @@ data class PersistedSession(
     val directDescription: String? = null,
     val pendingRequestId: String? = null,
     val clarifierSessionId: String? = null,
+    // The still-submittable issue cards. These live outside `messages` in the
+    // UI state, so without their own field they were dropped on every save and
+    // the restored chat showed "Does this look right?" with nothing to confirm.
+    val proposedIssues: List<com.automatelinux.feedbacklib.data.model.FeedbackIssue>? = null,
 )
 
 data class SessionSummary(

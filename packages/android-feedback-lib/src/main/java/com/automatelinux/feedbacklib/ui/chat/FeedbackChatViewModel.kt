@@ -277,9 +277,12 @@ class FeedbackChatViewModel @Inject constructor(
     fun refreshSession() {
         val state = _uiState.value
         if (state.isSending || state.restoringSession) return
+        // clarifierSessionId is a client-generated UUID that ties a conversation
+        // to its issues — it is NOT a Claude session id, and asking the history
+        // endpoint for it always returns found:false, silently doing nothing.
         val sid = state.sessionId
             ?: state.resumeSessionId
-            ?: state.clarifierSessionId
+            ?: _currentStorageId?.let { sessionStore.loadMulti(it) }?.sessionId?.takeIf { it != PENDING_SESSION_SENTINEL }
             ?: sessionStore.load()?.sessionId?.takeIf { it != PENDING_SESSION_SENTINEL }
         if (sid == null) {
             if (state.pendingRequestId != null) {
@@ -299,7 +302,8 @@ class FeedbackChatViewModel @Inject constructor(
                 .onSuccess { data ->
                     if (data.found && data.messages.isNotEmpty()) {
                         val (msgs, issues) = extractMessagesAndProposedIssues(data.messages)
-                        _uiState.update { it.copy(messages = msgs, proposedIssues = issues) }
+                        // Never let a refresh destroy cards we already hold.
+                        _uiState.update { it.copy(messages = msgs, proposedIssues = issues ?: it.proposedIssues) }
                         persistSession()
                         historyHasResponse = msgs.lastOrNull()?.role == "assistant"
                     }
@@ -626,6 +630,7 @@ class FeedbackChatViewModel @Inject constructor(
             directTitle = state.directTitle.ifBlank { null },
             directDescription = state.directDescription.ifBlank { null },
             clarifierSessionId = state.clarifierSessionId,
+            proposedIssues = state.proposedIssues,
         ))
         updateSessionIndex(storageId, state)
         sessionStore.setActiveSessionId(storageId)
@@ -635,7 +640,7 @@ class FeedbackChatViewModel @Inject constructor(
     fun persistOnPause() {
         val state = _uiState.value
         val hasDraft = state.inputText.isNotBlank() || state.directTitle.isNotBlank() || state.directDescription.isNotBlank()
-        if (state.messages.isEmpty() && !hasDraft) return
+        if (state.messages.isEmpty() && !hasDraft && state.proposedIssues.isNullOrEmpty()) return
         val sid = state.sessionId ?: state.resumeSessionId
         val storageId = _currentStorageId ?: UUID.randomUUID().toString().also { _currentStorageId = it }
 
@@ -648,6 +653,7 @@ class FeedbackChatViewModel @Inject constructor(
             directDescription = state.directDescription.ifBlank { null },
             pendingRequestId = if (sid == null) state.pendingRequestId else null,
             clarifierSessionId = state.clarifierSessionId,
+            proposedIssues = state.proposedIssues,
         ))
         updateSessionIndex(storageId, state)
         sessionStore.setActiveSessionId(storageId)
@@ -668,7 +674,10 @@ class FeedbackChatViewModel @Inject constructor(
 
     private fun restoreFromPersisted(persisted: PersistedSession) {
         val allMessages = persisted.messages.map { m -> ChatMessage(m.role, m.text, m.staleIssues) }
-        val (restoredMessages, restoredIssues) = extractProposedIssuesFromChat(allMessages)
+        val (restoredMessages, extractedIssues) = extractProposedIssuesFromChat(allMessages)
+        // Prefer the explicitly persisted cards; sessions saved before they had
+        // their own field fall back to whatever the chat history still carries.
+        val restoredIssues = persisted.proposedIssues?.ifEmpty { null } ?: extractedIssues
         val restoredInput = persisted.inputText ?: ""
         val restoredDirectTitle = persisted.directTitle ?: ""
         val restoredDirectDesc = persisted.directDescription ?: ""
@@ -722,6 +731,12 @@ class FeedbackChatViewModel @Inject constructor(
                 currentStorageId = _currentStorageId,
                 clarifierSessionId = persisted.clarifierSessionId,
             )
+        }
+        // A live session is the common case when the user backs out and returns
+        // immediately. It needs the same card reconciliation as the dead-session
+        // branch, or the confirm prompt comes back with nothing to confirm.
+        if (restoredIssues == null) {
+            fetchProposedIssuesFromServer(persisted.sessionId)
         }
         restoreJob = viewModelScope.launch {
             val alive = feedbackRepository.checkSessionAlive(persisted.tmuxSession)
@@ -814,33 +829,49 @@ class FeedbackChatViewModel @Inject constructor(
                 .trim()
         }
 
+        /**
+         * Index of the assistant turn whose issue cards are still live, or -1.
+         *
+         * Claude routinely splits one reply across several assistant messages —
+         * the JSON proposal in one, "Does this look right?" in the next — so the
+         * cards are NOT reliably on the last entry. Scan back for the newest
+         * assistant turn carrying issues, and treat them as superseded once the
+         * user has spoken again after them (those stay as "Previously suggested").
+         */
+        private fun liveProposalIndex(roles: List<String>, issues: List<List<FeedbackIssue>?>): Int {
+            val idx = issues.indices.lastOrNull { i ->
+                roles[i] == "assistant" && !issues[i].isNullOrEmpty()
+            } ?: return -1
+            val supersededByUser = (idx + 1 until roles.size).any { roles[it] == "user" }
+            return if (supersededByUser) -1 else idx
+        }
+
         fun extractMessagesAndProposedIssues(
             history: List<SessionHistoryMessage>,
         ): Pair<List<ChatMessage>, List<FeedbackIssue>?> {
             if (history.isEmpty()) return Pair(emptyList(), null)
-            val last = history.last()
-            val proposedIssues = if (last.role == "assistant") last.staleIssues?.ifEmpty { null } else null
-            val msgs = if (proposedIssues != null) {
-                history.dropLast(1).map { ChatMessage(it.role, it.text, it.staleIssues) } +
-                    ChatMessage(last.role, last.text)
-            } else {
-                history.map { ChatMessage(it.role, it.text, it.staleIssues) }
+            val idx = liveProposalIndex(history.map { it.role }, history.map { it.staleIssues })
+            if (idx < 0) {
+                return Pair(history.map { ChatMessage(it.role, it.text, it.staleIssues) }, null)
             }
-            return Pair(msgs, proposedIssues)
+            // The live cards render in their own section, so strip them off the
+            // message itself — otherwise they'd also show as "Previously suggested".
+            val msgs = history.mapIndexed { i, m ->
+                ChatMessage(m.role, m.text, if (i == idx) null else m.staleIssues)
+            }
+            return Pair(msgs, history[idx].staleIssues)
         }
 
         fun extractProposedIssuesFromChat(
             messages: List<ChatMessage>,
         ): Pair<List<ChatMessage>, List<FeedbackIssue>?> {
             if (messages.isEmpty()) return Pair(emptyList(), null)
-            val last = messages.last()
-            val proposedIssues = if (last.role == "assistant") last.staleIssues?.ifEmpty { null } else null
-            val msgs = if (proposedIssues != null) {
-                messages.dropLast(1) + last.copy(staleIssues = null)
-            } else {
-                messages
+            val idx = liveProposalIndex(messages.map { it.role }, messages.map { it.staleIssues })
+            if (idx < 0) return Pair(messages, null)
+            val msgs = messages.mapIndexed { i, m ->
+                if (i == idx) m.copy(staleIssues = null) else m
             }
-            return Pair(msgs, proposedIssues)
+            return Pair(msgs, messages[idx].staleIssues)
         }
     }
 }
